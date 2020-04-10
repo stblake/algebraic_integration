@@ -125,7 +125,7 @@ normalise[e_, {x_, y_}] := Module[
 	terms = apartSquareFreeList[exy];
 	nonAlgPart = Total @ Cases[terms, s_ /; FreeQ[s, y], {1}];
 	algterms = Cancel @ Together[exy - nonAlgPart];
-
+	
 	num = Numerator[algterms];
 	den = Denominator[algterms];
 
@@ -161,6 +161,27 @@ normalise[e_, {x_, y_}] := Module[
 
 
 (* ::Input:: *)
+(*f=Together[1/(1+x+x^2)+(-2+3 x^5)/((1+x^5) Sqrt[1+x^2+x^5])];*)
+(*normalise[%,{x,y}]*)
+(*%[[5]]+%[[1]]/%[[2]]*)
+(*%%[[5]]+%%[[1]]/%%[[2]]-f /. %%[[4]]//Together//Simplify*)
+
+
+(* ::Input:: *)
+(*f=Together[1/(x^4+1)^(1/4)+x/(1+x^2)];*)
+(*normalise[%,{x,y}]*)
+(*%[[5]]+%[[1]]/%[[2]]*)
+(*%%[[5]]+%%[[1]]/%%[[2]]-f /. %%[[4]]//Together//Simplify*)
+
+
+(* ::Input:: *)
+(*(* Bug - we don't split the rational and algebraic parts correctly. *)*)
+(*f=(-2-2 x+x^4+x^5+x Sqrt[x^4+2])/(x^2 (1+x) Sqrt[x^4+2]);*)
+(*normalise[%,{x,y}]*)
+(*%[[5]]+%[[1]]/%[[2]]-f /. %[[4]]//Together//Simplify*)
+
+
+(* ::Input:: *)
 (*f=1/(x^4+1)^(1/4);*)
 (*normalise[%,{x,y}]*)
 (*%[[5]]+%[[1]]/%[[2]]-f /. %[[4]]//Together//Simplify*)
@@ -168,12 +189,6 @@ normalise[e_, {x_, y_}] := Module[
 
 (* ::Input:: *)
 (*f=(x-1)/((1+x) Sqrt[x+x^2+x^3]);*)
-(*normalise[%,{x,y}]*)
-(*%[[5]]+%[[1]]/%[[2]]-f /. %[[4]]//Together//Simplify*)
-
-
-(* ::Input:: *)
-(*f=(-2-2 x+x^4+x^5+x Sqrt[x^4+2])/(x^2 (1+x) Sqrt[x^4+2]);*)
 (*normalise[%,{x,y}]*)
 (*%[[5]]+%[[1]]/%[[2]]-f /. %[[4]]//Together//Simplify*)
 
@@ -306,7 +321,14 @@ solveAlgebraicIntegral[integrand_, x_, OptionsPattern[]] := Catch @ Module[
 	{integrandNumerator, integrandDenominator, {p, r}, y2radical, rationalPart} = normalise[integrand, {x, y}];
 	debugPrint["normalise returned ", {rationalPart, integrandNumerator, integrandDenominator, {p, r}, y2radical}];
 
-	integrandNumerator /= y^Exponent[integrandNumerator, y];
+	(* Defaults. *)
+	RationalSubstitution = $Failed;
+	solution = False;
+	integratedPart = 0;	
+	unintegratedPart = integrandNumerator/integrandDenominator /. y2radical;
+
+	(* Check the algebraic part of the integrand is p(x)/q(r)*r(x)^n/m. *)
+	integrandNumerator = Cancel[integrandNumerator/y^Exponent[integrandNumerator, y] ];
 	If[! FreeQ[integrandNumerator, y], 
 		debugPrint["normalise failed ", {integrandNumerator, integrandDenominator}];
 		Return[ {0, integrand, 0} ]
@@ -317,12 +339,6 @@ solveAlgebraicIntegral[integrand_, x_, OptionsPattern[]] := Catch @ Module[
 		radicands = {A[1] # + A[0] &, A[2] #^2 + A[0] &, A[2] #^2 + A[1] # + A[0] &},
 		radicands = {A[1] # + A[0] &}
 	];
-
-	(* Defaults. *)
-	RationalSubstitution = $Failed;
-	solution = False;
-	integratedPart = 0;
-	unintegratedPart = integrand;
 
 	(* Loop over substitution numerators. *)
 	Do[
@@ -395,10 +411,10 @@ solveAlgebraicIntegral[integrand_, x_, OptionsPattern[]] := Catch @ Module[
 								(* Sanity check. *)
 								If[TrueQ[! OptionValue["Verify"]] || TrueQ[(
 										(* Order tests from fastest to slowest. *)
-										numericZeroQ[D[intX, x] - integrand - rationalPart] || 
-										numericZeroQ[D[intX, x] - integrand - rationalPart, Precision -> 30] || 
-										PossibleZeroQ[Together[D[intX, x] - integrand - rationalPart]] || 
-										PossibleZeroQ[D[Simplify[D[intX, x] - integrand - rationalPart], x]])],
+										numericZeroQ[D[intX, x] - unintegratedPart] || 
+										numericZeroQ[D[intX, x] - unintegratedPart, Precision -> 30] || 
+										PossibleZeroQ[Together[D[intX, x] - unintegratedPart]] || 
+										PossibleZeroQ[D[Simplify[D[intX, x] - unintegratedPart], x]])],
 									integratedPart = intX;
 									unintegratedPart = 0;
 									uform = RationalSubstitution = usubstitutionParam; (* Keep the u-substitution. *)
@@ -434,7 +450,7 @@ solveAlgebraicIntegral[integrand_, x_, OptionsPattern[]] := Catch @ Module[
 (*solveRational*)
 
 
-maxIntegrandDegree = 12;
+maxIntegrandDegree = 8;
 
 
 Clear[solveRational];
@@ -451,7 +467,7 @@ solveRational[num_, den_, p_, r_, usubstitution_, radicandDenominator_, x_, u_] 
 	Do[
 		ratU = rationalUndetermined[u, maxDegree];
 		radrat = PowerExpand[radicandDenominator^(-1/r)]; (* Radical contribution to the rational part of the integrand. *)
-		(* debugPrint[{ratU, Together[ratU /. u \[Rule] usubstitution], radrat, usubstitution, Together[D[usubstitution, x]]}]; *)
+		debugPrint[{ratU, Together[ratU /. u -> usubstitution], radrat, usubstitution, Together[D[usubstitution, x]]}];
 		ratX = Cancel @ Together[ ratU du radrat /. {u -> usubstitution, du -> Together[D[usubstitution, x]]} ];
 
 		(* Print[ {ratU, du, radrat, {u -> usubstitution, du -> Together[D[usubstitution, x]]}} ]; *)
@@ -461,14 +477,13 @@ solveRational[num_, den_, p_, r_, usubstitution_, radicandDenominator_, x_, u_] 
 
 		ratSolution = SolveAlways[Collect[Expand[num Denominator[ratX] - Numerator[ratX] den], x] == 0, x];
 
-		If[ratSolution =!= {} && ! MatchQ[ratSolution, _SolveAlways] && ! MatchQ[ratSolution, {{(_ -> 0) ..}..}],
+		If[TrueQ[ratSolution =!= {} && ! MatchQ[ratSolution, _SolveAlways] && ! MatchQ[ratSolution, {{(_ -> 0) ..}..}]],
 			ratSolution = ratSolution[[1]];
 			debugPrint["solution to the rational part is ", ratSolution];
 			parameterisedFormU = Cancel[ratU /. ratSolution];
 			debugPrint["parameterised forms are ", parameterisedFormU];
 			Throw[ {True, parameterisedFormU, ratSolution} ],
-			(* else *)
-			debugPrint["no solution to the rational part"]
+			debugPrint["no solution to the rational part"];
 		],
 	{maxDegree, degreeBound}];
 
@@ -758,12 +773,20 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*AlgebraicIntegrateHeuristic`Private`$algebraicIntegrateDebug=.;*)
+(*AlgebraicIntegrateHeuristic`Private`$algebraicIntegrateDebug=True;*)
 (*int = solveAlgebraicIntegral;*)
 
 
 (* ::Text:: *)
-(*My favourite 4 examples thus far:*)
+(*Example from paper:*)
+
+
+(* ::Input:: *)
+(*int[((-2+x^3) Sqrt[1+x^2+x^3])/(1+x^3)^2,x]*)
+
+
+(* ::Text:: *)
+(*My favourite 3 examples thus far:*)
 
 
 (* ::Input:: *)
@@ -772,10 +795,6 @@ EndPackage[];
 
 (* ::Input:: *)
 (*int[((x^4-1)Sqrt[1+x^2+x^4])/((1+x^4) (1-x^2+x^4)),x]*)
-
-
-(* ::Input:: *)
-(*int[((-2+x^3) Sqrt[1+x^2+x^3])/(1+x^3)^2,x]*)
 
 
 (* ::Input:: *)
@@ -835,7 +854,7 @@ EndPackage[];
 (*int[((3+x^4) Sqrt[x-x^5])/(1-2 x^4-x^6+x^8),x]*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*wish list*)
 
 
