@@ -151,13 +151,23 @@ normalise[e_, {x_, y_}] := Module[
 		{numY, denY} = {numY (y0 - y1), denY} /. y^k_ :> p^(k/r)
 	];
 
+	radical = radical^Exponent[numY, y];
+	r /= Exponent[numY, y];
+
 	nonalgNum = Coefficient[numY, y, 0];
-	algNum = Coefficient[numY, y, Exponent[numY, y]] y^Exponent[numY, y];
+	algNum = Coefficient[numY, y, Exponent[numY, y]] y;
 
 	nonAlgPart += nonalgNum/denY;
 
 	{algNum, denY, {p, r}, y -> radical, nonAlgPart}
 ]
+
+
+(* ::Input:: *)
+(*f=Together[1/(1+x^4)^(1/4)];*)
+(*normalise[%,{x,y}]*)
+(*%[[5]]+%[[1]]/%[[2]]*)
+(*%%[[5]]+%%[[1]]/%%[[2]]-f /. %%[[4]]//Together//Simplify*)
 
 
 (* ::Input:: *)
@@ -701,7 +711,7 @@ elementaryQ[expr_] := Complement[
 
 
 (* ::Text:: *)
-(*Mathematica has trouble with some linear and quadratic radical rationals which have elementary forms. eg. ((1+x)^(2/3) (1-4 x+2 x^2))/(3 (-1+x)^2)*)
+(*Mathematica has trouble with some linear and quadratic radical rationals which have elementary forms. eg. ((1+x)^(2/3) (1-4 x+2 x^2))/(3 (-1+x)^2). We have not stitched these into solveAlgebraicIntegral[] yet. *)
 
 
 rational2dQ[e_, {x_, y_}] := With[{te = Together[e]},
@@ -760,6 +770,60 @@ exy = n/a u^(n-1) exy /. {x -> (u^n - b)/a, y -> u};
 (*Integrate[((1+u)^(2/3) (1-4 u+2 u^2))/(3 (-1+u)^2),u]*)
 
 
+(* ::Subsubsection::Closed:: *)
+(*quadraticRadicalToRational*)
+
+
+quadraticRadicalToRational[e_, x_, u_] := Module[
+{y, radicals, a, b, c, exy, dx, U, X, \[Alpha], \[Beta]},
+(* Find radicals of the form ((a x + b)/(c x + d))^(n/m) *)
+radicals = Cases[e, y:r_^n_/;
+PolynomialQ[r,x] && Exponent[r,x] == 2 && Head[n] == Rational :>
+	{Expand[r]^Abs[n], Collect[Expand[r],x], Numerator[n // Abs], Denominator[n // Abs]},
+{0, Infinity}];
+
+(* Check we have some radicals with a common radicand. *)
+If[radicals === {} || Length[Union[ radicals[[All,2]] ]] > 1, 
+	Return[ False ]];
+
+(* Convert to R(x,y), where y^n = a x^2 + b x + c. *)
+exy = Cancel @ Together[e /. {radicals[[1,1]] -> y, radicals[[1,1]]^-1 -> y^-1}];
+
+(* We should now have a rational function of x and y. *)
+If[!(PolynomialQ[exy, {x, y}] || rational2dQ[exy, {x, y}]), 
+	Return[ False ]];
+
+a = Coefficient[radicals[[1,2]], x,2];
+b = Coefficient[radicals[[1,2]], x,1];
+c = Coefficient[radicals[[1,2]], x,0];
+
+Which[
+a > 0,
+	(* Euler's first substitution. *)
+	X = (u^2 - c)/(b - 2 Sqrt[a] u);
+	U = radicals[[1,1]] - Sqrt[a] x;
+	dx = 2(-Sqrt[a] u^2 + b u - Sqrt[a]c)/(-2Sqrt[a]u + b)^2;
+	exy = exy dx /. {y -> Sqrt[a]X + u, x -> X},
+c > 0,
+	(* Euler's second substitution. *)
+	X = Cancel @ Together[(2Sqrt[c]u - b)/(a - u^2)];
+	U = (radicals[[1,1]] - Sqrt[c])/x;	
+	dx = 2(Sqrt[c] u^2 - b u + a Sqrt[c])/(u^2 - a)^2;
+	exy = exy dx /. {y -> X u + Sqrt[c], x -> X},
+True, 
+	(* Euler's third substitution. *)
+	\[Alpha] = -b/(2 a) - Sqrt[b^2 - 4 a c]/(2 a);
+	\[Beta] = -b/(2 a) + Sqrt[b^2 - 4 a c]/(2 a);
+	X = Cancel @ Together[(a \[Beta] - \[Alpha] u^2)/(a - u^2)];
+	U = radicals[[1,1]]/(x - \[Alpha]);
+	dx = 2 u a (\[Beta] - \[Alpha])/(u^2 - a)^2;
+	exy = exy dx /. {y -> (X - \[Alpha])u, x -> X}
+];
+
+{exy // Cancel, u -> U}
+]
+
+
 (* ::Subsection::Closed:: *)
 (*End Package*)
 
@@ -773,7 +837,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*AlgebraicIntegrateHeuristic`Private`$algebraicIntegrateDebug=True;*)
+(*AlgebraicIntegrateHeuristic`Private`$algebraicIntegrateDebug=.;*)
 (*int = solveAlgebraicIntegral;*)
 
 
@@ -786,7 +850,7 @@ EndPackage[];
 
 
 (* ::Text:: *)
-(*My favourite 3 examples thus far:*)
+(*My favourite 4 examples thus far:*)
 
 
 (* ::Input:: *)
@@ -794,11 +858,15 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[((x^4-1)Sqrt[1+x^2+x^4])/((1+x^4) (1-x^2+x^4)),x]*)
+(*int[((x^4-1) Sqrt[1+x^2+x^4])/((1+x^4) (1-x^2+x^4)),x]*)
 
 
 (* ::Input:: *)
 (*int[(-2+3 x^5)/((1+x^5) Sqrt[1+x^2+x^5]),x]*)
+
+
+(* ::Input:: *)
+(*int[(1+x^8)/((1-x^8) Sqrt[1-x^2+x^4]),x]*)
 
 
 (* ::Text:: *)
@@ -814,7 +882,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[((-1+x^8)(-1+x^4)^(1/4))/(x^6 (1+x^8)),x]*)
+(*int[((-1+x^8) (-1+x^4)^(1/4))/(x^6 (1+x^8)),x]*)
 
 
 (* ::Subsection::Closed:: *)
@@ -1051,7 +1119,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[((2+x^4)(-2-x^2+x^4) Sqrt[-2-2 x^2+x^4])/(-2+x^4)^3,x]*)
+(*int[((2+x^4) (-2-x^2+x^4) Sqrt[-2-2 x^2+x^4])/(-2+x^4)^3,x]*)
 
 
 (* ::Input:: *)
