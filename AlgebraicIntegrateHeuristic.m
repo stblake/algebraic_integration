@@ -878,7 +878,7 @@ EndPackage[];
 
 
 (* ::Text:: *)
-(*We now allow symbolic summation over the roots of a polynomial in the results. *)
+(*We now allow symbolic summation over the roots of a polynomial in the results.*)
 
 
 (* ::Input:: *)
@@ -926,6 +926,20 @@ EndPackage[];
 (*wish list*)
 
 
+(* ::Text:: *)
+(*Work out why we can do one but not the other in these two:*)
+
+
+(* ::Input:: *)
+(*int[1/(x (x^6+1)^(1/3)),x]*)
+(*int[x/(x^6+1)^(1/3),x]*)
+
+
+(* ::Input:: *)
+(*int[1/(x^3+x^2)^(1/3),x]*)
+(*int[(x^3+x^2)^(1/3),x]*)
+
+
 (* ::Input:: *)
 (*AlgebraicIntegrateHeuristic`Private`$algebraicIntegrateDebug=True;*)
 
@@ -936,14 +950,6 @@ EndPackage[];
 
 (* ::Input:: *)
 (*int[x/Sqrt[-71-96 x+10 x^2+x^4],x]*)
-
-
-(* ::Text:: *)
-(*From Marichev et al:*)
-
-
-(* ::Input:: *)
-(*int[1/(x^4+1)^(1/4),x]*)
 
 
 (* ::Text:: *)
@@ -1098,7 +1104,7 @@ EndPackage[];
 (*int[((-2+3 x^5) Sqrt[1+x^5])/(1+x^4+2 x^5+x^10),x]*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*regression testing*)
 
 
@@ -1108,6 +1114,154 @@ EndPackage[];
 
 (* ::Input:: *)
 (*AlgebraicIntegrateHeuristic`Private`$algebraicIntegrateDebug=False;*)
+
+
+(* ::Input:: *)
+(*int[1/(x^4-x^2)^(1/4),x]*)
+
+
+(* ::Input:: *)
+(*int[1/(x (x^3+1)^(1/3)),x]*)
+
+
+(* ::Input:: *)
+(*int[((x^4-1) (x^4+1)^(1/4))/x,x]*)
+
+
+(* ::Input:: *)
+(*int[((x^4-1) Power[x^4+1, (4)^-1])/x^2,x]*)
+
+
+(* ::Input:: *)
+(*int[1/((x^4-1)^(1/4) (3 x^4+1)),x]*)
+
+
+(* ::Input:: *)
+(*int[1/(x Power[x^4-1, (4)^-1]),x]*)
+
+
+(* ::Input:: *)
+(*int[(2 x^8-2 x^4+1)/((x^4-1)^(1/4) (2 x^8-x^4-2)),x]*)
+
+
+(* ::Input:: *)
+(*int[((x-1) (x^4+x^3)^(1/4))/(x (x+1)),x]*)
+
+
+(* ::Input:: *)
+(*int[((x^2+1) (x^4+x^3)^(1/4))/(x^2 (x^2-1)),x]*)
+
+
+(* ::Input:: *)
+(*int[(x^2+1)/((x^2-1) (x^5-x^3)^(1/4)),x]*)
+
+
+(* ::Input:: *)
+(*int[1/(x^8 Power[x^4+x^3, (4)^-1]),x]*)
+
+
+(* ::Input:: *)
+(*int[1/(x^4 Power[x^4+x^3, (4)^-1]),x]*)
+
+
+(* ::Input:: *)
+(*int[1/(x^3+1)^(1/3),x]*)
+
+
+(* ::Input:: *)
+(*int[1/(x (x^6+1)^(1/3)),x]*)
+
+
+(* ::Input:: *)
+(*int[x/(x^3+x^2)^(1/3),x]*)
+
+
+(* ::Input:: *)
+(*int[(x^3+x^2)^(1/3)/x,x]*)
+
+
+(* ::Input:: *)
+(*int[(x^2+2)/((x^2+1) (x^3-x^2)^(1/3)),x]*)
+
+
+(* ::Input:: *)
+(*int[1/(x^3 (x^3+1) (x^3-x^2)^(1/3)),x]*)
+
+
+(* ::Input:: *)
+(*int[((x^3+1) (x^3-x^2)^(1/3))/(x^6+1),x]*)
+
+
+(* ::Input:: *)
+(*int[(x^3 (x^3-x^2)^(1/3))/(x^6+1),x]*)
+
+
+(* ::Input:: *)
+(*int[x^3/((x^3-x^2)^(1/3) (x^6-1)),x]*)
+
+
+(* ::Input:: *)
+(*int[(x^2-1)/((x^2+1) (x^4+x^2)^(1/3)),x]*)
+
+
+(* ::Input:: *)
+(*int[((x^2-1) (x^4+x^2)^(1/3))/x^3,x]*)
+
+
+(* ::Input:: *)
+(*int[(x^2-1)/((x^2+x+1) (x^4+x^2)^(1/3)),x]*)
+
+
+(* ::Input:: *)
+(*int[(x+1)/((x-1) (x^4+x^2)^(1/3)),x]*)
+
+
+(* ::Input:: *)
+(*int[(x^6-1)/((x^4+x^2)^(1/3) (x^6+1)),x]*)
+
+
+(* ::Input:: *)
+(*int[(x^3+1)/((x^3-1) (x^4+x^2)^(1/3)),x]*)
+
+
+(* ::Input:: *)
+(*int[(x^2+1)/((x^2-1) (x^4+x^2)^(1/3)),x]*)
+
+
+(* ::Input:: *)
+(*int[(x^6+1)/((x^4+x^2)^(1/3) (x^6-1)),x]*)
+
+
+(* ::Input:: *)
+(*int[(x^6-x^3+1)/((x^4+x^2)^(1/3) (x^6-1)),x]*)
+
+
+(* ::Input:: *)
+(*int[(x^6+x^3+1)/((x^4+x^2)^(1/3) (x^6-1)),x]*)
+
+
+(* ::Input:: *)
+(*int[(x^2+1)/((x^2+x-1) Power[x^4-x^2, (3)^-1]),x]*)
+
+
+(* ::Input:: *)
+(*int[(x^2-1)/((x^2+1) (x^4-x^2)^(1/3)),x]*)
+
+
+(* ::Input:: *)
+(*int[(x^6+1)/((x^4-x^2)^(1/3) (x^6-1)),x]*)
+
+
+(* ::Input:: *)
+(*int[1/((x^3+1) (x^4-x)^(1/4)),x]*)
+
+
+(* ::Input:: *)
+(*int[((x^2+1) (x^4+x^3)^(1/4))/(x^2 (x^2-1)),x]*)
+
+
+(* ::Input:: *)
+(*int[1/(x^4+1)^(1/4),x]*)
 
 
 (* ::Input:: *)
