@@ -4,6 +4,34 @@ This is a prototype method for solving _some_ pseudo-elliptic integrals. Relativ
 
 The package AlgebraicIntegrateHeuristic.m exposes one function: **solveAlgebraicIntegral[**_integrand_, _variable_**]** and returns a list containing {_the rational part of the integrand (unintegrated)_, _the unintegrated part_, _the integrated part_}. 
 
+This method can solve some interesting pseudo-elliptic integrals. Below are some examples, many more are in the source code. 
+
+```
+In[290]:= solveAlgebraicIntegral[(1 + x^2)/((1 - x^2) Sqrt[1 + x^4]), x]
+
+Out[290]= {0, 0, ArcTanh[Sqrt[1 + x^4]/(Sqrt[2] x)]/Sqrt[2]}
+```
+
+```
+In[291]:= solveAlgebraicIntegral[(1 + x^6)/((1 - x^6) Sqrt[1 - x^2 + x^4]), x]
+
+Out[291]= {0, 0, -(1/3) Sqrt[2] ArcTan[Sqrt[1 - x^2 + x^4]/(Sqrt[2] x)] - 1/6 Log[x - Sqrt[1 - x^2 + x^4]] + 1/6 Log[x + Sqrt[1 - x^2 + x^4]]}
+```
+
+```
+In[292]:= int[((x^4 - 1) Sqrt[1 + x^2 + x^4])/((1 + x^4) (1 - x^2 + x^4)), x]
+
+Out[292]= {0, 0, -Sqrt[2] ArcTanh[Sqrt[1 + x^2 + x^4]/(Sqrt[2] x)] - 1/2 Log[x - Sqrt[1 + x^2 + x^4]] + 1/2 Log[x + Sqrt[1 + x^2 + x^4]]}
+```
+
+```
+In[293]:= int[((x^2 - 1) Sqrt[x^4 + x^2 + 1])/((x^2 + 1) (x^4 + x^3 + x^2 + x + 1)), x]
+
+Out[293]= {0, 0, ArcTan[Sqrt[1 + x^2 + x^4]/x] + Sqrt[2/(5 (-1 + Sqrt[5]))] ArcTan[(Sqrt[-2 + 2 Sqrt[5]] Sqrt[1 + x^2 + x^4])/(-1 + Sqrt[5] - 2 x - x^2 + Sqrt[5] x^2)] + 1/5 Sqrt[(15 - 5 Sqrt[5])/(-1 + Sqrt[5])] Log[2 + x + Sqrt[5] x + 2 x^2] - 1/5 Sqrt[(15 - 5 Sqrt[5])/(-1 + Sqrt[5])] Log[1 + Sqrt[5] + 2 x + x^2 + Sqrt[5] x^2 - Sqrt[2 + 2 Sqrt[5]] Sqrt[1 + x^2 + x^4]]}
+```
+
+Below we see that the variable **AlgebraicIntegrateHeuristic`Private`RationalSubstitution** stores the substitution used in computing the integral. 
+
 ```
 In[294]:= integrand = ((-1 + x^4) (1 + x^2 + x^4) Sqrt[1 - x^2 + x^4])/(1 + x^4)^3;
 solveAlgebraicIntegral[integrand, x]
