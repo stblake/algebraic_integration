@@ -4,6 +4,7 @@ This is a prototype method for solving _some_ pseudo-elliptic integrals. Relativ
 
 Here's an example integral. The result returned is a list containing {/the rational part of the integrand (unintegrated)/, /the unintegrated part/, /the integrated part/}. 
 
+```
 In[5026]:= solveAlgebraicIntegral[((-1 + x^4) (1 + x^2 + x^4) Sqrt[1 - x^2 + x^4])/(1 + x^4)^3, x]
 AlgebraicIntegrateHeuristic`Private`RationalSubstitution
 D[%% // Last, x] - ((-1 + x^4) (1 + x^2 + x^4) Sqrt[1 - x^2 + x^4])/(1 + x^4)^3 // Simplify
@@ -13,3 +14,4 @@ Out[5026]= {0, 0, (Sqrt[1 - x^2 + x^4] (-((3 x)/8) - x^3/4 - (3 x^5)/8))/(1 + x^
 Out[5027]= (-1 - x^2)/x
 
 Out[5028]= 0
+```
