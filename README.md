@@ -47,14 +47,10 @@ Out[293]= {0, 0, ArcTan[Sqrt[1 + x^2 + x^4]/x] + Sqrt[2/(5 (-1 + Sqrt[5]))] ArcT
 Below we see that the variable ```AlgebraicIntegrateHeuristic`Private`RationalSubstitution``` stores the substitution used in computing the integral, incase the interested reader would like to see the substitution that simplified the integral.
 
 ```
-In[294]:= integrand = ((-1 + x^4) (1 + x^2 + x^4) Sqrt[1 - x^2 + x^4])/(1 + x^4)^3;
-solveAlgebraicIntegral[integrand, x]
-D[% // Last, x] - integrand // Simplify
+In[1999]:= int[((1 - x^3)^(2/3) (-1 + 4 x^3))/(x^6 (-2 + 3 x^3)), x]
 AlgebraicIntegrateHeuristic`Private`RationalSubstitution
 
-Out[295]= {0, 0, (Sqrt[1 - x^2 + x^4] (-((3 x)/8) - x^3/4 - (3 x^5)/8))/(1 + x^4)^2 + 5/8 ArcTan[Sqrt[1 - x^2 + x^4]/x]}
+Out[1999]= {0, 0, ((1 - x^3)^(2/3) (-(1/10) + (29 x^3)/40))/x^5 + (5 ArcTan[(x/Sqrt[3] + (2 2^(1/3) (1 - x^3)^(1/3))/Sqrt[3])/x])/(4 2^(2/3) Sqrt[3]) - (5 Log[x])/(12 2^(2/3)) + (5 Log[x^2])/(24 2^(2/3)) + (5 Log[x - 2^(1/3) (1 - x^3)^(1/3)])/(12 2^(2/3)) - (5 Log[x^2 + 2^(1/3) x (1 - x^3)^(1/3) + 2^(2/3) (1 - x^3)^(2/3)])/(24 2^(2/3))}
 
-Out[296]= 0
-
-Out[297]= (-1 - x^2)/x
+Out[2000]= (1 + x^3)/x^3
 ```
