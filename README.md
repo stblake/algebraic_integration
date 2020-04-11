@@ -30,7 +30,7 @@ In[293]:= int[((x^2 - 1) Sqrt[x^4 + x^2 + 1])/((x^2 + 1) (x^4 + x^3 + x^2 + x + 
 Out[293]= {0, 0, ArcTan[Sqrt[1 + x^2 + x^4]/x] + Sqrt[2/(5 (-1 + Sqrt[5]))] ArcTan[(Sqrt[-2 + 2 Sqrt[5]] Sqrt[1 + x^2 + x^4])/(-1 + Sqrt[5] - 2 x - x^2 + Sqrt[5] x^2)] + 1/5 Sqrt[(15 - 5 Sqrt[5])/(-1 + Sqrt[5])] Log[2 + x + Sqrt[5] x + 2 x^2] - 1/5 Sqrt[(15 - 5 Sqrt[5])/(-1 + Sqrt[5])] Log[1 + Sqrt[5] + 2 x + x^2 + Sqrt[5] x^2 - Sqrt[2 + 2 Sqrt[5]] Sqrt[1 + x^2 + x^4]]}
 ```
 
-Below we see that the variable **AlgebraicIntegrateHeuristic`Private`RationalSubstitution** stores the substitution used in computing the integral. 
+Below we see that the variable ```AlgebraicIntegrateHeuristic`Private`RationalSubstitution``` stores the substitution used in computing the integral. 
 
 ```
 In[294]:= integrand = ((-1 + x^4) (1 + x^2 + x^4) Sqrt[1 - x^2 + x^4])/(1 + x^4)^3;
