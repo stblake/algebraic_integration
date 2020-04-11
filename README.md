@@ -2,6 +2,8 @@
 
 This is a prototype method for solving _some_ pseudo-elliptic integrals. Relative to the algebraic case of the Risch-Trager-Bronstein algorithm, its very simple, however it is not a decision process. 
 
+This method should be easy enough to port to other CAS. We use **SolveAlways** to equate coefficients of powers of _x_ and compute the undeterminted coefficients in a system of equations, but this could easily be hand-coded and reduced to a system of linear equations.
+
 The package AlgebraicIntegrateHeuristic.m exposes one function: **solveAlgebraicIntegral[**_integrand_, _variable_**]** and returns a list containing {_the rational part of the integrand (unintegrated)_, _the unintegrated part_, _the integrated part_}. 
 
 This method can solve some interesting pseudo-elliptic integrals. Below are some examples, many more are in the source code. 
