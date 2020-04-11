@@ -410,7 +410,7 @@ solveAlgebraicIntegral[integrand_, x_, OptionsPattern[]] := Catch @ Module[
 							integrandU = rationalFormU (radicand[u]^(1/r) /. radicandMatchRule /. {A[1]|A[2]|C[1]|C[2] -> 1, A[0]|C[0] -> 0});
 							debugPrint["calling Integrate on ", integrandU];
 	
-							intU = Integrate[integrandU, u];
+							intU = integrate[integrandU, u];
 							debugPrint["Integrate returned ", intU];
 	
 							If[FreeQ[intU, Integrate(* | RootSum | Root *)] && elementaryQ[intU],
@@ -466,24 +466,23 @@ maxIntegrandDegree = 8;
 Clear[solveRational];
 
 solveRational[num_, den_, p_, r_, usubstitution_, radicandDenominator_, x_, u_] := Catch @ Module[
-	{degreeBound, du, ratU, ratX, radrat, ratSolution, parameterisedFormU, uMaxDegX},
+	{degreeBound, du, ddu, ratU, ratX, radrat, ratSolution, parameterisedFormU},
 
-	uMaxDegX = Max[Exponent[Numerator[usubstitution], x], Exponent[Denominator[usubstitution], x]];
-	degreeBound = Max[Exponent[num, x], Exponent[den, x]]/uMaxDegX;
-	degreeBound = 1 + Floor[degreeBound];
+	radrat = PowerExpand[radicandDenominator^(-1/r)]; (* Radical contribution to the rational part of the integrand. *)
+	ddu = Together[D[usubstitution, x]];
+
+	degreeBound = Max[Exponent[num, x], Exponent[den, x]] + 
+		Max[Exponent[Numerator @ usubstitution, x], Exponent[Denominator @ usubstitution, x]] + 
+		Max[Exponent[Numerator @ ddu, x], Exponent[Denominator @ ddu, x]];
 	debugPrint["degree bound on the rational part is ", degreeBound];
 	degreeBound = Min[degreeBound, maxIntegrandDegree];
 
 	Do[
 		ratU = rationalUndetermined[u, maxDegree];
-		radrat = PowerExpand[radicandDenominator^(-1/r)]; (* Radical contribution to the rational part of the integrand. *)
-		debugPrint[{ratU, Together[ratU /. u -> usubstitution], radrat, usubstitution, Together[D[usubstitution, x]]}];
-		ratX = Cancel @ Together[ ratU du radrat /. {u -> usubstitution, du -> Together[D[usubstitution, x]]} ];
+		debugPrint[{ratU, Together[ratU /. u -> usubstitution], radrat, usubstitution, ddu}];
+		ratX = Cancel @ Together[ ratU du radrat /. {u -> usubstitution, du -> ddu} ];
 
-		(* Print[ {ratU, du, radrat, {u -> usubstitution, du -> Together[D[usubstitution, x]]}} ]; *)
-
-		debugPrint[num/den == ratX];
-		debugPrint[Collect[Expand[num Denominator[ratX] - Numerator[ratX] den], x]];	
+		debugPrint[num/den == ratX];	
 
 		ratSolution = SolveAlways[Collect[Expand[num Denominator[ratX] - Numerator[ratX] den], x] == 0, x];
 
@@ -711,11 +710,29 @@ elementaryQ[expr_] := Complement[
 
 
 (* ::Text:: *)
-(*Mathematica has trouble with some linear and quadratic radical rationals which have elementary forms. eg. ((1+x)^(2/3) (1-4 x+2 x^2))/(3 (-1+x)^2). We have not stitched these into solveAlgebraicIntegral[] yet. *)
+(*Mathematica has trouble with some linear and quadratic radical rationals which have elementary forms. eg. ((1 + x)^(1/3)/x^3). We have not stitched these into solveAlgebraicIntegral[] yet. *)
+
+
+(* ::Input:: *)
+(*Integrate[(1+u)^(1/3)/u^3,u]*)
 
 
 rational2dQ[e_, {x_, y_}] := With[{te = Together[e]},
 Denominator[te] =!= 1 && PolynomialQ[Numerator[te],{x,y}] && PolynomialQ[Denominator[te],{x,y}]]
+
+
+integrate[e_, x_] := Integrate[e, x]
+
+
+integrate[e_, x_] /; ListQ[ linearRadicalToRational[e, x, $u] ] := 
+	Module[{integrand, subst},
+	{integrand, subst} = linearRadicalToRational[e, x, $u];
+		Integrate[integrand, $u] /. subst
+	]
+
+
+(* ::Input:: *)
+(*integrate[(1+u)^(1/3)/u^3,u]*)
 
 
 (* ::Subsubsection::Closed:: *)
@@ -734,7 +751,8 @@ Denominator[te] =!= 1 && PolynomialQ[Numerator[te],{x,y}] && PolynomialQ[Denomin
 (*where n = LCM[n[1], n[2], ...] and M[1] = m[1]*n/n[1], M[2] = m[2]*n/n[2], ... *)
 
 
-linearRadicalToRational[e_,x_, u_] := Module[{y,radicals,a, b, n,reps,exy},
+linearRadicalToRational[e_, x_, u_] := linearRadicalToRational[e, x, u] = Module[
+{y, radicals, a, b, n, reps, exy},
 
 (* Find radicals of the form (a x + b)^(n/m). *)
 radicals = Cases[e, y:(a_. x + b_.)^n_ /; 
@@ -936,11 +954,6 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[1/(x^3+x^2)^(1/3),x]*)
-(*int[(x^3+x^2)^(1/3),x]*)
-
-
-(* ::Input:: *)
 (*AlgebraicIntegrateHeuristic`Private`$algebraicIntegrateDebug=True;*)
 
 
@@ -1104,7 +1117,7 @@ EndPackage[];
 (*int[((-2+3 x^5) Sqrt[1+x^5])/(1+x^4+2 x^5+x^10),x]*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*regression testing*)
 
 
