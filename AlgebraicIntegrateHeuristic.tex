@@ -441,15 +441,16 @@ $$\int\frac{\left(x^2-1\right)\sqrt{x^4+x^2+1}}{\left(x^2+1\right)\left(x^4+x^3+
 
 This method can be generalised to include reductions of the form  
 
-\begin{equation}
-\int \frac{p(x)}{q(x)}r(x)^{n/m}dx = \int \frac{a(u)}{b(u)}\left(a_2u^{2k}+a_1u^k+a_0\right)^{n/m}du
-\end{equation}
+\begin{align*}
+\int \frac{p(x)}{q(x)}r(x)^{n/m}dx &= \int \frac{a(u)}{b(u)}\left(a_2u^{2k}+a_1u^k+a_0\right)^{n/m}du\\
+\intertext{and}
+\int \frac{p(x)}{q(x)}r(x)^{n/m}dx &= \int \frac{a(u)}{b(u)}\left(a_1u^k+a_0\right)^{n/m}du.\\
+\end{align*}
 
-and 
-
-\begin{equation}
-\int \frac{p(x)}{q(x)}r(x)^{n/m}dx = \int \frac{a(u)}{b(u)}\left(a_1u^k+a_0\right)^{n/m}du.
-\end{equation}
+For both these forms we use essentially the same procedure as in the linear or quadratic 
+reduction. However, in terms of efficiency, obviously the more forms we try to solve for 
+the radicand part of the integral, the longer the process takes to iterate through these 
+possible forms. 
 
 \section{A comparison with major CAS and algebraic integration packages}
 
