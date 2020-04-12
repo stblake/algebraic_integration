@@ -316,7 +316,7 @@ polynomialsUndetermined3[x_Symbol] :=
 maxDenominatorPower = 4;
 
 
-$Testing = True;
+$Testing = False;
 
 
 Clear[solveAlgebraicIntegral];
@@ -329,9 +329,9 @@ solveAlgebraicIntegral[integrand_, x_, OptionsPattern[]] := Catch @ Module[
 	rationalMatchRules, rationalFormU, integrandU, intU, intX, unintegratedPart, integratedPart,
 	cancellingCoefficient, cancellingTerm, uform, radicandNumeratorU, radicandU,
 	radicandDenominatorU, usubstitutionParam, radicandNumeratorUParam, radicandDenominatorUParam},
-  
+ 
 	If[$Testing, start = AbsoluteTime[]];
-
+ 
 	(* Single radical? *)
 
 	If[! algebraicQ[integrand, x] || ! singleRadicalQ[integrand, x], 
@@ -441,11 +441,12 @@ solveAlgebraicIntegral[integrand_, x_, OptionsPattern[]] := Catch @ Module[
 									integratedPart = intX;
 									unintegratedPart = 0;
 									uform = RationalSubstitution = usubstitutionParam; (* Keep the u-substitution. *)
-									
+
 									If[$Testing // TrueQ,
 										testSolveAlgebraicIntegral[integrand // Hash] = {
 											integrand, 
-											AbsoluteTime[] - start, 
+											AbsoluteTime[] - start,
+											uform, 
 											{rationalPart, unintegratedPart, integratedPart}}
 									];
 
@@ -465,9 +466,13 @@ solveAlgebraicIntegral[integrand_, x_, OptionsPattern[]] := Catch @ Module[
 	{usubstitution, polynomialsUndetermined[x]}];
 
 	debugPrint[k];
-	
+
 	If[$Testing,
-		testSolveAlgebraicIntegral[integrand // Hash] = {integrand, AbsoluteTime[] - start, {rationalPart, unintegratedPart, integratedPart}}
+		testSolveAlgebraicIntegral[integrand // Hash] = {
+			integrand, 
+			AbsoluteTime[] - start, 
+			None, 
+			{rationalPart, unintegratedPart, integratedPart}}
 	];
 
 	{rationalPart, unintegratedPart, integratedPart}
@@ -485,33 +490,29 @@ solveAlgebraicIntegral[integrand_, x_, OptionsPattern[]] := Catch @ Module[
 (*solveRational*)
 
 
-maxIntegrandDegree = 8;
+maxIntegrandDegree = 6;
 
 
 Clear[solveRational];
 
 solveRational[num_, den_, p_, r_, usubstitution_, radicandDenominator_, x_, u_] := Catch @ Module[
-	{degreeBound, ddu, du, ratU, ratX, radrat, ratSolution, parameterisedFormU},
+	{degreeBound, du, ddu, ratU, ratX, radrat, ratSolution, parameterisedFormU},
 
 	radrat = PowerExpand[radicandDenominator^(-1/r)]; (* Radical contribution to the rational part of the integrand. *)
 	ddu = Together[D[usubstitution, x]];
 
-	degreeBound = Max[
-				Exponent[Numerator[Together[ddu radrat]], x], 
-				Exponent[Denominator[Together[ddu radrat]], x], 
-				Exponent[num, x], 
-				Exponent[den, x]
-			];
-
+	degreeBound = Max[Exponent[num, x], Exponent[den, x]] + 
+		Max[Exponent[Numerator @ usubstitution, x], Exponent[Denominator @ usubstitution, x]] + 
+		Max[Exponent[Numerator @ ddu, x], Exponent[Denominator @ ddu, x]];
 	debugPrint["degree bound on the rational part is ", degreeBound];
 	degreeBound = Min[degreeBound, maxIntegrandDegree];
-	
+
 	Do[
 		ratU = rationalUndetermined[u, maxDegree];
 		debugPrint[{ratU, Together[ratU /. u -> usubstitution], radrat, usubstitution, ddu}];
 		ratX = Cancel @ Together[ ratU du radrat /. {u -> usubstitution, du -> ddu} ];
 
-		debugPrint[num/den == ratX];
+		debugPrint[num/den == ratX];	
 
 		ratSolution = SolveAlways[Collect[Expand[num Denominator[ratX] - Numerator[ratX] den], x] == 0, x];
 
@@ -585,9 +586,6 @@ Clear[rationalUndetermined];
 
 rationalUndetermined[x_Symbol, max_Integer] := 
 (Sum[V[k] x^k, {k, 0, max}]/Sum[V[max + k + 1] x^k, {k, 0, max}])
-
-rationalUndetermined[x_Symbol, degN_Integer, degD_Integer] := 
-(Sum[V[k] x^k, {k, 0, degN}]/Sum[V[degN + k + 1] x^k, {k, 0, degD}])
 
 
 (* ::Subsection::Closed:: *)
@@ -883,7 +881,7 @@ EndPackage[];
 
 
 (* ::Section:: *)
-(*Examples, wish list, regression tests, ...*)
+(*Examples, wish list, bugs/deficiencies, regression tests, ...*)
 
 
 (* ::Input:: *)
@@ -936,7 +934,89 @@ EndPackage[];
 
 
 (* ::Subsection::Closed:: *)
-(*current bugs*)
+(*current bugs and deficiencies*)
+
+
+(* ::Input:: *)
+(*AlgebraicIntegrateHeuristic`Private`$algebraicIntegrateDebug=True;*)
+(*{(1+x^4)/x^2,-(1/(-u-u^2)),-1-u^2,((-1+x^4) (-1-3 x^4-x^8)^(1/4))/((1+x^4) (1+x^2+x^4))}*)
+(*int[((-1+x^4) (1+3 x^4+x^8)^(1/4))/((1+x^4) (1+x^2+x^4)),x]*)
+
+
+(* ::Input:: *)
+(*AlgebraicIntegrateHeuristic`Private`$algebraicIntegrateDebug=True;*)
+(*{(-1-x^6)/x^2,1/(-1-u^2),-1+u^2,((-1+2 x^6) (1-x^4+2 x^6+x^12)^(1/4))/(1+x^4+2 x^6+x^12)}*)
+(*int[((-1+2 x^6) (1-x^4+2 x^6+x^12)^(1/4))/(1+x^4+2 x^6+x^12),x]*)
+
+
+(* ::Input:: *)
+(*AlgebraicIntegrateHeuristic`Private`$algebraicIntegrateDebug=True;*)
+(*{(-1+x^2)/x^3,-(1/(-1+u^2)),u,((-3+x^2) (-1+x^2)^(2/3))/(-1+2 x^2-x^4+x^6)}*)
+(*int[((-3+x^2) (-1+x^2)^(2/3))/(-1+2 x^2-x^4+x^6),x]*)
+
+
+(* ::Input:: *)
+(*AlgebraicIntegrateHeuristic`Private`$algebraicIntegrateDebug=True;*)
+(*{(-1-x^3)/x^4,1/u^2,-1-u+u^2,((4+x^3) (x+2 x^4+x^5+x^7+x^8-x^9)^(1/3))/(1+x^3)^2}*)
+(*int[((4+x^3) (x+2 x^4+x^5+x^7+x^8-x^9)^(1/3))/(1+x^3)^2,x]*)
+
+
+(* ::Input:: *)
+(*AlgebraicIntegrateHeuristic`Private`$algebraicIntegrateDebug=True;*)
+(*{(1-x^2+x^4)/x^4,-(1/(-u+u^2)),1+u^2,((-2+x^2) (x-2 x^3+3 x^5-2 x^7+2 x^9)^(1/3))/((-1+x^2) (1-x^2+x^4))}*)
+(*int[((-2+x^2) (x-2 x^3+3 x^5-2 x^7+2 x^9)^(1/3))/((-1+x^2) (1-x^2+x^4)),x]*)
+
+
+(* ::Input:: *)
+(*AlgebraicIntegrateHeuristic`Private`$algebraicIntegrateDebug=True;*)
+(*{(1-x^3+x^6)/x^3,-(1/u^2),1-u^2,((-1+x^6) (-1+2 x^3-2 x^6+2 x^9-x^12)^(1/3))/(1-x^3+x^6)^2}*)
+(*int[((-1+x^6) (-1+2 x^3-2 x^6+2 x^9-x^12)^(1/3))/(1-x^3+x^6)^2,x]*)
+
+
+(* ::Input:: *)
+(*AlgebraicIntegrateHeuristic`Private`$algebraicIntegrateDebug=True;*)
+(*{(1-x^6)/x^3,-(1/(u-u^2)),-1+u-u^2,((1+x^6) (-1+x^3+x^6-x^9-x^12)^(1/3))/((-1+x^6) (-1+x^3+x^6))}*)
+(*int[((1+x^6) (-1+x^3+x^6-x^9-x^12)^(1/3))/((-1+x^6) (-1+x^3+x^6)),x]*)
+
+
+(* ::Input:: *)
+(*AlgebraicIntegrateHeuristic`Private`$algebraicIntegrateDebug=True;*)
+(*{(-1-x^6)/x^3,1/(1+u^2),-1+u^2,((-1+x^6) (1+x^6+x^12)^(1/3))/(1+3 x^6+x^12)}*)
+(*int[((-1+x^6) (1+x^6+x^12)^(1/3))/(1+3 x^6+x^12),x]*)
+
+
+(* ::Input:: *)
+(*AlgebraicIntegrateHeuristic`Private`$algebraicIntegrateDebug=True;*)
+(*{(1-x^6)/x^3,-(1/(u-u^2)),-1+u-u^2,((1+x^6) (-1+x^3+x^6-x^9-x^12)^(1/3))/((-1+x^6) (-1+x^3+x^6))}*)
+(*int[((1+x^6) (-1+x^3+x^6-x^9-x^12)^(1/3))/((-1+x^6) (-1+x^3+x^6)),x]*)
+
+
+(* ::Input:: *)
+(*AlgebraicIntegrateHeuristic`Private`$algebraicIntegrateDebug=True;*)
+(*{(1-x-x^3)/x^4,1/u^2,1-u^2,((-4+3 x+x^3) (-x+2 x^2-x^3+2 x^4-2 x^5-x^7+x^9)^(1/3))/(-1+x+x^3)^2}*)
+(*int[((-4+3 x+x^3) (-x+2 x^2-x^3+2 x^4-2 x^5-x^7+x^9)^(1/3))/(-1+x+x^3)^2,x]*)
+
+
+(* ::Input:: *)
+(*AlgebraicIntegrateHeuristic`Private`$algebraicIntegrateDebug=True;*)
+(*{(C[0]+x^6 C[1]+x^4 C[2]+x C[3]+x^2 C[3])/x^3,(1+2 x^6)/x^3,1/(2-u^2),1-2 u^2,((-1+2 x^6) (-2-7 x^6-8 x^12)^(1/3))/(1+2 x^6+4 x^12)}*)
+(*int[((-1+2 x^6) (-2-7 x^6-8 x^12)^(1/3))/(1+2 x^6+4 x^12),x]*)
+
+
+(* ::Input:: *)
+(*int[(x (2-x^3+x^8)^(1/3) (-6+5 x^8))/(4+x^6+4 x^8+x^16),x]*)
+
+
+(* ::Input:: *)
+(*int[((x+2 x^3)^(1/3) (-1+x^4))/(x^4 (2-x^2+x^4)),x]*)
+
+
+(* ::Input:: *)
+(*int[((1+x^2) (-x+2 x^3)^(1/3))/(x^2 (1+x^4)),x]*)
+
+
+(* ::Input:: *)
+(*int[((1+2 x^2) (x+2 x^3)^(1/3))/(x^4 (1+2 x^4)),x]*)
 
 
 (* ::Text:: *)
@@ -1150,22 +1230,21 @@ EndPackage[];
 
 
 (* ::Text:: *)
-(*All tests should pass. *)
+(*All tests pass. *)
+
+
+(* ::Input:: *)
+(*AlgebraicIntegrateHeuristic`Private`$algebraicIntegrateDebug=.;*)
 
 
 (* ::Input:: *)
 (*ClearAll[AlgebraicIntegrateHeuristic`Private`testSolveAlgebraicIntegral];*)
+(*AlgebraicIntegrateHeuristic`Private`$Testing=True;*)
 
 
 (* ::Input:: *)
-(*Cases[*)
-(*DownValues[AlgebraicIntegrateHeuristic`Private`testSolveAlgebraicIntegral][[All,-1]], *)
-(*{_, _,Except[{0,0,_}]}]*)
-(*DownValues[AlgebraicIntegrateHeuristic`Private`testSolveAlgebraicIntegral][[All,-1,2]]//Median*)
-
-
-(* ::Input:: *)
-(*AlgebraicIntegrateHeuristic`Private`$algebraicIntegrateDebug=False;*)
+(*Cases[DownValues[AlgebraicIntegrateHeuristic`Private`testSolveAlgebraicIntegral][[All,-1]],{_,_,Except[{0,0,_}]}]*)
+(*Median[DownValues[AlgebraicIntegrateHeuristic`Private`testSolveAlgebraicIntegral][[All,-1,2]]]*)
 
 
 (* ::Input:: *)
@@ -1193,7 +1272,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[((x^4-1) Power[x^4+1, (4)^-1])/x^2,x]*)
+(*int[((x^4-1) (x^4+1)^(1/4))/x^2,x]*)
 
 
 (* ::Input:: *)
@@ -1201,7 +1280,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[1/(x Power[x^4-1, (4)^-1]),x]*)
+(*int[1/(x (x^4-1)^(1/4)),x]*)
 
 
 (* ::Input:: *)
@@ -1221,11 +1300,11 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[1/(x^8 Power[x^4+x^3, (4)^-1]),x]*)
+(*int[1/(x^8 (x^4+x^3)^(1/4)),x]*)
 
 
 (* ::Input:: *)
-(*int[1/(x^4 Power[x^4+x^3, (4)^-1]),x]*)
+(*int[1/(x^4 (x^4+x^3)^(1/4)),x]*)
 
 
 (* ::Input:: *)
@@ -1305,7 +1384,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[(x^2+1)/((x^2+x-1) Power[x^4-x^2, (3)^-1]),x]*)
+(*int[(x^2+1)/((x^2+x-1) (x^4-x^2)^(1/3)),x]*)
 
 
 (* ::Input:: *)
@@ -2110,3 +2189,15 @@ EndPackage[];
 
 (* ::Input:: *)
 (*int[(Sqrt[x^6-2] (x^6+1) (x^6+x^2-2))/(x^4 (x^6-2 x^2-2)),x]*)
+
+
+(* ::Text:: *)
+(*Ref for the two integrals below: https://groups.google.com/forum/#!searchin/sci.math.symbolic/goursat|sort:date/sci.math.symbolic/MZDg-nE7nh8/TMNS35PGTpEJ*)
+
+
+(* ::Input:: *)
+(*int[(k x^2-1)/((a k x+b) (b x+a) Sqrt[x (1-x) (1-k x)])/.{a->5,b->6,k->7},x]*)
+
+
+(* ::Input:: *)
+(*int[(k x^2-1)/((a k x+b) (b x+a) Sqrt[(1-x^2) (1-k^2 x^2)]) /. {a->3,b->5,k->2},x]*)
