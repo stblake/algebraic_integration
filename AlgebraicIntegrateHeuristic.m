@@ -41,10 +41,10 @@ debugPrint[e__] /; TrueQ[$algebraicIntegrateDebug] := Print @ Style[Row @ {e} /.
 
 
 (* ::Subsection::Closed:: *)
-(*singleEllipticRadical*)
+(*singleEllipticRadicalQ*)
 
 
-singleEllipticRadical[e_, x_] := 
+singleEllipticRadicalQ[e_, x_] := 
 	Length[Union[Cases[e, Power[p_, r_Rational] /; (! FreeQ[p, x] && PolynomialQ[p, x]), {0, Infinity}]]] === 1 && 
 	Length[Union[
 		Cases[e, Power[p_, r_Rational] /; PolynomialQ[p, x] && Exponent[p, x] > 2 :> {p, Abs[r]}, {0, Infinity}], 
@@ -52,19 +52,27 @@ singleEllipticRadical[e_, x_] :=
 
 
 (* ::Input:: *)
-(*singleEllipticRadical[Sqrt[-1+x^3],x]*)
+(*singleEllipticRadicalQ[Sqrt[-1+x^3],x]*)
 
 
 (* ::Input:: *)
-(*singleEllipticRadical[Sqrt[x]/Sqrt[-1+x^3],x]*)
+(*singleEllipticRadicalQ[Sqrt[x]/Sqrt[-1+x^3],x]*)
 
 
 (* ::Input:: *)
-(*singleEllipticRadical[((2+x^3)+Sqrt[(-1+x) (1+x+x^2)])/(x^2 (-2-4 x^2+2 x^3)Sqrt[-1+x^3]),x]*)
+(*singleEllipticRadicalQ[((2+x^3)+Sqrt[(-1+x) (1+x+x^2)])/(x^2 (-2-4 x^2+2 x^3)Sqrt[-1+x^3]),x]*)
 
 
 (* ::Input:: *)
-(*singleEllipticRadical[x/Sqrt[-(-11+8 Sqrt[3]+2 Sqrt[3] x-x^2) (11+8 Sqrt[3]+2 Sqrt[3] x+x^2)],x]*)
+(*singleEllipticRadicalQ[x/Sqrt[-(-11+8 Sqrt[3]+2 Sqrt[3] x-x^2) (11+8 Sqrt[3]+2 Sqrt[3] x+x^2)],x]*)
+
+
+(* ::Subsection::Closed:: *)
+(*singleRadicalQ*)
+
+
+singleRadicalQ[e_, x_] := 
+	Length[Union[Cases[e, Power[p_, r_Rational] /; (! FreeQ[p, x] && PolynomialQ[p, x]), {0, Infinity}]]] === 1
 
 
 (* ::Subsection::Closed:: *)
@@ -308,20 +316,25 @@ polynomialsUndetermined3[x_Symbol] :=
 maxDenominatorPower = 4;
 
 
+$Testing = True;
+
+
 Clear[solveAlgebraicIntegral];
 
 Options[solveAlgebraicIntegral] = {"Verify" -> True};
 
 solveAlgebraicIntegral[integrand_, x_, OptionsPattern[]] := Catch @ Module[
-	{k = 0, y = Symbol["y"], u = Symbol["u"], radicands, pSqCan, solution, rationalPart, 
+	{start, k = 0, y = Symbol["y"], u = Symbol["u"], radicands, pSqCan, solution, rationalPart, 
 	integrandNumerator, integrandDenominator, p, r, y2radical, matched, radicandMatchRules, 
 	rationalMatchRules, rationalFormU, integrandU, intU, intX, unintegratedPart, integratedPart,
 	cancellingCoefficient, cancellingTerm, uform, radicandNumeratorU, radicandU,
 	radicandDenominatorU, usubstitutionParam, radicandNumeratorUParam, radicandDenominatorUParam},
   
+	If[$Testing, start = AbsoluteTime[]];
+
 	(* Single radical? *)
 
-	If[! algebraicQ[integrand, x] || ! singleEllipticRadical[integrand, x], 
+	If[! algebraicQ[integrand, x] || ! singleRadicalQ[integrand, x], 
 		Return[{integrand, 0, 0}]];
   
 	(* Rewrite the integrand in the form r(x)+(q[x]/h[x]) y^r, where 
@@ -345,7 +358,7 @@ solveAlgebraicIntegral[integrand_, x_, OptionsPattern[]] := Catch @ Module[
 	];
 
 	(* Possible radicands in u. *)
-	If[Numerator[r] === 2,
+	If[Numerator[r] === 2 && Exponent[p, x] > 2,
 		radicands = {A[1] # + A[0] &, A[2] #^2 + A[0] &, A[2] #^2 + A[1] # + A[0] &},
 		radicands = {A[1] # + A[0] &}
 	];
@@ -428,6 +441,14 @@ solveAlgebraicIntegral[integrand_, x_, OptionsPattern[]] := Catch @ Module[
 									integratedPart = intX;
 									unintegratedPart = 0;
 									uform = RationalSubstitution = usubstitutionParam; (* Keep the u-substitution. *)
+									
+									If[$Testing // TrueQ,
+										testSolveAlgebraicIntegral[integrand // Hash] = {
+											integrand, 
+											AbsoluteTime[] - start, 
+											{rationalPart, unintegratedPart, integratedPart}}
+									];
+
 									(* Throw[{rationalPart, unintegratedPart, integratedPart, {k, u == uform, integrandU}}]; *)
 									Throw[{rationalPart, unintegratedPart, integratedPart}],
 									(* else *)
@@ -444,6 +465,10 @@ solveAlgebraicIntegral[integrand_, x_, OptionsPattern[]] := Catch @ Module[
 	{usubstitution, polynomialsUndetermined[x]}];
 
 	debugPrint[k];
+	
+	If[$Testing,
+		testSolveAlgebraicIntegral[integrand // Hash] = {integrand, AbsoluteTime[] - start, {rationalPart, unintegratedPart, integratedPart}}
+	];
 
 	{rationalPart, unintegratedPart, integratedPart}
 ]
@@ -466,23 +491,27 @@ maxIntegrandDegree = 8;
 Clear[solveRational];
 
 solveRational[num_, den_, p_, r_, usubstitution_, radicandDenominator_, x_, u_] := Catch @ Module[
-	{degreeBound, du, ddu, ratU, ratX, radrat, ratSolution, parameterisedFormU},
+	{degreeBound, ddu, du, ratU, ratX, radrat, ratSolution, parameterisedFormU},
 
 	radrat = PowerExpand[radicandDenominator^(-1/r)]; (* Radical contribution to the rational part of the integrand. *)
 	ddu = Together[D[usubstitution, x]];
 
-	degreeBound = Max[Exponent[num, x], Exponent[den, x]] + 
-		Max[Exponent[Numerator @ usubstitution, x], Exponent[Denominator @ usubstitution, x]] + 
-		Max[Exponent[Numerator @ ddu, x], Exponent[Denominator @ ddu, x]];
+	degreeBound = Max[
+				Exponent[Numerator[Together[ddu radrat]], x], 
+				Exponent[Denominator[Together[ddu radrat]], x], 
+				Exponent[num, x], 
+				Exponent[den, x]
+			];
+
 	debugPrint["degree bound on the rational part is ", degreeBound];
 	degreeBound = Min[degreeBound, maxIntegrandDegree];
-
+	
 	Do[
 		ratU = rationalUndetermined[u, maxDegree];
 		debugPrint[{ratU, Together[ratU /. u -> usubstitution], radrat, usubstitution, ddu}];
 		ratX = Cancel @ Together[ ratU du radrat /. {u -> usubstitution, du -> ddu} ];
 
-		debugPrint[num/den == ratX];	
+		debugPrint[num/den == ratX];
 
 		ratSolution = SolveAlways[Collect[Expand[num Denominator[ratX] - Numerator[ratX] den], x] == 0, x];
 
@@ -556,6 +585,9 @@ Clear[rationalUndetermined];
 
 rationalUndetermined[x_Symbol, max_Integer] := 
 (Sum[V[k] x^k, {k, 0, max}]/Sum[V[max + k + 1] x^k, {k, 0, max}])
+
+rationalUndetermined[x_Symbol, degN_Integer, degD_Integer] := 
+(Sum[V[k] x^k, {k, 0, degN}]/Sum[V[degN + k + 1] x^k, {k, 0, degD}])
 
 
 (* ::Subsection::Closed:: *)
@@ -940,7 +972,7 @@ EndPackage[];
 (*int[((3+x^4) Sqrt[x-x^5])/(1-2 x^4-x^6+x^8),x]*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*wish list*)
 
 
@@ -974,23 +1006,19 @@ EndPackage[];
 
 
 (* ::Subsection::Closed:: *)
-(*assumptions*)
-
-
-(* ::Text:: *)
-(*We now have a solution for all x. (used to require Assuming[x > 0, int[(1+x^6)/((1-x^6) Sqrt[x+x^2+x^3]),x]])*)
-
-
-(* ::Input:: *)
-(*int[(1+x^6)/((1-x^6) Sqrt[x+x^2+x^3]),x]*)
-
-
-(* ::Subsection::Closed:: *)
 (*previously bugs or edge cases*)
 
 
 (* ::Input:: *)
 (*AlgebraicIntegrateHeuristic`Private`$algebraicIntegrateDebug=True;*)
+
+
+(* ::Input:: *)
+(*int[1/(x^3+x^2)^(1/3),x]*)
+
+
+(* ::Input:: *)
+(*int[(x^3+x^2)^(1/3),x]*)
 
 
 (* ::Input:: *)
@@ -1122,11 +1150,34 @@ EndPackage[];
 
 
 (* ::Text:: *)
-(*All tests pass. *)
+(*All tests should pass. *)
+
+
+(* ::Input:: *)
+(*ClearAll[AlgebraicIntegrateHeuristic`Private`testSolveAlgebraicIntegral];*)
+
+
+(* ::Input:: *)
+(*Cases[*)
+(*DownValues[AlgebraicIntegrateHeuristic`Private`testSolveAlgebraicIntegral][[All,-1]], *)
+(*{_, _,Except[{0,0,_}]}]*)
+(*DownValues[AlgebraicIntegrateHeuristic`Private`testSolveAlgebraicIntegral][[All,-1,2]]//Median*)
 
 
 (* ::Input:: *)
 (*AlgebraicIntegrateHeuristic`Private`$algebraicIntegrateDebug=False;*)
+
+
+(* ::Input:: *)
+(*int[((1+x+x^2) (2 x+x^2) Sqrt[1+2 x+x^2-x^4])/(1+x)^4,x]*)
+
+
+(* ::Input:: *)
+(*int[(1+x^6)/((1-x^6) Sqrt[x+x^2+x^3]),x]*)
+
+
+(* ::Input:: *)
+(*int[(x^2+1)/((x^2-1) (2 x^2+1)^(3/2)),x]*)
 
 
 (* ::Input:: *)
