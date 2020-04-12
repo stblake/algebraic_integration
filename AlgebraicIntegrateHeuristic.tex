@@ -39,7 +39,7 @@ lscape,pdfpages,comment}
 
 \theoremstyle{definition}
 \newtheorem{example}{Example}[section]
-
+\newtheorem{definition}{Definition}
 
 \usepackage{etoolbox}
 \makeatletter
@@ -65,7 +65,7 @@ lscape,pdfpages,comment}
 We introduce a method for computing some pseudo-elliptic integrals in terms of elementary 
 functions. The method is simple and fast in comparison to the algebraic case of the 
 Risch-Trager-Bronstein algorithm\cite{Risch1969}\cite{Trager1984}\cite{Bronstein1990}. 
-This method can quickly solve many pseudo-elliptic integrals which other well-known 
+This method can quickly solve many pseudo-elliptic integrals, which other well-known 
 computer algebra systems (CAS) either fail, return an answer in terms of special functions, 
 or require more than 20 seconds of computing time. Unlike the symbolic integration algorithms 
 of Risch\cite{Risch1969}, Davenport\cite{Davenport1979}, Trager\cite{Trager1984}, Bronstein\cite{Bronstein1990} 
@@ -89,14 +89,16 @@ fail, are incomplete or hang\cite{fricas_risch_status}. \\
 %\todo{An excellent introduction to the Risch algorithm, and in particular the transcendental 
 %case of the Risch algorithm can be found in Geddes\cite{Geddes1992}}\\
 
-We will be describing a seemingly new method for computing pseudo-elliptic integrals. A 
-pseudo-elliptic integral is of the form 
+We will be describing a seemingly new method for computing pseudo-elliptic integrals. 
+\begin{definition}
+For our purposes, a pseudo-elliptic integral is of the form 
 $$\int \frac{a(x)}{b(x)}p(x)^{n/m}dx,$$
-where $a(x),b(x),p(x)$ are polynomials, $\deg_x(p(x))>2$, $\gcd(n,m)=1.$ \\ 
+where $a(x),b(x),p(x)$ are polynomials, $\deg_x(p(x))>2$, $\gcd(n,m)=1.$
+\end{definition} 
 
 Before we describe our method, we begin with some background and motivating examples. \\
 
-The \textit{derivative divides} method is a substitution method which finds all composite 
+The \textit{derivative divides} method is a substitution method that finds all composite 
 functions, $u=g(x)$, of the integrand $f(x)$, and tests if $f(x)$ divided by the derivative of 
 $u$ is independent of $x$ after the substitution of $u=g(x)$. In other words, up to a constant
 factor the derivative divides method simplifies integrals of the form $\int f(g(x))g'(x)dx$ to 
@@ -127,8 +129,8 @@ included $$\int R(x) \exp(p(x)) dx,$$ where $R(x)$ is a rational function of $x$
 is a polynomial in $x$\cite[pp. 85]{Moses1967}. Shortly after, these methods were 
 phased-out with the work of Risch. However in most CAS the algebraic case of the Risch 
 algorithm is either partially implemented, not implemented, or contains computational 
-bottlenecks which result in long computations. So for algebraic functions a domain-specific 
-approach may still have some merit. 
+bottlenecks that result in long computations. So for algebraic functions a domain-specific 
+approach still has merit. 
 
 \section{A canonical form for algebraic functions}
 We require that the integrand is of the form $\frac{p(x)}{q(x)}r(x)^{n/m}$, where 
@@ -146,8 +148,8 @@ Following on from our example integral $\int \frac{x^2-1}{\left(x^2+1\right)\sqr
 where making the substitution $u=x+1/x$ resulted in the integral $\int \frac{du}{u\sqrt{u^2-2}}$. 
 We would like to generalise this method, however the difficulty was in the choice of the algebraic 
 manipulation to the form 
-$\int\frac{1-1\left/x^2\right.}{(x+1/x)\sqrt{(x+1/x)^2-2}} \, dx$ in order to discover the rational 
-substitution which simplifies the integral. Consequently our approach does not directly rely 
+$\int\frac{1-1\left/x^2\right.}{(x+1/x)\sqrt{(x+1/x)^2-2}} \, dx$ in order to discover a rational 
+substitution, which simplifies the integral. Consequently our approach does not directly rely 
 on such an algebraic manipulation of the integrand. \\
 
 Our method attempts to parameterise constants $a_0, a_1, a_2$, polynomials $a(u), b(u)$ and a 
@@ -155,7 +157,7 @@ substitution of the form
 $$u = \frac{s(x)}{x^k}$$ 
 such that
 \begin{equation}
-\int \frac{p(x)}{q(x)}r(x)^{n/m}dx = \int \frac{a(u)}{b(u)}\left(a_2u^2+a_1u+a_0\right){}^{n/m}du,\label{reduction}
+\int \frac{p(x)}{q(x)}r(x)^{n/m}dx = \int \frac{a(u)}{b(u)}\left(a_2u^2+a_1u+a_0\right)^{n/m}du,\label{reduction}
 \end{equation}
 where $\deg_x(r(x))>2$ and $\gcd (n,m)=1$. Consequently, our method does not directly compute the 
 integral, and requires a recursive call to an algebraic integrator\footnote{If such an integrator is not 
@@ -199,7 +201,7 @@ which is given by
 \begin{equation}
 \frac{p(x)}{q(x)} = \frac{a(u)}{b(u)}\frac{u'(x)}{\text{den}\left(a_2u^2+a_1u+a_0\right)^{n/m}}, \label{reduction_rational}
 \end{equation}
-where $a_0$, $a_1$, $a_2$, $u(x)$ are known and $a(u)$, $b(u)$ are unknown. The degree bound estimate of  
+where $a_0$, $a_1$, $a_2$, $u(x)$ are known and $a(u)$, $b(u)$ are unknown. The degree bound estimate  
 of $a(u)$ and $b(u)$ is given by $\mathcal{D} = \deg_x(u(x)) + \deg_x(u'(x)) + \max\left( \deg_x(p(x)), \deg_x(q(x)) \right)$. We solve 
 (\ref{reduction_rational}) by increasing the degree, $d$, of $a(u)$ and $b(u)$ from 1 to the degree 
 bound, $\mathcal{D}$, where for each iteration we solve
@@ -249,7 +251,7 @@ where $\text{den}\left(u^2-2\right)^{-1/2}=1\left/x^2\right.$.
 After replacing $u$ with $-\left(x^4+1\right)/x^2$ and $u'(x)$ with $2\left(1 - x^4\right)/x^3$, we have
 $$\frac{x^8-1}{x^3}
 =\frac{2\left(1 - x^4\right) \left(u^2 v_2+u v_1+v_0\right)}{x^5 \left(u^2 v_5+u v_4+v_3\right)}
-=\frac{2\left(1 - x^4\right) \left(v_2x^8-v_1 x^6+v_0 x^4+2 v_2 x^4-v_1 x^2+v_2\right)}{x^5 \left(v_5 x^8-v_4 x^6+v_3 x^4+2 v_5 x^4-v_4 x^2+v_5\right)}$$
+=\frac{2\left(1 - x^4\right) \left(v_2x^8-v_1 x^6+v_0 x^4+2 v_2 x^4-v_1 x^2+v_2\right)}{x^5 \left(v_5 x^8-v_4 x^6+v_3 x^4+2 v_5 x^4-v_4 x^2+v_5\right)},$$
 which after clearing denominators is a polynomial equation in $x$, given by
 \begin{multline*}
 2 v_2 x^{23}+\left(v_5-2 v_1\right) x^{21}+\left(2 v_0+2 v_2-v_4\right) x^{19}+\left(v_3+2 v_5\right) x^{17}+\left(-2 v_0-v_4\right) x^{15}+\\
@@ -267,7 +269,7 @@ coefficients of powers of $x$ yields the system of equations
  v_3+2 v_5&=0 \\
  2 v_0+2 v_2-v_4&=0 \\
  v_5-2 v_1&=0 \\
- 2 v_2&=0
+ 2 v_2&=0,
 \end{align*}
 which has the solution $v_0=0, v_2=0, v_3=-4 v_1, v_4=0, v_5=2 v_1$. Thus, the rational part 
 of the integral is
@@ -295,7 +297,7 @@ Then, equating coefficients of powers of $x$ yields the system of equations
  a_1 c_0 &= 0\\
  2 a_2 c_0 c_1+a_0 &= 0\\
  a_1 c_1 &= 0\\
- a_2 c_1^2 &= 1
+ a_2 c_1^2 &= 1,
 \end{align*}
 which has the solution $c_0=-1,c_1=1,a_0=2,a_1=0,a_2=1$. Thus, the radicand part of the 
 integral is $u^2+2$, where $u=\left(x^8-1\right)/x^4$. \\
@@ -310,7 +312,7 @@ where $\text{den}\left(u^2+2\right)^{-1/2}=1\left/x^4\right.$. After replacing $
 $\left(x^8-1\right)/x^4$ and $u'(x) = \left(4 \left(1+x^8\right)\right)/x^5$, we have
 $$\frac{\left(x^8+1\right) \left(x^8+x^4-1\right)}{x^9 \left(x^8-1\right)} = 
 \frac{4 \left(x^8+1\right) \left(u v_1+v_0\right)}{x^9 \left(u v_3+v_2\right)} = 
-\frac{4\left(x^8+1\right) \left(v_1 x^8+v_0 x^4-v_1\right)}{x^9 \left(v_3 x^8+v_2 x^4-v_3\right)}$$
+\frac{4\left(x^8+1\right) \left(v_1 x^8+v_0 x^4-v_1\right)}{x^9 \left(v_3 x^8+v_2 x^4-v_3\right)},$$
 which after clearing denominators is a polynomial equation in $x$, given by
 \begin{multline*}
 \left(v_3-4 v_1\right) x^{33}+\left(-4 v_0+v_2+v_3\right) x^{29}+\left(4 v_1+v_2-v_3\right) x^{25}+\\
@@ -324,7 +326,7 @@ powers of $x$ yields the system of equations
  4 v_1+v_2-v_3&=0 \\
  4 v_1+v_2-v_3&=0 \\
  -4 v_0+v_2+v_3&=0 \\
- v_3-4 v_1&=0
+ v_3-4 v_1&=0,
 \end{align*}
 which has the solution $v_0=v_1,v_2=0,v_3=4v_1$. Thus, the rational part of the integral is
 $$\frac{u+1}{4u}$$
@@ -361,15 +363,15 @@ Then, equating coefficients of powers of $x$ yields the system of equations
  2 a_2 c_0 c_1 &= 1\\
  a_0 &= 0\\
  a_1 c_1 &= 0\\
- a_2 c_1^2 &= 0
+ a_2 c_1^2 &= 0,
 \end{align*}
-Which has no solution, so we use a linear radicand in $u$ as follows 
+which has no solution, so we use a linear radicand in $u$ as follows 
 $$x^3-x^2+1 = \text{num}\left( a_1u + a_0 \right) = a_1 c_1 x^3 + a_0 x^2 + a_1 c_0.$$
 Again, we equate coefficients of powers of $x$ and we have the system of equations
 \begin{align*}
  a_1 c_0 &= 1\\
  a_0 &= -1\\
- a_1 c_1 &= 1
+ a_1 c_1 &= 1,
 \end{align*}
 which has the solution $a_0 = -1, a_1 = 1, c_0 = 1, c_1 = 1$. Thus, the radicand part of the 
 integral is $u-1$, where $u=\left(1+x^3\right)/x^2$. \\
@@ -391,7 +393,7 @@ which after clearing denominators is a polynomial equation in $x$, given by
 -v_2 x^{15}-v_1 x^{14}+\left(v_5-v_0\right) x^{13}+\left(v_4-2 v_2\right) x^{12}
 +\left(v_3-v_1\right) x^{11}+\left(2 v_2-v_4\right) x^9+ \\
 \left(3v_1-2 v_3\right) x^8+\left(3 v_0-3 v_5\right) x^7+
-\left(8 v_2-2 v_4\right) x^6+5 v_1 x^5+\left(2 v_0-2 v_5\right) x^4+7 v_2 x^3+2 v_1 x^2+2 v_2=0
+\left(8 v_2-2 v_4\right) x^6+5 v_1 x^5+\left(2 v_0-2 v_5\right) x^4+7 v_2 x^3+2 v_1 x^2+2 v_2=0,
 \end{multline*}
 which we solve for the undetermined coefficients $v_0,v_1,v_2,v_3,v_4,v_5$. Then equating coefficients of powers of $x$ yields the system of equations
 
@@ -409,7 +411,7 @@ which we solve for the undetermined coefficients $v_0,v_1,v_2,v_3,v_4,v_5$. Then
  -2 v_2+v_4&=0 \\
  -v_0+v_5&=0 \\
  -v_1&=0 \\
- -v_2&=0
+ -v_2&=0,
 \end{align*}
 
 which has the solution $v_0=v_5,v_1=0,v_2=0,v_3=0,v_4=0$. Thus, the rational part of the integral is
@@ -435,6 +437,20 @@ $$\int\frac{\left(x^2-1\right)\sqrt{x^4+x^2+1}}{\left(x^2+1\right)\left(x^4+x^3+
 \end{example}
 \fi
 
+\section{Generalisations of the method}
+
+This method can be generalised to include reductions of the form  
+
+\begin{equation}
+\int \frac{p(x)}{q(x)}r(x)^{n/m}dx = \int \frac{a(u)}{b(u)}\left(a_2u^{2k}+a_1u^k+a_0\right)^{n/m}du
+\end{equation}
+
+and 
+
+\begin{equation}
+\int \frac{p(x)}{q(x)}r(x)^{n/m}dx = \int \frac{a(u)}{b(u)}\left(a_1u^k+a_0\right)^{n/m}du.
+\end{equation}
+
 \section{A comparison with major CAS and algebraic integration packages}
 
 We will compare our method with the Mathematica (12.1.0), Maple (2018.1), REDUCE (5286, 1-Mar-20), 
@@ -453,7 +469,7 @@ radicals in the integrand are converted to the Maple \texttt{RootOf} notation.\\
 
 Within REDUCE we have used the algint package by James Davenport\cite{Davenport1979}. \\
 
-Our test suite is 190 integrals which can be found on github\cite{test_suite_github}. 
+Our test suite is 190 integrals that can be found on github\cite{test_suite_github}. 
 All the integrals in the suite have a solution in terms of elementary functions. \\
 
 We will show the results from all the systems and packages for one integral from the test 
@@ -568,14 +584,14 @@ expression size is the leaf count(\texttt{LeafCount}) in Mathematica.
 }
 \end{table}
 
-In regards to this table: The median time excludes integrals which timed-out. For 
+In regards to this table: The median time excludes integrals that timed-out. For 
 FriCAS and REDUCE we did not find a built-in routine to compute the leaf count. \\
 
 Mathematica is far more comfortable in returning an answer in terms of elliptic 
 functions, but these results are far from concise. Computing the integral in 
 terms of elliptic functions takes considerable time. \\
 
-Maple fairs much better when it uses the algebraic case of the Risch-Trager-Bronstein 
+Maple fares much better when it uses the algebraic case of the Risch-Trager-Bronstein 
 algorithm. When the integrand is converted to \texttt{RootOf} notation in Maple, 
 the time required increases significantly, however the results improve significantly. 
 We are then left wondering why Maple does not make this conversion internally if 
