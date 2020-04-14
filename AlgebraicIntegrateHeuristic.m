@@ -278,8 +278,10 @@ tableSize = reasonableSize;
 Clear[polynomialsUndetermined];
 
 polynomialsUndetermined[x_Symbol] := polynomialsUndetermined[x] = 
-	Join[polynomialsUndetermined0[x], polynomialsUndetermined1[x], 
-	polynomialsUndetermined2[x], polynomialsUndetermined3[x]]
+	SortBy[
+		Join[polynomialsUndetermined0[x], polynomialsUndetermined1[x], 
+		polynomialsUndetermined2[x] (* , polynomialsUndetermined3[x] *)],
+		Exponent[#, x]&]
 
 polynomialsUndetermined0[x_Symbol] := 
 	Flatten @ Table[C[0] + C[1] x^n, {n, tableSize}];
@@ -323,7 +325,7 @@ Clear[solveAlgebraicIntegral];
 
 Options[solveAlgebraicIntegral] = {"Verify" -> True};
 
-solveAlgebraicIntegral[integrand_, x_, OptionsPattern[]] := Catch @ Module[
+solveAlgebraicIntegral[integrand_, x_, OptionsPattern[]] := Module[
 	{start, k = 0, y = Symbol["y"], u = Symbol["u"], radicands, pSqCan, solution, rationalPart, 
 	integrandNumerator, integrandDenominator, p, r, y2radical, matched, radicandMatchRules, 
 	rationalMatchRules, rationalFormU, integrandU, intU, intX, unintegratedPart, integratedPart,
@@ -364,12 +366,21 @@ solveAlgebraicIntegral[integrand_, x_, OptionsPattern[]] := Catch @ Module[
 	];
 
 	(* Loop over substitution numerators. *)
+	Catch @ 
 	Do[
 		++k;
 		(* Radicands of the form uForm, uForm^2 + b, uForm^2 + b uForm + c. *)
 		Do[
 			(* Loop over radicand denominators 1, x, x^2, ... *)
 			Do[
+				(* All further candidate substitutions will not match (as the 
+					substitution numerators are sorted by degree). *)
+				 If[Exponent[usubstitution, x] > Exponent[p, x],
+					Throw[{}]];
+
+				(* Check the degrees agree.  *)
+				If[Exponent[radicand[usubstitution], x] =!= Exponent[p, x],
+					Continue[]];
 
 				(* Form the substitution. *)
 				uform = usubstitution/x^denP;
@@ -380,8 +391,6 @@ solveAlgebraicIntegral[integrand_, x_, OptionsPattern[]] := Catch @ Module[
 				(* Check the denominator can be removed from the radical. *)
 				If[Mod[Exponent[radicandDenominatorU, x], Numerator[r]] != 0, 
 					Continue[]];
-
-		(* Print[osolveRadicand[p, radicandNumeratorU, x] /. A[k_] \[RuleDelayed] Symbol["A"][k]]; *)
 
 				(* Find solution to the numerator of the radical part. *)
 				{matched, radicandMatchRules} = solveRadicand[p, radicandNumeratorU, x];
@@ -443,17 +452,7 @@ solveAlgebraicIntegral[integrand_, x_, OptionsPattern[]] := Catch @ Module[
 									integratedPart = intX;
 									unintegratedPart = 0;
 									uform = RationalSubstitution = usubstitutionParam; (* Keep the u-substitution. *)
-
-									If[$Testing // TrueQ,
-										testSolveAlgebraicIntegral[integrand // Hash] = {
-											integrand, 
-											AbsoluteTime[] - start,
-											uform, 
-											{rationalPart, unintegratedPart, integratedPart}}
-									];
-
-									(* Throw[{rationalPart, unintegratedPart, integratedPart, {k, u == uform, integrandU}}]; *)
-									Throw[{rationalPart, unintegratedPart, integratedPart}],
+									Throw[{}],
 									(* else *)
 									debugPrint["we got something wrong!"];
 								],
@@ -537,15 +536,6 @@ solveRational[num_, den_, p_, r_, usubstitution_, radicandDenominator_, x_, u_] 
 
 
 solveRadicand[poly_, form_, x_] := Module[{rules},
-	(* Exponent[poly, x] === Exponent[form, x] *)
-	(* DeleteCases[CoefficientRules[poly, x]\[LeftDoubleBracket]All,1\[RightDoubleBracket], {0}] === DeleteCases[CoefficientRules[form, x]\[LeftDoubleBracket]All,1\[RightDoubleBracket], {0}] *)
-(*
-	If[Exponent[poly, x] === Exponent[form, x],
-		rules = SolveAlways[poly == form, x];
-		{! MatchQ[rules, {} | _SolveAlways], rules},
-		{False, {}}
-	]
-*)
 	rules = SolveAlways[poly == form, x];
 	{! MatchQ[rules, {} | _SolveAlways], rules}
 ]
@@ -645,6 +635,7 @@ postProcess[e_] := Module[{rootSum, function, simp, permutations, numerics},
 	simp = simp /. ArcTan[a_] /; nicerQ[Numerator[a], Denominator[a]] :> -ArcTan[Denominator[a]/Numerator[a]];
 
 	(* This can often result in a simplification as denominators of sums of logs often cancel. *)
+	simp = simp /. (h:Log|ArcTan)[arg_] :> h[Cancel @ Together @ arg];
 	simp = simp /. c_. Log[ex_] /; Denominator[ex] =!= 1 :> c Log[Numerator[ex]] - c Log[Denominator[ex]];
 
 	(* Just for display purposes, as we often require multiple lines to display result. *)
@@ -656,7 +647,7 @@ postProcess[e_] := Module[{rootSum, function, simp, permutations, numerics},
 		simp -= Total[numerics];
 	];
 
-	simp = simp /. (h:Log|ArcTan)[arg_] :> h[Cancel @ Together @ arg];
+	simp = simp /. (h:Log|ArcTan)[arg_] :> h[Cancel @ Together @ arg]; (* Yes, we have to do this twice. *)
 
 	simp /. {rootSum -> RootSum, function -> Function}
 ]
@@ -896,7 +887,7 @@ EndPackage[];
 
 (* ::Input:: *)
 (*AlgebraicIntegrateHeuristic`Private`$algebraicIntegrateDebug=.;*)
-(*int = solveAlgebraicIntegral;*)
+(*int=solveAlgebraicIntegral;*)
 
 
 (* ::Text:: *)
@@ -1017,12 +1008,12 @@ EndPackage[];
 (*int[(1+x^2)/((1-x^2) Sqrt[1-x^4-x^8]),x]*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*previously bugs or edge cases*)
 
 
 (* ::Input:: *)
-(*AlgebraicIntegrateHeuristic`Private`$algebraicIntegrateDebug=True;*)
+(*AlgebraicIntegrateHeuristic`Private`$algebraicIntegrateDebug=.;*)
 
 
 (* ::Input:: *)
@@ -1181,7 +1172,7 @@ EndPackage[];
 (*int[((-2+3 x^5) Sqrt[1+x^5])/(1+x^4+2 x^5+x^10),x]*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*regression testing*)
 
 
@@ -1201,6 +1192,10 @@ EndPackage[];
 (* ::Input:: *)
 (*Cases[DownValues[AlgebraicIntegrateHeuristic`Private`testSolveAlgebraicIntegral][[All,-1]],{_,_,Except[{0,0,_}]}]*)
 (*Median[DownValues[AlgebraicIntegrateHeuristic`Private`testSolveAlgebraicIntegral][[All,-1,2]]]*)
+
+
+(* ::Text:: *)
+(*13-Apr-20 -- 0.42 seconds*)
 
 
 (* ::Input:: *)
