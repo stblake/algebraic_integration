@@ -81,8 +81,12 @@ singleRadicalQ[e_, x_] :=
 
 algebraicQ[e_, x_Symbol] := Complement[
 Cases[e, s_Symbol /; (Context[s] === "System`" && !NumericQ[s]), {-1}, Heads -> True],
-{Plus, Times, Power, x}] === {} && 
+{Plus, Times, Power, C, x}] === {} && 
 Cases[e, Power[p_, q_] /; (! FreeQ[p,x] && ! MatchQ[Head[q], Integer|Rational]), {0, Infinity}] === {}
+
+
+(* ::Input:: *)
+(*algebraicQ[1/(C[0] x^3+C[1])^(1/3),x]*)
 
 
 (* ::Input:: *)
@@ -169,6 +173,10 @@ normalise[e_, {x_, y_}] := Module[
 
 	{algNum, denY, {p, r}, y -> radical, nonAlgPart}
 ]
+
+
+(* ::Input:: *)
+(*normalise[1/(x^3 C[0]+C[1])^(1/3),{x,y}]*)
 
 
 (* ::Input:: *)
@@ -331,7 +339,7 @@ Options[solveAlgebraicIntegral] = {
 	"MaxRationalDegree" -> 8,
 	"MaxNumeratorDegree" -> 8,
 	"MaxDenominatorDegree" -> 4
-};
+}; 
 
 solveAlgebraicIntegral[integrand_, x_, OptionsPattern[]] := Module[
 	{start, k = 0, y = Symbol["y"], u = Symbol["u"], radicands, pSqCan, solution, rationalPart, 
@@ -751,7 +759,7 @@ numericZeroQ[e_, OptionsPattern[]] := Module[{v, ef, lower, upper, step},
 
 elementaryQ[expr_] := Complement[
 	Cases[Level[expr // TrigToExp, {-1}, Heads -> True], s_Symbol /; Context[s] === "System`"] // Union, 
-	{Log, Exp, Plus, Times, Power, RootSum, Root, List, Function, Slot}
+	{Log, Exp, Plus, Times, Power, RootSum, Root, List, Function, Slot, C}
 ] === {}
 
 
@@ -994,7 +1002,7 @@ EndPackage[];
 (*int[((3+x^4) Sqrt[x-x^5])/(1-2 x^4-x^6+x^8),x]*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*wish list*)
 
 
