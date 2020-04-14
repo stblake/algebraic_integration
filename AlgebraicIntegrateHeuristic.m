@@ -668,13 +668,22 @@ postProcess[e_] := Module[{rootSum, function, simp, permutations, numerics},
 	(* Just for display purposes, as we often require multiple lines to display result. *)
 	simp = simp /. c_?NumericQ (p_Plus) :> Distribute[c p];
 
+	(* Another simplification to cancel logarithms. *)
+	simp = simp /. Log[ex_^n_Integer] :> n Log[ex];
+
+	simp = simp /. (h:Log|ArcTan|ArcTanh)[arg_] :> h[Cancel @ Together @ arg]; (* Yes, we have to do this twice. *)
+
+	(* Remove constant multiples in logands. *)
+	simp = simp /. Log[logand_] /; FactorSquareFreeList[logand][[1]] =!= {1,1} :> 
+		Log[ Apply[Times, Power @@@ Rest[FactorSquareFreeList[logand]]] ];
+
+	simp = simp /. Log[ex_^n_Integer] :> n Log[ex]; (* Yes, using this one twice as well. *)
+
 	(* Remove constants. *)
 	If[Head[simp] === Plus, 
 		numerics = Cases[simp, n_ /; NumericQ[n], {1}];
 		simp -= Total[numerics];
 	];
-
-	simp = simp /. (h:Log|ArcTan)[arg_] :> h[Cancel @ Together @ arg]; (* Yes, we have to do this twice. *)
 
 	simp /. {rootSum -> RootSum, function -> Function}
 ]
@@ -759,7 +768,7 @@ numericZeroQ[e_, OptionsPattern[]] := Module[{v, ef, lower, upper, step},
 
 elementaryQ[expr_] := Complement[
 	Cases[Level[expr // TrigToExp, {-1}, Heads -> True], s_Symbol /; Context[s] === "System`"] // Union, 
-	{Log, Exp, Plus, Times, Power, RootSum, Root, List, Function, Slot, C}
+	{Log, Exp, Plus, Times, Power, RootSum, Root, List, Function, Slot, C, Pi, E}
 ] === {}
 
 
@@ -838,6 +847,10 @@ exy = n/a u^(n-1) exy /. {x -> (u^n - b)/a, y -> u};
 
 {exy // Cancel, u -> (a x + b)^(1/n)}
 ]
+
+
+(* ::Input:: *)
+(*linearRadicalToRational[1/(14 (-1+u) (-1+a+u)^(1/14)),u,t]*)
 
 
 (* ::Input:: *)
@@ -951,6 +964,15 @@ EndPackage[];
 
 (* ::Input:: *)
 (*int[((-1+x^8) (-1+x^4)^(1/4))/(x^6 (1+x^8)),x]*)
+
+
+(* ::Text:: *)
+(*Question: Is the following preferable, or the polynomial over a common denominator?*)
+
+
+(* ::Input:: *)
+(*int[1/(x^8 (x^4+x^3)^(1/4)),x]*)
+(*MapAll[Together,%]*)
 
 
 (* ::Subsection::Closed:: *)
@@ -1221,7 +1243,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[x/(1+x^6)^(1/3),x, "MaxDenominatorDegree" -> 6]*)
+(*int[x/(1+x^6)^(1/3),x,"MaxDenominatorDegree"->6]*)
 
 
 (* ::Input:: *)
