@@ -37,7 +37,7 @@ $algebraicIntegrateDebug = False;
 
 
 debugPrint[e__] /; TrueQ[$algebraicIntegrateDebug] := Print @ Style[Row @ {e} /. 
-	{A[l_] :> Symbol["A"][l], V[l_] :> Symbol["V"][l], X[l_] :> Symbol["X"][l]}, Brown]
+	{A[l_] :> Symbol["A"][l], V[l_] :> Symbol["V"][l], B[l_] :> Symbol["B"][l]}, Brown]
 
 
 (* ::Subsection::Closed:: *)
@@ -290,12 +290,12 @@ polynomialsUndetermined[x_Symbol, opts:OptionsPattern[]] :=
 			Exponent[#, x]&]
 
 polynomialsUndetermined0[x_Symbol, maxDegree_Integer] := 
-	Flatten @ Table[C[0] + C[1] x^n, {n, maxDegree}];
+	Flatten @ Table[B[0] + B[1] x^n, {n, maxDegree}];
 
 polynomialsUndetermined1[x_Symbol, maxDegree_Integer] := 
 	Flatten @ Table[
 		If[n > m, 
-			C[0] + C[1] x^n + C[2] x^m, 
+			B[0] + B[1] x^n + B[2] x^m, 
 			Sequence @@ {}
 		], 
 	{n, maxDegree}, {m, maxDegree}];
@@ -303,7 +303,7 @@ polynomialsUndetermined1[x_Symbol, maxDegree_Integer] :=
 polynomialsUndetermined2[x_Symbol, maxDegree_Integer] := 
 	Flatten @ Table[
 		If[n > m > k, 
-			C[0] + C[1] x^n + C[2] x^m + C[3] x^k, 
+			B[0] + B[1] x^n + B[2] x^m + B[3] x^k, 
 			Sequence @@ {}
 		], 
 	{n, maxDegree}, {m, maxDegree}, {k, maxDegree}];
@@ -311,7 +311,7 @@ polynomialsUndetermined2[x_Symbol, maxDegree_Integer] :=
 polynomialsUndetermined3[x_Symbol, maxDegree_Integer] := 
 	Flatten @ Table[
 		If[n > m > k > l, 
-			C[0] + C[1] x^n + C[2] x^m + C[3] x^k + C[3] x^l, 
+			B[0] + B[1] x^n + B[2] x^m + B[3] x^k + B[3] x^l, 
 			Sequence @@ {}
 		], 
 	{n, maxDegree}, {m, maxDegree}, {k, maxDegree}, {l, maxDegree}];
@@ -417,8 +417,8 @@ solveAlgebraicIntegral[integrand_, x_, OptionsPattern[]] := Module[
 						debugPrint["radicand matches ", Style[radicand[u], Darker @ Green], ", ", radicandNumeratorU, radicandMatchRule];
 						
 						(* Parameterise. *)
-						radicandDenominatorUParam = Expand[ radicandDenominatorU /. radicandMatchRule /. {A[1]|A[2]|C[1]|C[2] -> 1, A[0]|C[0] -> 0} ];
-						radicandNumeratorUParam = Expand[ radicandNumeratorU /. radicandMatchRule /. {A[1]|A[2]|C[1]|C[2] -> 1, A[0]|C[0] -> 0} ];
+						radicandDenominatorUParam = Expand[ radicandDenominatorU /. radicandMatchRule /. {A[1]|A[2]|B[1]|B[2] -> 1, A[0]|B[0] -> 0} ];
+						radicandNumeratorUParam = Expand[ radicandNumeratorU /. radicandMatchRule /. {A[1]|A[2]|B[1]|B[2] -> 1, A[0]|B[0] -> 0} ];
 
 						If[! FreeQ[{radicandDenominatorUParam, radicandDenominatorUParam}, C[_]|A[_]], 
 							Continue[]];
@@ -426,10 +426,10 @@ solveAlgebraicIntegral[integrand_, x_, OptionsPattern[]] := Module[
 						debugPrint["radicand numerator = ", radicandNumeratorUParam];
 						debugPrint["radicand denominator = ", radicandDenominatorUParam];
 
-						usubstitutionParam = Together[ uform /. radicandMatchRule /. {A[1]|A[2]|C[1]|C[2] -> 1, A[0]|C[0] -> 0} ];
+						usubstitutionParam = Together[ uform /. radicandMatchRule /. {A[1]|A[2]|B[1]|B[2] -> 1, A[0]|B[0] -> 0} ];
 
-						If[FreeQ[usubstitutionParam, x] || ! FreeQ[usubstitutionParam, C[_]|A[_]] || 
-							! FreeQ[radicandNumeratorUParam, C[_]|A[_]], 
+						If[FreeQ[usubstitutionParam, x] || ! FreeQ[usubstitutionParam, B[_]|A[_]] || 
+							! FreeQ[radicandNumeratorUParam, B[_]|A[_]], 
 								Continue[]];
 
 						debugPrint["u substitution = ", usubstitution, ", ", Style[usubstitutionParam, Red]];
@@ -444,7 +444,7 @@ solveAlgebraicIntegral[integrand_, x_, OptionsPattern[]] := Module[
 							(* We have found a match. *)
 							debugPrint["solution to rational part is ", rationalFormU];
 	
-							integrandU = rationalFormU (radicand[u]^(1/r) /. radicandMatchRule /. {A[1]|A[2]|C[1]|C[2] -> 1, A[0]|C[0] -> 0});
+							integrandU = rationalFormU (radicand[u]^(1/r) /. radicandMatchRule /. {A[1]|A[2]|B[1]|B[2] -> 1, A[0]|B[0] -> 0});
 							debugPrint["calling Integrate on ", integrandU];
 	
 							intU = integrate[integrandU, u];
@@ -509,7 +509,7 @@ ClearAll[solveRational];
 Options[solveRational] = {"MaxRationalDegree" -> 8};
 
 solveRational[num_, den_, p_, r_, usubstitution_, radicandDenominator_, x_, u_, OptionsPattern[]] := Catch @ Module[
-	{degreeBound, du, ddu, ratU, ratX, radrat, ratSolution, parameterisedFormU},
+	{degreeBound, du, ddu, ratU, ratX, radrat, ratSolution, parameterisedFormU, eqn},
 
 	maxRationalDegree = OptionValue["MaxRationalDegree"];
 
@@ -529,7 +529,10 @@ solveRational[num_, den_, p_, r_, usubstitution_, radicandDenominator_, x_, u_, 
 
 		debugPrint[num/den == ratX];	
 
-		ratSolution = SolveAlways[Collect[Expand[num Denominator[ratX] - Numerator[ratX] den], x] == 0, x];
+		(* ratSolution = SolveAlways[Collect[Expand[num Denominator[ratX] - Numerator[ratX] den], x] == 0, x]; *)
+
+		eqn = Collect[Expand[num Denominator[ratX] - Numerator[ratX] den], x] == 0;
+		ratSolution = Quiet[ Solve[! Eliminate[! eqn, {x}], Cases[eqn, (V|A|B)[_], Infinity]], {Solve::"svars"}];
 
 		If[TrueQ[ratSolution =!= {} && ! MatchQ[ratSolution, _SolveAlways] && ! MatchQ[ratSolution, {{(_ -> _?PossibleZeroQ) ..}..}]],
 			ratSolution = ratSolution[[1]];
@@ -550,7 +553,9 @@ solveRational[num_, den_, p_, r_, usubstitution_, radicandDenominator_, x_, u_, 
 
 
 solveRadicand[poly_, form_, x_] := Module[{rules},
-	rules = SolveAlways[poly == form, x];
+	(* rules = SolveAlways[poly == form, x]; *)
+	
+	rules = Quiet[Solve[! Eliminate[!(poly == form), {x}], Cases[form, (A|B)[_], Infinity]], {Solve::"svars"}];
 	{! MatchQ[rules, {} | _SolveAlways], rules}
 ]
 
@@ -905,7 +910,7 @@ EndPackage[];
 
 
 (* ::Text:: *)
-(*Example from paper:*)
+(*Example from paper: *)
 
 
 (* ::Input:: *)
@@ -989,17 +994,8 @@ EndPackage[];
 (*int[((3+x^4) Sqrt[x-x^5])/(1-2 x^4-x^6+x^8),x]*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*wish list*)
-
-
-(* ::Text:: *)
-(*Work out why we can do one but not the other in these two:*)
-
-
-(* ::Input:: *)
-(*int[1/(x (x^6+1)^(1/3)),x]*)
-(*int[x/(x^6+1)^(1/3),x]*)
 
 
 (* ::Input:: *)
@@ -1210,6 +1206,14 @@ EndPackage[];
 
 (* ::Text:: *)
 (*13-Apr-20 -- 0.42 seconds*)
+
+
+(* ::Input:: *)
+(*int[1/(x (x^6+1)^(1/3)),x]*)
+
+
+(* ::Input:: *)
+(*int[x/(1+x^6)^(1/3),x, "MaxDenominatorDegree" -> 6]*)
 
 
 (* ::Input:: *)
