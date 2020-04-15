@@ -285,17 +285,39 @@ tableSize = reasonableSize;
 
 ClearAll[polynomialsUndetermined];
 
-Options[polynomialsUndetermined] = {"MaxNumeratorDegree" -> reasonableSize};
+Options[polynomialsUndetermined] = {
+	"MaxNumeratorDegree" -> reasonableSize, 
+	"TableSize" -> "Small"};
 
 polynomialsUndetermined[x_Symbol, opts:OptionsPattern[]] := 
 	polynomialsUndetermined[x, opts] = 
-		SortBy[
+	Switch[OptionValue["TableSize"],
+		"Small",
+			SortBy[
+				Join[
+					polynomialsUndetermined0[x, OptionValue["MaxNumeratorDegree"]], 
+					polynomialsUndetermined1[x, OptionValue["MaxNumeratorDegree"]]
+				],
+			Exponent[#, x]&],
+		"Medium",
+			SortBy[
 				Join[
 					polynomialsUndetermined0[x, OptionValue["MaxNumeratorDegree"]], 
 					polynomialsUndetermined1[x, OptionValue["MaxNumeratorDegree"]], 
-					polynomialsUndetermined2[x, OptionValue["MaxNumeratorDegree"]](*, 
-					polynomialsUndetermined3[x, OptionValue["MaxNumeratorDegree"]] *)],
+					polynomialsUndetermined2[x, OptionValue["MaxNumeratorDegree"]]
+				],
+			Exponent[#, x]&],
+		"Large",
+			SortBy[
+				Join[
+					polynomialsUndetermined0[x, OptionValue["MaxNumeratorDegree"]], 
+					polynomialsUndetermined1[x, OptionValue["MaxNumeratorDegree"]], 
+					polynomialsUndetermined2[x, OptionValue["MaxNumeratorDegree"]], 
+					polynomialsUndetermined3[x, OptionValue["MaxNumeratorDegree"]]
+				],
 			Exponent[#, x]&]
+	]
+
 
 polynomialsUndetermined0[x_Symbol, maxDegree_Integer] := 
 	Flatten @ Table[B[0] + B[1] x^n, {n, maxDegree}];
@@ -338,7 +360,8 @@ Options[solveAlgebraicIntegral] = {
 	"Verify" -> True, 
 	"MaxRationalDegree" -> 8,
 	"MaxNumeratorDegree" -> 8,
-	"MaxDenominatorDegree" -> 4
+	"MaxDenominatorDegree" -> 4,
+	"TableSize" -> "Small"
 }; 
 
 solveAlgebraicIntegral[integrand_, x_, OptionsPattern[]] := Module[
@@ -461,7 +484,7 @@ solveAlgebraicIntegral[integrand_, x_, OptionsPattern[]] := Module[
 							If[FreeQ[intU, Integrate(* | RootSum | Root *)] && elementaryQ[intU],
 								intX = intU /. u -> usubstitutionParam;
 								debugPrint["integral is ", intX];
-								intX = postProcess[intX];
+								intX = postProcess[intX, x];
 								debugPrint["post processed integral is ", intX];
 								(* Sanity check. *)
 								If[TrueQ[! OptionValue["Verify"]] || TrueQ[(
@@ -485,7 +508,9 @@ solveAlgebraicIntegral[integrand_, x_, OptionsPattern[]] := Module[
 				],
 			{denP, 0, maxDenominatorDegree}], 
 		{radicand, radicands}],
-	{usubstitution, polynomialsUndetermined[x, "MaxNumeratorDegree" -> maxNumeratorDegree]}];
+	{usubstitution, polynomialsUndetermined[x, 
+						"MaxNumeratorDegree" -> maxNumeratorDegree, 
+						"TableSize" -> OptionValue["TableSize"]]}];
 
 	debugPrint[k];
 
@@ -625,14 +650,29 @@ powerExpand[e_] := e /. Power[a_ b_^n_Integer, r_Rational] /;
 	(*! NumericQ[a] && ! NumericQ[b] && n < 0 && *) Mod[n, Denominator[r]] == 0 :> (a^r) (b^(n r)) 
 
 
-polyQ[e_] := With[{v = Union[Flatten[Variables /@ Level[e, {-1}]]]}, 
-	PolynomialQ[e, v]]
+ClearAll[continuousQ];
+
+continuousQ[e_, x_] := TimeConstrained[
+	TrueQ[Reduce[Abs[e] < Infinity, x, Reals]], 
+	0.2, 
+	True
+]
 
 
-nicerQ[a_, b_] /; NumberQ[a] && ! NumberQ[b] := True
-nicerQ[a_, b_] /; polyQ[a] && polyQ[b] := LeafCount[a] < LeafCount[b]
-nicerQ[a_, b_] /; polyQ[a] && ! polyQ[b] := True
-nicerQ[_, _] := False
+ClearAll[nicerQ];
+
+nicerQ[a_, b_, x_] /; NumberQ[a] && ! NumberQ[b] := True
+nicerQ[a_, b_, x_] := continuousQ[1/a, x] && ! continuousQ[1/b, x]
+
+
+(* A simplification based on
+	 D[(Log[a + b] - Log[-a + b]) - 2*ArcTanh[a/b], x] \[Equal] 0 *)
+log2ArcTanh = c1_. Log[p_] + c2_. Log[q_] /;
+		! PossibleZeroQ[p - q] && 
+		PossibleZeroQ[c1 + c2] && 
+		PossibleZeroQ[(p + q)/2 + (p - q)/2 - p] && 
+		PossibleZeroQ[(p + q)/2 - (p - q)/2 - q] :> 
+	(c2 - c1) ArcTanh[Cancel[(p + q)/(q - p)]];
 
 
 (* ::Text:: *)
@@ -640,27 +680,24 @@ nicerQ[_, _] := False
 
 
 Clear[postProcess];
-postProcess[e_] := Module[{rootSum, function, simp, permutations, numerics},
+postProcess[e_, x_] := Module[{rootSum, function, simp, permutations, numerics},
 
 	simp = e /. {RootSum -> rootSum, Function -> function};
 
-	simp = simp /. (h : ArcSinh | ArcCosh)[a_] :> TrigToExp[h[a]];
+	simp = simp /. (h : ArcSinh | ArcCosh | ArcSin | ArcCos)[a_] :> TrigToExp[h[a]];
 	simp = simp // togetherAll // powerExpand // togetherAll;
-	simp = simp /. Power[p_?polyQ, r_Rational] :> Expand[p]^r;
+	simp = simp /. Power[p_, r_Rational] /; PolynomialQ[p, x] :> Expand[p]^r;
 
 	(* Some examples for the following rule:
 		int[((1 + x^6)*Sqrt[-x - x^4 + x^7])/(1 + 2*x^3 - 2*x^9 + x^12), x]
 		int[((-x + x^3)^(1/3)*(-2 + x^4))/(x^4*(1 + x^2)), x] *)
-	simp = simp /. (p_?polyQ x_Symbol^m_Integer)^n_Rational /; 
+	simp = simp /. (p_ x^m_Integer)^n_Rational /; PolynomialQ[p, x] && 
 		m < 0 :> Expand[Numerator[p]x^(Ceiling[Abs[m], Denominator[n]] + m)]^n /x^(n (Ceiling[Abs[m], Denominator[n]]));
 
 	(* Collect and partially simplify terms. *)
 	permutations = Table[Select[Tuples[{Power[_,_Rational],_Log,_ArcTan},{k}], Length[Union[#]] == k&], {k, 3}];
 	simp = SortBy[Table[Fold[Collect[#1, #2, Together]&, simp, permutations[[k]]], {k, Length @ permutations}], LeafCount][[1]];
 	
-	(* Pick the nicer of ArcTan[a/b] or -ArcTan[b/a] *)
-	simp = simp /. ArcTan[a_] /; nicerQ[Numerator[a], Denominator[a]] :> -ArcTan[Denominator[a]/Numerator[a]];
-
 	(* This can often result in a simplification as denominators of sums of logs often cancel. *)
 	simp = simp /. (h:Log|ArcTan)[arg_] :> h[Cancel @ Together @ arg];
 	simp = simp /. c_. Log[ex_] /; Denominator[ex] =!= 1 :> c Log[Numerator[ex]] - c Log[Denominator[ex]];
@@ -670,14 +707,28 @@ postProcess[e_] := Module[{rootSum, function, simp, permutations, numerics},
 
 	(* Another simplification to cancel logarithms. *)
 	simp = simp /. Log[ex_^n_Integer] :> n Log[ex];
+	simp = Collect[simp, _Log|_ArcTan|_ArcTanh, Together];
 
 	simp = simp /. (h:Log|ArcTan|ArcTanh)[arg_] :> h[Cancel @ Together @ arg]; (* Yes, we have to do this twice. *)
+
+	(* Pick the nicer of ArcTan[a/b] or -ArcTan[b/a] *)
+	simp = simp /. ArcTan[a_] /; nicerQ[Numerator[a], Denominator[a], x] :> -ArcTan[Cancel[Denominator[a]/Numerator[a]]];
 
 	(* Remove constant multiples in logands. *)
 	simp = simp /. Log[logand_] /; FactorSquareFreeList[logand][[1]] =!= {1,1} :> 
 		Log[ Apply[Times, Power @@@ Rest[FactorSquareFreeList[logand]]] ];
 
 	simp = simp /. Log[ex_^n_Integer] :> n Log[ex]; (* Yes, using this one twice as well. *)
+	simp = Collect[simp, _Log|_ArcTan|ArcTanh, Together];
+
+	simp = simp //. log2ArcTanh;
+	
+	(* Pick the nicer of ArcTanh[a/b] or ArcTan[b/a]. *)
+	simp = simp /. ArcTanh[a_] /; nicerQ[Numerator[a], Denominator[a], x] :> ArcTanh[Together[Denominator[a]/Numerator[a]]];
+
+	If[MatchQ[simp, c_?NumericQ p_Plus],
+		simp = simp /. c_?NumericQ (p_Plus) :> Distribute[c p] (* Again... *)
+	];
 
 	(* Remove constants. *)
 	If[Head[simp] === Plus, 
@@ -690,15 +741,15 @@ postProcess[e_] := Module[{rootSum, function, simp, permutations, numerics},
 
 
 (* ::Input:: *)
-(*postProcess[Sqrt[(1+x^2)/x]/(1+(1+x^2)/x)+ArcTan[Sqrt[(1+x^2)/x]]]*)
+(*postProcess[Sqrt[(1+x^2)/x]/(1+(1+x^2)/x)+ArcTan[Sqrt[(1+x^2)/x]],x]*)
 
 
 (* ::Input:: *)
-(*postProcess[(Sqrt[2] Sqrt[1-x^6])/(5 x^5)-(Sqrt[2] Sqrt[1-x^6])/(3 x^3)-2/5 Sqrt[2] x Sqrt[1-x^6]+1/3 Sqrt[2] x^3 Sqrt[1-x^6]+1/5 Sqrt[2] x^7 Sqrt[1-x^6]]*)
+(*postProcess[(Sqrt[2] Sqrt[1-x^6])/(5 x^5)-(Sqrt[2] Sqrt[1-x^6])/(3 x^3)-2/5 Sqrt[2] x Sqrt[1-x^6]+1/3 Sqrt[2] x^3 Sqrt[1-x^6]+1/5 Sqrt[2] x^7 Sqrt[1-x^6],x]*)
 
 
 (* ::Input:: *)
-(*postProcess[-((4 Sqrt[-2+2 x^5-x^7+x^8])/(3 x^6))+(6 Sqrt[-2+2 x^5-x^7+x^8])/x^2+(4 Sqrt[-2+2 x^5-x^7+x^8])/(3 x)-2/3 x Sqrt[-2+2 x^5-x^7+x^8]+2/3 x^2 Sqrt[-2+2 x^5-x^7+x^8]+3 Log[1-Sqrt[-2+2 x^5-x^7+x^8]/x^2]-3 Log[1+Sqrt[-2+2 x^5-x^7+x^8]/x^2]]*)
+(*postProcess[-((4 Sqrt[-2+2 x^5-x^7+x^8])/(3 x^6))+(6 Sqrt[-2+2 x^5-x^7+x^8])/x^2+(4 Sqrt[-2+2 x^5-x^7+x^8])/(3 x)-2/3 x Sqrt[-2+2 x^5-x^7+x^8]+2/3 x^2 Sqrt[-2+2 x^5-x^7+x^8]+3 Log[1-Sqrt[-2+2 x^5-x^7+x^8]/x^2]-3 Log[1+Sqrt[-2+2 x^5-x^7+x^8]/x^2],x]*)
 
 
 (* ::Subsection::Closed:: *)
@@ -935,7 +986,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[((-2+x^3) Sqrt[1+x^2+x^3])/(1+x^3)^2,x]*)
+(*int[((-2+x^3) Sqrt[1-x^2+x^3])/(1+x^3)^2,x]*)
 
 
 (* ::Text:: *)
@@ -964,15 +1015,6 @@ EndPackage[];
 
 (* ::Input:: *)
 (*int[((-1+x^8) (-1+x^4)^(1/4))/(x^6 (1+x^8)),x]*)
-
-
-(* ::Text:: *)
-(*Question: Is the following preferable, or the polynomial over a common denominator?*)
-
-
-(* ::Input:: *)
-(*int[1/(x^8 (x^4+x^3)^(1/4)),x]*)
-(*MapAll[Together,%]*)
 
 
 (* ::Subsection::Closed:: *)
@@ -1212,7 +1254,7 @@ EndPackage[];
 (*int[((-2+3 x^5) Sqrt[1+x^5])/(1+x^4+2 x^5+x^10),x]*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*regression testing*)
 
 
@@ -1230,12 +1272,12 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*Cases[DownValues[AlgebraicIntegrateHeuristic`Private`testSolveAlgebraicIntegral][[All,-1]],{_,_,Except[{0,0,_}]}]*)
+(*Cases[DownValues[AlgebraicIntegrateHeuristic`Private`testSolveAlgebraicIntegral][[All,-1]],{_,_, _,Except[{0,0,_}]}]*)
 (*Median[DownValues[AlgebraicIntegrateHeuristic`Private`testSolveAlgebraicIntegral][[All,-1,2]]]*)
 
 
 (* ::Text:: *)
-(*13-Apr-20 -- 0.42 seconds*)
+(*16-Apr-2020 0.409 Seconds*)
 
 
 (* ::Input:: *)
@@ -2188,3 +2230,131 @@ EndPackage[];
 
 (* ::Input:: *)
 (*int[(Sqrt[x^6-2] (x^6+1) (x^6+x^2-2))/(x^4 (x^6-2 x^2-2)),x]*)
+
+
+(* ::Input:: *)
+(*int[(Sqrt[1+x^2-x^3] (2+x^3))/((-1+x^3) (-1-x^2+x^3)),x]*)
+
+
+(* ::Input:: *)
+(*int[(Sqrt[1+x^2+x^5] (-2+3 x^5))/((1+x^5) (1+x^2+x^5)),x]*)
+
+
+(* ::Input:: *)
+(*int[(Sqrt[1-x^6] (1+2 x^6))/(1-x^4-2 x^6+x^12),x]*)
+
+
+(* ::Input:: *)
+(*int[(Sqrt[1+x^2+x^6] (-1+2 x^6))/(1+x^6)^2,x]*)
+
+
+(* ::Input:: *)
+(*int[((2+x^3) Sqrt[-1+2 x^2+x^3])/(1+x^2-2 x^3-2 x^4-x^5+x^6),x]*)
+
+
+(* ::Input:: *)
+(*int[(Sqrt[-2+x^2+4 x^5-4 x^6] (-1-3 x^5+4 x^6))/((1-2 x^5+2 x^6) (2+x^2-4 x^5+4 x^6)),x]*)
+
+
+(* ::Input:: *)
+(*int[(Sqrt[1+x^2+2 x^6] (-1+4 x^6))/((1+2 x^6) (2-x^2+4 x^6)),x]*)
+
+
+(* ::Input:: *)
+(*int[(Sqrt[-1-2 x^2-2 x^3-x^8] (-1+x^3+3 x^8))/((1+2 x^3+x^8) (1+x^2+2 x^3+x^8)),x]*)
+
+
+(* ::Input:: *)
+(*int[((-1-x^2+x^4+x^5) (2+2 x^4+3 x^5))/(Sqrt[1-x^4-x^5] (-1+x^4+x^5)^2),x]*)
+
+
+(* ::Input:: *)
+(*int[((-1+x^4) (1-x^2+x^4))/(Sqrt[1+x^4] (1+3 x^4+x^8)),x]*)
+
+
+(* ::Input:: *)
+(*int[(Sqrt[1+x^2+x^8] (-1+3 x^8))/(1+x^8)^2,x]*)
+
+
+(* ::Input:: *)
+(*int[(Sqrt[1-x^2+x^6] (-1+2 x^6))/((1-2 x^2+x^6) (1-x^2+x^6)),x]*)
+
+
+(* ::Input:: *)
+(*int[((-1+x^7) (1+6 x^7))/((-1+x+x^7)^2 Sqrt[1+x^2-2 x^7+x^14]),x]*)
+
+
+(* ::Input:: *)
+(*int[((1-x^2+x^6) (-1+2 x^6))/(Sqrt[1+x^6] (1+x^6)^2),x]*)
+
+
+(* ::Input:: *)
+(*int[((-1+x^2) (1-x+x^2-x^3+x^4))/((1-x+x^2)^2 (1+x+x^2) Sqrt[1+3 x^2+x^4]),x]*)
+
+
+(* ::Input:: *)
+(*int[((1+2 x^6) (1+x^2-x^4-2 x^6-x^8+x^12))/((-1-x^2+x^6)^(5/2) (-1+x^2+x^6)),x]*)
+
+
+(* ::Input:: *)
+(*int[((-1+x^4) (1+x^4))/((-1+3 x^4-x^8)^(1/4) (1-x^4+x^8)),x]*)
+
+
+(* ::Input:: *)
+(*int[(-1+x^4)^(3/4)/(1+x^4),x]*)
+
+
+(* ::Input:: *)
+(*int[(-1+x^4)^(3/4)/(1+x^4+x^8),x]*)
+
+
+(* ::Input:: *)
+(*int[((-1+x^6) (1+x^6))/((x-x^4+x^7)^(1/4) (1+3 x^6+x^12)),x]*)
+
+
+(* ::Input:: *)
+(*int[((-2+x^2) (-1+x^2))/((-1+x^2-x^4)^(1/4) (1-2 x^2+x^4+x^8)),x]*)
+
+
+(* ::Input:: *)
+(*int[((-4+x^3) (-1+x^3)^(3/4))/(1-2 x^3+x^6+x^8),x]*)
+
+
+(* ::Input:: *)
+(*int[((-1+x^6) (1+x^6))/((-x-x^4+x^7)^(1/4) (1-x^6+x^12)),x]*)
+
+
+(* ::Input:: *)
+(*int[((1-x^3+x^4+x^6)^(3/4) (-4+x^3+2 x^6))/(1-x^3+x^6)^2,x]*)
+
+
+(* ::Input:: *)
+(*int[((-1+x^8) (1+x^4+x^8))/(1+x^8)^(9/4),x,"MaxRationalDegree" -> 24,"MaxNumeratorDegree" -> 24,"MaxDenominatorDegree" -> 8]*)
+
+
+(* ::Input:: *)
+(*int[((-1+x^8) (1+x^8))/((-1-x^4+x^8)^(1/4) (1-3 x^8+x^16)),x]*)
+
+
+(* ::Input:: *)
+(*int[x/(1+x^8)^(5/4),x,"MaxDenominatorDegree" -> 8]*)
+
+
+(* ::Input:: *)
+(*int[((2+x^6) (-1-x^4+x^6))/((1-x^4-x^6)^(1/4) (-1+x^6)^2),x]*)
+
+
+(* ::Input:: *)
+(*int[((-1+x^4) (1+x^2+x^4))/(Sqrt[1+x^4] (1+3 x^4+x^8)),x]*)
+
+
+(* ::Input:: *)
+(*int[((-1-x^8)^(3/4) (-1+x^8))/(1+x^8+x^16),x]*)
+
+
+(* ::Input:: *)
+(*int[((-1+x^8) (1+2 x^4+x^8)^(3/4))/(1+x^4+x^8)^2,x]*)
+
+
+(* ::Input:: *)
+(*int[((1+x^8) (1-x+x^8) (-1+7 x^8))/((1+x+x^8) (1+x^2+2 x^8+x^16)^(3/2)),x]*)
