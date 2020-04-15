@@ -74,6 +74,12 @@ of this method is less than 200 lines of Mathematica code and can be easily port
 to other CAS that can solve systems of linear equations.
 \end{abstract}
 
+%\todo{Comment on integrals we can and cannot do.}\\
+
+%\todo{Comment on completeness. Should be exhaustive up to the degree bounds on the substitutions and rational forms.}\\
+
+%\todo{Comment on branch cuts and how we try to get around it.}\\
+
 \section{Introduction}
 The problem of finding elementary solutions to integrals of algebraic functions has 
 challenged mathematicians for centuries. In 1905, Hardy conjectured that the problem may be 
@@ -120,7 +126,7 @@ $$\int \frac{x^2-1}{\left(x^2+1\right)\sqrt{1+x^4}} \, dx.$$
 A common approach to solve this integral is rearranging the integrand into
 $$\int \frac{x^2\left(1-1\left/x^2\right.\right)}{x(x+1/x)\sqrt{x^2\left(x^2+1\left/x^2\right.\right)}} \, dx = 
 \int \frac{1-1\left/x^2\right.}{(x+1/x)\sqrt{(x+1/x)^2-2}} \, dx. $$ 
-Then the substitution $u=x+1/x$, $du=1-1\left/x^2\right.dx$ yields the integral
+Then the substitution $u=x+1/x$, $du=\left(1-1\left/x^2\right.\right)dx$ yields the integral
 $$\int \frac{du}{u\sqrt{u^2-2}},$$
 which can be transformed into a rational function using the Euler substitution\cite{Euler}.\\
 
@@ -478,12 +484,17 @@ suite. It is intriguing to see the variety of forms for this integral. \\
 
 Our method returns:
 \small
-\begin{multline*}
-\int \frac{\left(x^4-1\right) \sqrt{x^4+1}}{x^8+1} \, dx=
-\frac{1}{4 \sqrt[4]{2}}\log \left(2 x-2^{3/4} \sqrt{x^4+1}\right) - \\
-\frac{1}{4 \sqrt[4]{2}}\log \left(2 x + 2^{3/4} \sqrt{x^4+1}\right) + 
-\frac{1}{2 \sqrt[4]{2}} \tan ^{-1}\left(\frac{\sqrt{x^4+1}}{\sqrt[4]{2} x}\right)
-\end{multline*}
+%\begin{multline*}
+%\int \frac{\left(x^4-1\right) \sqrt{x^4+1}}{x^8+1} \, dx=
+%\frac{1}{4 \sqrt[4]{2}}\log \left(2 x-2^{3/4} \sqrt{x^4+1}\right) - \\
+%\frac{1}{4 \sqrt[4]{2}}\log \left(2 x + 2^{3/4} \sqrt{x^4+1}\right) + 
+%\frac{1}{2 \sqrt[4]{2}} \tan ^{-1}\left(\frac{\sqrt{x^4+1}}{\sqrt[4]{2} x}\right)
+%\end{multline*}
+\begin{equation*}
+\int \frac{\left(x^4-1\right) \sqrt{x^4+1}}{x^8+1} \, dx= 
+-\frac{1}{2 \sqrt[4]{2}}\tan ^{-1}\left(\frac{\sqrt[4]{2} x}{\sqrt{x^4+1}}\right) - 
+\frac{1}{2 \sqrt[4]{2}}\tanh^{-1}\left(\frac{\sqrt[4]{2} x}{\sqrt{x^4+1}}\right)
+\end{equation*}
 \normalsize
 FriCAS returns:
 \small
@@ -531,7 +542,13 @@ where \textit{F} is the elliptic integral of the first kind, and $\Pi$ is the in
 $$\int \frac{\left(x^4-1\right) \sqrt{x^4+1}}{x^8+1} \, dx = 
 \int \frac{x^4 \sqrt{x^4+1}}{x^8+1} \, dx-\int \frac{\sqrt{x^4+1}}{x^8+1} \, dx$$
 \normalsize
-RUBI returns:
+RUBI returns\footnote{After posting a preprint of this comparison on the 
+\href{https://groups.google.com/forum/\#!forum/sci.math.symbolic}{sci.math.symbolic}
+newsgroup, Albert Rich (the creator of RUBI) devised a general rule for integrals of this 
+form which will be included in the next release of RUBI: %
+$$\int\frac{\left(f+g x^4\right)\sqrt{d+e x^4}}{a+b x^4+c x^8} = 
+\frac{e^2 f}{2 c d \sqrt[4]{2 d e-\frac{b e^2}{c}}} \tan ^{-1}\left(\frac{x \sqrt[4]{2 d e-\frac{b e^2}{c}}}{\sqrt{d+e x^4}}\right) 
+	+\frac{e^2 f}{2 c d \sqrt[4]{2 d e-\frac{b e^2}{c}}} \tanh ^{-1}\left(\frac{x \sqrt[4]{2 d e-\frac{be^2}{c}}}{\sqrt{d+e x^4}}\right)$$}:
 \small
 \begin{multline*}
 \int \frac{\left(x^4-1\right) \sqrt{x^4+1}}{x^8+1} \, dx=
