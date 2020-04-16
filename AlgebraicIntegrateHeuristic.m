@@ -588,8 +588,11 @@ solveRational[num_, den_, p_, r_, usubstitution_, radicandDenominator_, x_, u_, 
 solveRadicand[poly_, form_, x_] := Module[{rules},
 	(* rules = SolveAlways[poly == form, x]; *)
 	
-	rules = Quiet[Solve[! Eliminate[!(poly == form), {x}], Cases[form, (A|B)[_], Infinity]], {Solve::"svars"}];
-	{! MatchQ[rules, {} | _SolveAlways], rules}
+	If[Exponent[poly, x] === Exponent[form, x],
+		rules = Quiet[Solve[! Eliminate[!(poly == form), {x}], Cases[form, (A|B)[_], Infinity]], {Solve::"svars"}];
+		{! MatchQ[rules, {} | _SolveAlways], rules},
+		{False, {}}	
+	]
 ]
 
 
@@ -1254,12 +1257,8 @@ EndPackage[];
 (*int[((-2+3 x^5) Sqrt[1+x^5])/(1+x^4+2 x^5+x^10),x]*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*regression testing*)
-
-
-(* ::Text:: *)
-(*All tests pass. *)
 
 
 (* ::Input:: *)
@@ -1271,13 +1270,27 @@ EndPackage[];
 (*AlgebraicIntegrateHeuristic`Private`$Testing=True;*)
 
 
+(* ::Text:: *)
+(*The missing integrals here are computed with the option: "TableSize" -> "Medium":*)
+
+
+(* ::Input:: *)
+(*int[((3+x) Sqrt[-2 x-x^2+x^4])/(2+x+x^3)^2,x,"TableSize"->"Medium"]*)
+(*int[((3+x) Sqrt[-2 x-x^2+x^4])/(2+x+x^3)^2,x,"TableSize"->"Medium"]*)
+(*int[((-3+2 x+2 x^5) Sqrt[x-x^2+x^6])/(1-2 x+x^2-x^3+x^4+2 x^5-3 x^6-x^8+x^10),x,"TableSize"->"Medium"]*)
+(*int[((-3+2 x+2 x^5) Sqrt[x-x^2+x^6])/(1-2 x+x^2-x^3+x^4+2 x^5-3 x^6-x^8+x^10),x,"TableSize"->"Medium"]*)
+(*int[((-3+x^4+3 x^6) Sqrt[-x-x^5-x^7])/((1+x^4+x^6) (1-x^3+x^4+x^6)),x,"TableSize"->"Medium"]*)
+(*int[((-3+x^4+3 x^6) Sqrt[-x-x^5-x^7])/((1+x^4+x^6) (1-x^3+x^4+x^6)),x,"TableSize"->"Medium"]*)
+
+
 (* ::Input:: *)
 (*Cases[DownValues[AlgebraicIntegrateHeuristic`Private`testSolveAlgebraicIntegral][[All,-1]],{_,_, _,Except[{0,0,_}]}]*)
 (*Median[DownValues[AlgebraicIntegrateHeuristic`Private`testSolveAlgebraicIntegral][[All,-1,2]]]*)
 
 
 (* ::Text:: *)
-(*16-Apr-2020 0.409 Seconds*)
+(*15-Apr-2020 0.409 Seconds*)
+(*16-Apr-2020 0.372 Seconds*)
 
 
 (* ::Input:: *)
@@ -2358,3 +2371,55 @@ EndPackage[];
 
 (* ::Input:: *)
 (*int[((1+x^8) (1-x+x^8) (-1+7 x^8))/((1+x+x^8) (1+x^2+2 x^8+x^16)^(3/2)),x]*)
+
+
+(* ::Input:: *)
+(*int[((1+x^6)^2 (-1+2 x^6))/((1-x^2+x^6)^(3/2) (1-x^2-x^4+2 x^6-x^8+x^12)),x]*)
+
+
+(* ::Input:: *)
+(*int[((1+x^8) (-1+3 x^8))/(Sqrt[1-x^2+x^8] (1-x^2+x^8) (1+x^2+x^8)),x]*)
+
+
+(* ::Input:: *)
+(*int[((1+x+x^7) (-1+6 x^7))/(1-x+x^2+2 x^7-x^8+x^14)^(3/2),x]*)
+
+
+(* ::Input:: *)
+(*int[((1+x^8) (-1+3 x^8))/((1-x^2+x^8) (1+x^2+x^8)^(3/2)),x]*)
+
+
+(* ::Input:: *)
+(*int[((1+2 x^2+x^6) (-1+2 x^6))/((1+x^6)^(3/2) (1+x^2+x^6)),x]*)
+
+
+(* ::Input:: *)
+(*int[((-1+x^4) (1+x^2+x^4))/(1+x^4)^(5/2),x]*)
+
+
+(* ::Input:: *)
+(*int[((-1+x^7) (2+5 x^7))/(-1-x^2+x^7)^(5/2),x]*)
+
+
+(* ::Input:: *)
+(*int[(1+3 x^4)/(Sqrt[1+3 x^4] (-1+3 x^4)),x]*)
+
+
+(* ::Input:: *)
+(*int[(-2+3 x^4)/((2+x^4) Sqrt[4+x^2+4 x^4+x^8]),x]*)
+
+
+(* ::Input:: *)
+(*int[(-1+3 x^8)/((1+x^8) Sqrt[1+x^2+x^8]),x]*)
+
+
+(* ::Input:: *)
+(*int[(-1+5 x^6)/((1+x^6) Sqrt[x+x^2+x^7]),x]*)
+
+
+(* ::Input:: *)
+(*int[(-1+2 x^6)/((1+x^6) Sqrt[1+x^2+x^6]),x]*)
+
+
+(* ::Input:: *)
+(*int[(-1+x^2)/((1+x^2) Sqrt[x+x^2+x^3]),x]*)
