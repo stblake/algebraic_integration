@@ -1,6 +1,6 @@
 # A simple method for computing some pseudo-elliptic integrals
 
-This is a Mathematica prototype for solving _some_ pseudo-elliptic integrals. Relative to the algebraic case of the Risch-Trager-Bronstein algorithm, its very simple, however it is not a decision process. 
+This is a Mathematica prototype for solving _some_ pseudo-elliptic integrals in terms of elementary functions. Relative to the algebraic case of the Risch-Trager-Bronstein algorithm, its very simple, however it is not a decision process. 
 
 This method should be easy enough to port to other CAS. We use **SolveAlways** to equate coefficients of powers of _x_ and compute the undeterminted coefficients in a system of equations, but this could easily be hand-coded and reduced to a system of linear equations.
 
