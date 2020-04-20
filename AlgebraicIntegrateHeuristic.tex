@@ -445,10 +445,16 @@ $$\int\frac{\left(x^2-1\right)\sqrt{x^4+x^2+1}}{\left(x^2+1\right)\left(x^4+x^3+
 
 \section{Generalisations of the method}
 
-This method can be generalised to include reductions of the form  
+In this section we will look at two generalisations of this method to extend the 
+classes of integrals with elementary solutions. We also consider solutions in terms 
+of special functions. 
+
+\subsection{Generalisations of the reduction}
+
+This method can be generalised to include reductions of the form 
 
 \begin{align*}
-\int \frac{p(x)}{q(x)}r(x)^{n/m}dx &= \int \frac{a(u)}{b(u)}\left(a_2u^{2k}+a_1u^k+a_0\right)^{n/m}du\\
+\int \frac{p(x)}{q(x)}r(x)^{n/m}dx &= \int \frac{a(u)}{b(u)}\left(a_2u^{2k}+a_1u^k+a_0\right)^{n/m}du \\
 \intertext{and}
 \int \frac{p(x)}{q(x)}r(x)^{n/m}dx &= \int \frac{a(u)}{b(u)}\left(a_1u^k+a_0\right)^{n/m}du.\\
 \end{align*}
@@ -457,6 +463,64 @@ For both these forms we use essentially the same procedure as in the linear or q
 reduction. However, in terms of efficiency, obviously the more forms we try to solve for 
 the radicand part of the integral, the longer the process takes to iterate through these 
 possible forms. 
+
+\subsection{Non-elementary integrals}
+
+If the integration of the reduced form is permitted to contain special functions and the 
+recursive call to the integrator has the capability to integrate algebraic functions 
+in terms of special functions, then we can obtain integrals to a much larger class of 
+algebraic functions. 
+
+\begin{example}
+For the following integral, our method makes the substitution 
+$u = \left(2 x^8 - 1\right)/x^2$, to obtain the reduction
+\begin{equation*}
+\int\frac{6 x^8+1}{\left(2 x^8-1\right) \sqrt[4]{4 x^{16}+2 x^{10}-4 x^8-x^4-x^2+1}}dx = 
+\int\frac{1}{2 u \sqrt[4]{u^2+u-1}}du.
+\end{equation*}
+This integral does not have a solution in terms of elementary functions, however Mathematica
+can express this integral in terms of an Appell hypergeometric function, 
+\href{https://reference.wolfram.com/language/ref/AppellF1.html}{$F_1$}.
+\begin{multline*}
+\int\frac{1}{2 u \sqrt[4]{u^2+u-1}}du = \\
+-\frac{\sqrt[4]{\frac{1-\sqrt{5}}{2 u}+1} \sqrt[4]{\frac{1+\sqrt{5}}{2 u}+1}}{\sqrt[4]{u^2+u-1}} 
+F_1\left(\frac{1}{2};\frac{1}{4},\frac{1}{4};\frac{3}{2};-\frac{1+\sqrt{5}}{2u},-\frac{1-\sqrt{5}}{2 u}\right).
+\end{multline*}
+Then the integral is given by 
+\begin{multline*}
+\int\frac{6 x^8+1}{\left(2 x^8-1\right) \sqrt[4]{4 x^{16}+2 x^{10}-4 x^8-x^4-x^2+1}}dx = \\
+-\frac{x \sqrt[4]{\frac{4 x^8-\sqrt{5} x^2+x^2-2}{2 x^8-1}} \sqrt[4]{\frac{4 x^8+\sqrt{5}x^2+x^2-2}{2 x^8-1}}}
+{\sqrt{2} \sqrt[4]{4 x^{16}+2 x^{10}-4 x^8-x^4-x^2+1}} \times \\
+F_1\left(\frac{1}{2};\frac{1}{4},\frac{1}{4};\frac{3}{2};\frac{\left(-\frac{1}{2}-\frac{\sqrt{5}}{2}\right) x^2}{2 x^8-1},\frac{\left(-\frac{1}{2}+\frac{\sqrt{5}}{2}\right) x^2}{2x^8-1}\right).
+\end{multline*}
+\end{example}
+
+\subsection{Recursive integration}
+
+In the following example we recursively call our method to obtain an elementary form 
+to a difficult integral. 
+
+\begin{example}
+For the following integral, our method makes the substitution 
+$u = \sqrt{2}\left(2x^8-1\right)/x^2$, then for the recursive integration, we make 
+the substitution $u = t^2$ to obtain 
+\begin{multline*}
+\int \frac{6 x^8+1}{\left(2 x^8-1\right) \sqrt[4]{8 x^{16}-8 x^8-x^4+2}} dx =
+ \int\frac{du}{2 u \sqrt[4]{u^2-1}} = \int \frac{dt}{4 t \sqrt[4]{t-1}} = \\
+% -\frac{1}{2 \sqrt{2}} \tan ^{-1}\left(1-\sqrt{2} \sqrt[4]{t-1}\right) + 
+% \frac{1}{2 \sqrt{2}} \tan ^{-1}\left(\sqrt{2}\sqrt[4]{t-1}+1\right) - 
+% \frac{1}{2 \sqrt{2}} \tanh ^{-1}\left(\frac{\sqrt{2}\sqrt[4]{t-1}}{\sqrt{t-1}+1}\right) = \\
+% -\frac{1}{2 \sqrt{2}} \tan ^{-1}\left(1-\sqrt{2} \sqrt[4]{u^2-1}\right) + 
+% \frac{1}{2 \sqrt{2}} \tan^{-1}\left(\sqrt{2} \sqrt[4]{u^2-1}+1\right) - 
+% \frac{1}{2 \sqrt{2}} \tanh ^{-1}\left(\frac{\sqrt{2}\sqrt[4]{u^2-1}}{\sqrt{u^2-1}+1}\right) = \\
+ -\frac{1}{2\sqrt{2}} \tan ^{-1}\left(\frac{x-\sqrt{2} \sqrt[4]{8 x^{16}-8 x^8-x^4+2}}{x}\right) + \\
+ \frac{1}{2\sqrt{2}} \tan ^{-1}\left(\frac{x+\sqrt{2} \sqrt[4]{8 x^{16}-8 x^8-x^4+2}}{x}\right) - 
+ \frac{1}{2 \sqrt{2}} \tanh ^{-1}\left(\frac{x^2+\sqrt{8 x^{16}-8 x^8-x^4+2}}{\sqrt{2} x \sqrt[4]{8x^{16}-8 x^8-x^4+2}}\right).
+\end{multline*}
+\end{example}
+
+In this example, the integral $$\int\frac{du}{2 u \sqrt[4]{u^2-1}},$$ does not return an elementary 
+form in either Mathematica (12.1) or Maple (2018.1).
 
 \section{A comparison with major CAS and algebraic integration packages}
 
