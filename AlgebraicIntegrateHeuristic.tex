@@ -479,11 +479,11 @@ $u = \left(2 x^8 - 1\right)/x^2$, to obtain the reduction
 \int\frac{1}{2 u \sqrt[4]{u^2+u-1}}du.
 \end{equation*}
 This integral does not have a solution in terms of elementary functions, however Mathematica
-can express this integral in terms of an Appell hypergeometric function, 
+can express this integral in terms of the Appell hypergeometric function, 
 \href{https://reference.wolfram.com/language/ref/AppellF1.html}{$F_1$}.
 \begin{multline*}
 \int\frac{1}{2 u \sqrt[4]{u^2+u-1}}du = \\
--\frac{\sqrt[4]{\frac{1-\sqrt{5}}{2 u}+1} \sqrt[4]{\frac{1+\sqrt{5}}{2 u}+1}}{\sqrt[4]{u^2+u-1}} 
+-\frac{\sqrt[4]{\frac{1-\sqrt{5}}{2 u}+1} \sqrt[4]{\frac{1+\sqrt{5}}{2 u}+1}}{\sqrt[4]{u^2+u-1}} \times
 F_1\left(\frac{1}{2};\frac{1}{4},\frac{1}{4};\frac{3}{2};-\frac{1+\sqrt{5}}{2u},-\frac{1-\sqrt{5}}{2 u}\right).
 \end{multline*}
 Then the integral is given by 
@@ -519,7 +519,7 @@ the substitution $u = t^2$ to obtain
 \end{multline*}
 \end{example}
 
-In this example, the integral $$\int\frac{du}{2 u \sqrt[4]{u^2-1}},$$ does not return an elementary 
+In the above example, the integral $$\int\frac{du}{2 u \sqrt[4]{u^2-1}},$$ does not return an elementary 
 form in either Mathematica (12.1) or Maple (2018.1).
 
 \section{A comparison with major CAS and algebraic integration packages}
