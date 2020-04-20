@@ -361,7 +361,8 @@ Options[solveAlgebraicIntegral] = {
 	"MaxRationalDegree" -> 8,
 	"MaxNumeratorDegree" -> 8,
 	"MaxDenominatorDegree" -> 4,
-	"TableSize" -> "Small"
+	"TableSize" -> "Small",
+	"Elementary" -> True
 }; 
 
 solveAlgebraicIntegral[integrand_, x_, OptionsPattern[]] := Module[
@@ -403,7 +404,7 @@ solveAlgebraicIntegral[integrand_, x_, OptionsPattern[]] := Module[
 	];
 
 	(* Possible radicands in u. *)
-	If[Numerator[r] === 2 && Exponent[p, x] > 2,
+	If[(Numerator[r] === 2 && Exponent[p, x] > 2) || ! OptionValue["Elementary"],
 		radicands = {A[1] # + A[0] &, A[2] #^2 + A[0] &, A[2] #^2 + A[1] # + A[0] &},
 		radicands = {A[1] # + A[0] &}
 	];
@@ -481,7 +482,7 @@ solveAlgebraicIntegral[integrand_, x_, OptionsPattern[]] := Module[
 							intU = integrate[integrandU, u];
 							debugPrint["Integrate returned ", intU];
 	
-							If[FreeQ[intU, Integrate(* | RootSum | Root *)] && elementaryQ[intU],
+							If[FreeQ[intU, Integrate(* | RootSum | Root *)] && (! OptionValue["Elementary"] || elementaryQ[intU]),
 								intX = intU /. u -> usubstitutionParam;
 								debugPrint["integral is ", intX];
 								intX = postProcess[intX, x];
@@ -489,6 +490,7 @@ solveAlgebraicIntegral[integrand_, x_, OptionsPattern[]] := Module[
 								(* Sanity check. *)
 								If[TrueQ[! OptionValue["Verify"]] || TrueQ[(
 										(* Order tests from fastest to slowest. *)
+										(* seriesZeroQ[intX, unintegratedPart, x] ||  *)
 										numericZeroQ[D[intX, x] - unintegratedPart] || 
 										numericZeroQ[D[intX, x] - unintegratedPart, Precision -> 30] || 
 										PossibleZeroQ[Together[D[intX, x] - unintegratedPart]] || 
@@ -542,7 +544,7 @@ ClearAll[solveRational];
 Options[solveRational] = {"MaxRationalDegree" -> 8};
 
 solveRational[num_, den_, p_, r_, usubstitution_, radicandDenominator_, x_, u_, OptionsPattern[]] := Catch @ Module[
-	{degreeBound, du, ddu, ratU, ratX, radrat, ratSolution, parameterisedFormU, eqn},
+	{degreeBound, du, ddu, ratU, ratX, radrat, ratSolution, parameterisedFormU, eqn, vars},
 
 	maxRationalDegree = OptionValue["MaxRationalDegree"];
 
@@ -565,7 +567,8 @@ solveRational[num_, den_, p_, r_, usubstitution_, radicandDenominator_, x_, u_, 
 		(* ratSolution = SolveAlways[Collect[Expand[num Denominator[ratX] - Numerator[ratX] den], x] == 0, x]; *)
 
 		eqn = Collect[Expand[num Denominator[ratX] - Numerator[ratX] den], x] == 0;
-		ratSolution = Quiet[ Solve[! Eliminate[! eqn, {x}], Cases[eqn, (V|A|B)[_], Infinity]], {Solve::"svars"}];
+		vars = Union @ Cases[eqn, (V|A|B)[_], Infinity];
+		ratSolution = Quiet[ Solve[! Eliminate[! eqn, {x}], vars], {Solve::"svars"}];
 
 		If[TrueQ[ratSolution =!= {} && ! MatchQ[ratSolution, _SolveAlways] && ! MatchQ[ratSolution, {{(_ -> _?PossibleZeroQ) ..}..}]],
 			ratSolution = ratSolution[[1]];
@@ -763,11 +766,12 @@ postProcess[e_, x_] := Module[{rootSum, function, simp, permutations, numerics},
 (*TODO: Perhaps this should be clever and look at $Assumptions? Or if assumptions are made then we just (possibly) fail and rely on PossibleZeroQ and Simplify in subsequent (more time intensive) testing. *)
 
 
-Clear[numericZeroQ];
+ClearAll[numericZeroQ];
 
 Options[numericZeroQ] = {Precision -> $MachinePrecision, Tolerance -> 1.0*^-6};
 
-numericZeroQ[e_, OptionsPattern[]] := Module[{v, ef, lower, upper, step},
+numericZeroQ[e_, OptionsPattern[]] := Module[
+	{v, ef, lower, upper, step, numericeval},
 	v = Union[Flatten[Variables /@ Level[e, {-1}]]];
 	ef = Function @@ {v, e};
 
@@ -776,19 +780,16 @@ numericZeroQ[e_, OptionsPattern[]] := Module[{v, ef, lower, upper, step},
 	step  = (1999. Sqrt[2])/(4003.);
 
 	(* TODO: test using Compile? *)
-	Norm[
-		Mean[
-			Select[
-				Table[
+	
+	numericeval = Table[
 					Quiet[
 						ef @@ SetPrecision[Table[r Random[] Exp[2.0 Pi I k/12], {Length @ v}], OptionValue[Precision]]
 						],
 					{k, 0, 11},
 					{r, lower, upper, step}
-				] // Flatten, 
-			NumericQ]
-		]
-	] < SetPrecision[OptionValue[Tolerance], OptionValue[Precision]] // TrueQ
+				] // Flatten;
+
+	Mean[Norm /@ Select[numericeval, NumericQ]] < SetPrecision[OptionValue[Tolerance], OptionValue[Precision]] // TrueQ
 ]
 
 
@@ -814,6 +815,24 @@ numericZeroQ[e_, OptionsPattern[]] := Module[{v, ef, lower, upper, step},
 
 (* ::Input:: *)
 (*D[-(1/(10 Sqrt[-1+Sqrt[5]]))(10 Sqrt[-1+Sqrt[5]] ArcTan[x/Sqrt[1+x^2+x^4]]-2 Sqrt[10] ArcTan[(Sqrt[-2+2 Sqrt[5]] Sqrt[1+x^2+x^4])/(-1+Sqrt[5]-2 x-x^2+Sqrt[5] x^2)]+I Sqrt[10] Log[2]-2 Sqrt[15-5 Sqrt[5]] Log[(2+x+Sqrt[5] x+2 x^2)/x]+2 Sqrt[15-5 Sqrt[5]] Log[(1+Sqrt[5]+2 x+x^2+Sqrt[5] x^2-Sqrt[2+2 Sqrt[5]] Sqrt[1+x^2+x^4])/x]),x]-((-1+x^2) Sqrt[1+x^2+x^4])/((1+x^2) (1+x+x^2+x^3+x^4))//numericZeroQ//Timing*)
+
+
+(* ::Subsection::Closed:: *)
+(*seriesZeroQ*)
+
+
+Options[seriesZeroQ] = {Tolerance -> 1.0*^-6};
+
+seriesZeroQ[integrand_, integral_, x_, n_:16, OptionsPattern[]] := Module[{integralS, integrandS},
+	Print[{integrand, integral}];
+	integralS = Series[integral,{x, 0, n}] // Normal // N;
+	integrandS = Series[integrand,{x, 0, n - 1}] // Normal // N;
+	Mean[CoefficientList[D[integralS,x] - integrandS, x]] < OptionValue[Tolerance]
+]
+
+
+(* ::Input:: *)
+(*seriesZeroQ[(1+6 x^8)/((-1+2 x^8) (1-x^2-x^4-4 x^8+2 x^10+4 x^16)^(1/4)),-((x ((-2+x^2-Sqrt[5] x^2+4 x^8)/(-1+2 x^8))^(1/4) ((-2+x^2+Sqrt[5] x^2+4 x^8)/(-1+2 x^8))^(1/4) AppellF1[1/2,1/4,1/4,3/2,((-(1/2)-Sqrt[5]/2) x^2)/(-1+2 x^8),((-(1/2)+Sqrt[5]/2) x^2)/(-1+2 x^8)])/(Sqrt[2] (1-x^2-x^4-4 x^8+2 x^10+4 x^16)^(1/4))),x]//Timing*)
 
 
 (* ::Subsection::Closed:: *)
@@ -1257,7 +1276,7 @@ EndPackage[];
 (*int[((-2+3 x^5) Sqrt[1+x^5])/(1+x^4+2 x^5+x^10),x]*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*regression testing*)
 
 
@@ -1284,8 +1303,12 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*Cases[DownValues[AlgebraicIntegrateHeuristic`Private`testSolveAlgebraicIntegral][[All,-1]],{_,_, _,Except[{0,0,_}]}]*)
+(*Cases[DownValues[AlgebraicIntegrateHeuristic`Private`testSolveAlgebraicIntegral][[All,-1]],{_,_,_,Except[{0,0,_}]}]*)
 (*Median[DownValues[AlgebraicIntegrateHeuristic`Private`testSolveAlgebraicIntegral][[All,-1,2]]]*)
+
+
+(* ::InheritFromParent:: *)
+(* 0.354006`4.94893082603342*)
 
 
 (* ::Text:: *)
@@ -2342,7 +2365,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[((-1+x^8) (1+x^4+x^8))/(1+x^8)^(9/4),x,"MaxRationalDegree" -> 24,"MaxNumeratorDegree" -> 24,"MaxDenominatorDegree" -> 8]*)
+(*int[((-1+x^8) (1+x^4+x^8))/(1+x^8)^(9/4),x,"MaxRationalDegree"->24,"MaxNumeratorDegree"->24,"MaxDenominatorDegree"->8]*)
 
 
 (* ::Input:: *)
@@ -2350,7 +2373,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[x/(1+x^8)^(5/4),x,"MaxDenominatorDegree" -> 8]*)
+(*int[x/(1+x^8)^(5/4),x,"MaxDenominatorDegree"->8]*)
 
 
 (* ::Input:: *)
