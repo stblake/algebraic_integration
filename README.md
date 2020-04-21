@@ -8,6 +8,10 @@ The package AlgebraicIntegrateHeuristic.m exposes one function: **solveAlgebraic
 
 This method can solve some interesting pseudo-elliptic integrals. Below are some examples, many more are in the source code. 
 
+<p align="center">
+<img src="https://render.githubusercontent.com/render/math?math=\int\frac{1+x^2}{\left(1-x^2\right)\sqrt{1+x^4}} = ">
+</p>
+
 ```
 In[290]:= solveAlgebraicIntegral[(1 + x^2)/((1 - x^2) Sqrt[1 + x^4]), x]
 
