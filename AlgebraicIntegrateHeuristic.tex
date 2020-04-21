@@ -476,13 +476,13 @@ For the following integral, our method makes the substitution
 $u = \left(2 x^8 - 1\right)/x^2$, to obtain the reduction
 \begin{equation*}
 \int\frac{6 x^8+1}{\left(2 x^8-1\right) \sqrt[4]{4 x^{16}+2 x^{10}-4 x^8-x^4-x^2+1}}dx = 
-\int\frac{1}{2 u \sqrt[4]{u^2+u-1}}du.
+\int\frac{du}{2 u \sqrt[4]{u^2+u-1}}.
 \end{equation*}
 This integral does not have a solution in terms of elementary functions, however Mathematica
 can express this integral in terms of the Appell hypergeometric function, 
 \href{https://reference.wolfram.com/language/ref/AppellF1.html}{$F_1$}
 \begin{multline*}
-\int\frac{1}{2 u \sqrt[4]{u^2+u-1}}du = \\
+\int\frac{du}{2 u \sqrt[4]{u^2+u-1}} = \\
 -\frac{\sqrt[4]{\frac{1-\sqrt{5}}{2 u}+1} \sqrt[4]{\frac{1+\sqrt{5}}{2 u}+1}}{\sqrt[4]{u^2+u-1}} \times
 F_1\left(\frac{1}{2};\frac{1}{4},\frac{1}{4};\frac{3}{2};-\frac{1+\sqrt{5}}{2u},-\frac{1-\sqrt{5}}{2 u}\right).
 \end{multline*}
