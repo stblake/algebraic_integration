@@ -642,7 +642,7 @@ rationalUndetermined[x_Symbol, max_Integer] :=
 (Sum[V[k] x^k, {k, 0, max}]/Sum[V[max + k + 1] x^k, {k, 0, max}])
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*postProcess*)
 
 
@@ -679,6 +679,14 @@ log2ArcTanh = c1_. Log[p_] + c2_. Log[q_] /;
 		PossibleZeroQ[(p + q)/2 + (p - q)/2 - p] && 
 		PossibleZeroQ[(p + q)/2 - (p - q)/2 - q] :> 
 	(c2 - c1) ArcTanh[Cancel[(p + q)/(q - p)]];
+
+
+(* ::Text:: *)
+(*A simplification based on A&S 4.4.34:    ArcTan[z1] \[PlusMinus] ArcTan[z2] == ArcTan[(z1 \[PlusMinus] z2)/(1 \[MinusPlus] z1 z2)]*)
+
+
+as4434m = a_. ArcTan[z1_] + b_. ArcTan[z2_] /; PossibleZeroQ[a + b] :> (a - b)/2 ArcTan[Cancel[(z1 - z2)/(1 + z1 z2)]];
+as4434p = a_. ArcTan[z1_] + b_. ArcTan[z2_] /; PossibleZeroQ[a - b] :> a ArcTan[Cancel[(z1 + z2)/(1 - z1 z2)]];
 
 
 (* ::Text:: *)
@@ -728,6 +736,7 @@ postProcess[e_, x_] := Module[{rootSum, function, simp, permutations, numerics},
 	simp = Collect[simp, _Log|_ArcTan|ArcTanh, Together];
 
 	simp = simp //. log2ArcTanh;
+	simp = simp //. {as4434m, as4434p};
 	
 	(* Pick the nicer of ArcTanh[a/b] or ArcTan[b/a]. *)
 	simp = simp /. ArcTanh[a_] /; nicerQ[Numerator[a], Denominator[a], x] :> ArcTanh[Together[Denominator[a]/Numerator[a]]];
