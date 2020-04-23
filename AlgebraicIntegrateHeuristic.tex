@@ -518,8 +518,11 @@ the substitution $u = t^2$ to obtain
 \end{multline*}
 \end{example}
 
-In the above example, the integral $$\int\frac{du}{2 u \sqrt[4]{u^2-1}},$$ does not return an elementary 
-form in either Mathematica (12.1) or Maple (2018.1).
+In the above example, the integral 
+$$\int\frac{du}{2 u \sqrt[4]{u^2-1}} = 
+-\frac{1}{2\sqrt{2}} \tan ^{-1}\left(\frac{\sqrt{2} \sqrt[4]{u^2-1}}{\sqrt{u^2-1}-1}\right) - 
+\frac{1}{2\sqrt{2}} \tanh ^{-1}\left(\frac{\sqrt{2} \sqrt[4]{u^2-1}}{\sqrt{u^2-1}+1}\right),$$ 
+does not return an elementary form in either Mathematica (12.1) or Maple (2018.1).
 
 \section{A comparison with major CAS and algebraic integration packages}
 
@@ -705,8 +708,9 @@ have access to an implementation for comparison. \\
 
 \section{Conclusions}
 
-We have shown that we can efficiently solve some pseudo-elliptic integrals. Our method compares 
-favourably with major CAS and algebraic integration packages.  \\
+We have shown that we can efficiently solve some pseudo-elliptic integrals, both in terms of 
+elementary functions and special functions. Our method compares favourably with 
+major CAS and algebraic integration packages.  \\
 
 The computational burden of our method is low, as the core computational routine requires 
 solving multiple systems of linear equations, and consequently our method should be tried before the 
