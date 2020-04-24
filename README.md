@@ -79,7 +79,7 @@ Out[2006]= (-1 - x^5 - 2 x^7)/x^3
 ```
 
 ```
-In[2017]:= int[((2 + x - x^3 - x^4)^(2/3) (6 + 2 x + x^4) (-2 - x + x^3 + x^4))/(x^6 (-2 - x + 2 x^3 + x^4)), x]
+In[2017]:= solveAlgebraicIntegral[((2 + x - x^3 - x^4)^(2/3) (6 + 2 x + x^4) (-2 - x + x^3 + x^4))/(x^6 (-2 - x + 2 x^3 + x^4)), x]
 AlgebraicIntegrateHeuristic`Private`RationalSubstitution
 
 Out[2017]= {0, 0, ((2 + x - x^3 - x^4)^(2/3) (-(6/5) - (3 x)/5 - (9 x^3)/10 + (3 x^4)/5))/x^5 - 
