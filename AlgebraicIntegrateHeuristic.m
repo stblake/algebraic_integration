@@ -642,7 +642,7 @@ rationalUndetermined[x_Symbol, max_Integer] :=
 (Sum[V[k] x^k, {k, 0, max}]/Sum[V[max + k + 1] x^k, {k, 0, max}])
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*postProcess*)
 
 
@@ -689,8 +689,17 @@ as4434m = a_. ArcTan[z1_] + b_. ArcTan[z2_] /; PossibleZeroQ[a + b] :> (a - b)/2
 as4434p = a_. ArcTan[z1_] + b_. ArcTan[z2_] /; PossibleZeroQ[a - b] :> a ArcTan[Cancel[(z1 + z2)/(1 - z1 z2)]];
 
 
+collect[e_] := Module[{permutations, simp},
+	permutations = Table[Select[Tuples[{Power[_, _Rational], _Log, _ArcTan, _ArcTanh},{k}], Length[Union[#]] == k&], {k, 3}];
+	simp = SortBy[Table[Fold[Collect[#1, #2, Together]&, e, permutations[[k]]], {k, Length @ permutations}], LeafCount][[1]];
+	simp
+]
+
+
 (* ::Text:: *)
 (*postProcess is not only for asthetic reasons. We also attempt to correct for the substitution taking a branch of the radical. *)
+(**)
+(*TODO: make logands monic.*)
 
 
 Clear[postProcess];
@@ -709,9 +718,8 @@ postProcess[e_, x_] := Module[{rootSum, function, simp, permutations, numerics},
 		m < 0 :> Expand[Numerator[p]x^(Ceiling[Abs[m], Denominator[n]] + m)]^n /x^(n (Ceiling[Abs[m], Denominator[n]]));
 
 	(* Collect and partially simplify terms. *)
-	permutations = Table[Select[Tuples[{Power[_,_Rational],_Log,_ArcTan},{k}], Length[Union[#]] == k&], {k, 3}];
-	simp = SortBy[Table[Fold[Collect[#1, #2, Together]&, simp, permutations[[k]]], {k, Length @ permutations}], LeafCount][[1]];
-	
+	simp = collect[simp];	
+
 	(* This can often result in a simplification as denominators of sums of logs often cancel. *)
 	simp = simp /. (h:Log|ArcTan)[arg_] :> h[Cancel @ Together @ arg];
 	simp = simp /. c_. Log[ex_] /; Denominator[ex] =!= 1 :> c Log[Numerator[ex]] - c Log[Denominator[ex]];
@@ -721,7 +729,7 @@ postProcess[e_, x_] := Module[{rootSum, function, simp, permutations, numerics},
 
 	(* Another simplification to cancel logarithms. *)
 	simp = simp /. Log[ex_^n_Integer] :> n Log[ex];
-	simp = Collect[simp, _Log|_ArcTan|_ArcTanh, Together];
+	simp = collect[simp];
 
 	simp = simp /. (h:Log|ArcTan|ArcTanh)[arg_] :> h[Cancel @ Together @ arg]; (* Yes, we have to do this twice. *)
 
@@ -733,7 +741,7 @@ postProcess[e_, x_] := Module[{rootSum, function, simp, permutations, numerics},
 		Log[ Apply[Times, Power @@@ Rest[FactorSquareFreeList[logand]]] ];
 
 	simp = simp /. Log[ex_^n_Integer] :> n Log[ex]; (* Yes, using this one twice as well. *)
-	simp = Collect[simp, _Log|_ArcTan|ArcTanh, Together];
+	simp = collect[simp];
 
 	simp = simp //. log2ArcTanh;
 	simp = simp //. {as4434m, as4434p};
@@ -751,8 +759,13 @@ postProcess[e_, x_] := Module[{rootSum, function, simp, permutations, numerics},
 		simp -= Total[numerics];
 	];
 
+	simp = collect[simp];
 	simp /. {rootSum -> RootSum, function -> Function}
 ]
+
+
+(* ::Input:: *)
+(*postProcess[1/3 (Sqrt[-1+(-1-x^2)^2/x^2] (2+(-1-x^2)^2/x^2)-3 Sqrt[2] ArcTanh[Sqrt[-1+(-1-x^2)^2/x^2]/Sqrt[2]]),x]*)
 
 
 (* ::Input:: *)
@@ -1285,7 +1298,7 @@ EndPackage[];
 (*int[((-2+3 x^5) Sqrt[1+x^5])/(1+x^4+2 x^5+x^10),x]*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*regression testing*)
 
 
@@ -2455,3 +2468,31 @@ EndPackage[];
 
 (* ::Input:: *)
 (*int[(-1+x^2)/((1+x^2) Sqrt[x+x^2+x^3]),x]*)
+
+
+(* ::Input:: *)
+(*int[(-3+x^4)/((1+x^4) (-3 x+4 x^4-3 x^5)^(1/4)),x]*)
+
+
+(* ::Input:: *)
+(*int[(1+3 x^4)/((-1+x^4) Sqrt[-x+x^5]),x]*)
+
+
+(* ::Input:: *)
+(*int[(-1+x^3+x^8)/((1-4 x^3+x^8) (1-4 x^3+x^4+x^8)^(1/4)),x]*)
+
+
+(* ::Input:: *)
+(*int[(-2+x^4)/(2+x^4)^(3/2),x]*)
+
+
+(* ::Input:: *)
+(*int[(-1+x^8)/((1+x^8) (1-4 x^4+x^8)^(1/4)),x]*)
+
+
+(* ::Input:: *)
+(*int[(-1+x^8)/((1+x^8) (1+x^8)^(1/4)),x]*)
+
+
+(* ::Input:: *)
+(*int[(-1+x^2)/((2-x+2 x^2) Sqrt[x+x^3]),x]*)
