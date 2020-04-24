@@ -17,15 +17,13 @@ Out[290]= {0, 0, ArcTanh[Sqrt[1 + x^4]/(Sqrt[2] x)]/Sqrt[2]}
 ```
 In[291]:= solveAlgebraicIntegral[(1 + x^6)/((1 - x^6) Sqrt[1 - x^2 + x^4]), x]
 
-Out[291]= {0, 0, -(1/3) Sqrt[2] ArcTan[Sqrt[1 - x^2 + x^4]/(Sqrt[2] x)] - 
-  1/6 Log[x - Sqrt[1 - x^2 + x^4]] + 1/6 Log[x + Sqrt[1 - x^2 + x^4]]}
+Out[291]= {0, 0, 1/3 Sqrt[2] ArcTan[(Sqrt[2] x)/Sqrt[1 - x^2 + x^4]] + 1/3 ArcTanh[x/Sqrt[1 - x^2 + x^4]]}
 ```
 
 ```
 In[1974]:= solveAlgebraicIntegral[1/(x^4 + 1)^(1/4), x]
 
-Out[1974]= {0, 0, -(1/2) ArcTan[(1 + x^4)^(1/4)/x] - 1/4 Log[x - (1 + x^4)^(1/4)] + 
-  1/4 Log[x + (1 + x^4)^(1/4)]}
+Out[1974]= {0, 0, 1/2 ArcTan[x/(1 + x^4)^(1/4)] + 1/2 ArcTanh[x/(1 + x^4)^(1/4)]}
 ```
 
 ```
@@ -82,9 +80,8 @@ Out[2006]= (-1 - x^5 - 2 x^7)/x^3
 In[2017]:= solveAlgebraicIntegral[((2 + x - x^3 - x^4)^(2/3) (6 + 2 x + x^4) (-2 - x + x^3 + x^4))/(x^6 (-2 - x + 2 x^3 + x^4)), x]
 AlgebraicIntegrateHeuristic`Private`RationalSubstitution
 
-Out[2017]= {0, 0, ((2 + x - x^3 - x^4)^(2/3) (-(6/5) - (3 x)/5 - (9 x^3)/10 + (3 x^4)/5))/x^5 - 
-  Sqrt[3] ArcTan[(x/Sqrt[3] + (2 (2 + x - x^3 - x^4)^(1/3))/Sqrt[3])/x] + Log[x] - 
-  Log[x^2]/2 - Log[x - (2 + x - x^3 - x^4)^(1/3)] + 
+Out[2017]= {0, 0, (3 (2 + x - x^3 - x^4)^(2/3) (-4 - 2 x - 3 x^3 + 2 x^4))/(10 x^5) - 
+  Sqrt[3] ArcTan[(Sqrt[3] x + 2 Sqrt[3] (2 + x - x^3 - x^4)^(1/3))/(3 x)] - Log[-x + (2 + x - x^3 - x^4)^(1/3)] + 
   1/2 Log[x^2 + x (2 + x - x^3 - x^4)^(1/3) + (2 + x - x^3 - x^4)^(2/3)]}
 
 Out[2018]= (2 + x - x^4)/x^3
