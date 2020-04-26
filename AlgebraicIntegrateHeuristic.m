@@ -672,28 +672,31 @@ nicerQ[a_, b_, x_] := continuousQ[1/a, x] && ! continuousQ[1/b, x]
 
 
 (* A simplification based on
-	 D[(Log[a + b] - Log[-a + b]) - 2*ArcTanh[a/b], x] \[Equal] 0 *)
+	 D[(Log[a[x] + b[x]] - Log[-a[x] + b[x]]) - 2*ArcTanh[a[x]/b[x]], x] \[Equal] 0 *)
 log2ArcTanh = c1_. Log[p_] + c2_. Log[q_] /;
 		! PossibleZeroQ[p - q] && 
 		PossibleZeroQ[c1 + c2] && 
 		PossibleZeroQ[(p + q)/2 + (p - q)/2 - p] && 
 		PossibleZeroQ[(p + q)/2 - (p - q)/2 - q] :> 
-	(c2 - c1) ArcTanh[Cancel[(p + q)/(q - p)]];
+	(c2 - c1) ArcTanh[collectnumden @ Cancel[(p + q)/(q - p)]];
 
 
 (* ::Text:: *)
 (*A simplification based on A&S 4.4.34:    ArcTan[z1] \[PlusMinus] ArcTan[z2] == ArcTan[(z1 \[PlusMinus] z2)/(1 \[MinusPlus] z1 z2)]*)
 
 
-as4434m = a_. ArcTan[z1_] + b_. ArcTan[z2_] /; PossibleZeroQ[a + b] :> (a - b)/2 ArcTan[Cancel[(z1 - z2)/(1 + z1 z2)]];
-as4434p = a_. ArcTan[z1_] + b_. ArcTan[z2_] /; PossibleZeroQ[a - b] :> a ArcTan[Cancel[(z1 + z2)/(1 - z1 z2)]];
+as4434m = a_. ArcTan[z1_] + b_. ArcTan[z2_] /; PossibleZeroQ[a + b] :> (a - b)/2 ArcTan[collectnumden @ Cancel[(z1 - z2)/(1 + z1 z2)]];
+as4434p = a_. ArcTan[z1_] + b_. ArcTan[z2_] /; PossibleZeroQ[a - b] :> a ArcTan[collectnumden @ Cancel[(z1 + z2)/(1 - z1 z2)]];
 
 
 collect[e_] := Module[{permutations, simp},
-	permutations = Table[Select[Tuples[{Power[_, _Rational], _Log, _ArcTan, _ArcTanh},{k}], Length[Union[#]] == k&], {k, 3}];
+	permutations = Table[Select[Tuples[{Power[_, _Rational], _Log, _ArcTan, _ArcTanh, _$rootSum},{k}], Length[Union[#]] == k&], {k, 4}];
 	simp = SortBy[Table[Fold[Collect[#1, #2, Together]&, e, permutations[[k]]], {k, Length @ permutations}], LeafCount][[1]];
 	simp
 ]
+
+
+collectnumden[e_] := Collect[Numerator[e], Power[_, _Rational]]/Collect[Denominator[e], Power[_, _Rational]]
 
 
 (* ::Text:: *)
@@ -705,8 +708,9 @@ collect[e_] := Module[{permutations, simp},
 Clear[postProcess];
 postProcess[e_, x_] := Module[{rootSum, function, simp, permutations, numerics},
 
-	simp = e /. {RootSum -> rootSum, Function -> function};
+	simp = e /. {RootSum -> $rootSum, Function -> function};
 
+	simp = simp /. (h:Sin|Cos|Tan|Cot|Sec|Csc)[Pi r_Rational] :> FunctionExpand[h[Pi r]];
 	simp = simp /. (h : ArcSinh | ArcCosh | ArcSin | ArcCos)[a_] :> TrigToExp[h[a]];
 	simp = simp // togetherAll // powerExpand // togetherAll;
 	simp = simp /. Power[p_, r_Rational] /; PolynomialQ[p, x] :> Expand[p]^r;
@@ -731,10 +735,10 @@ postProcess[e_, x_] := Module[{rootSum, function, simp, permutations, numerics},
 	simp = simp /. Log[ex_^n_Integer] :> n Log[ex];
 	simp = collect[simp];
 
-	simp = simp /. (h:Log|ArcTan|ArcTanh)[arg_] :> h[Cancel @ Together @ arg]; (* Yes, we have to do this twice. *)
+	simp = simp /. (h:Log|ArcTan|ArcTanh)[arg_] :> h[collectnumden @ Cancel @ Together @ arg]; (* Yes, we have to do this twice. *)
 
 	(* Pick the nicer of ArcTan[a/b] or -ArcTan[b/a] *)
-	simp = simp /. ArcTan[a_] /; nicerQ[Numerator[a], Denominator[a], x] :> -ArcTan[Cancel[Denominator[a]/Numerator[a]]];
+	simp = simp /. ArcTan[a_] /; nicerQ[Numerator[a], Denominator[a], x] :> -ArcTan[collectnumden @ Cancel[Denominator[a]/Numerator[a]]];
 
 	(* Remove constant multiples in logands. *)
 	simp = simp /. Log[logand_] /; FactorSquareFreeList[logand][[1]] =!= {1,1} :> 
@@ -747,7 +751,7 @@ postProcess[e_, x_] := Module[{rootSum, function, simp, permutations, numerics},
 	simp = simp //. {as4434m, as4434p};
 	
 	(* Pick the nicer of ArcTanh[a/b] or ArcTan[b/a]. *)
-	simp = simp /. ArcTanh[a_] /; nicerQ[Numerator[a], Denominator[a], x] :> ArcTanh[Together[Denominator[a]/Numerator[a]]];
+	simp = simp /. ArcTanh[a_] /; nicerQ[Numerator[a], Denominator[a], x] :> ArcTanh[collectnumden @ Together[Denominator[a]/Numerator[a]]];
 
 	If[MatchQ[simp, c_?NumericQ p_Plus],
 		simp = simp /. c_?NumericQ (p_Plus) :> Distribute[c p] (* Again... *)
@@ -759,9 +763,14 @@ postProcess[e_, x_] := Module[{rootSum, function, simp, permutations, numerics},
 		simp -= Total[numerics];
 	];
 
-	simp = collect[simp];
-	simp /. {rootSum -> RootSum, function -> Function}
+	simp = collect[simp] /. Power[p_, r_Rational] :> Expand[p]^r;
+
+	simp /. {$rootSum -> RootSum, function -> Function}
 ]
+
+
+(* ::Input:: *)
+(*postProcess[1/120 (180 ((1+x)/x)^(2/3)-144 ((1+x)/x)^(5/3)+45 ((1+x)/x)^(8/3)+20 2^(2/3) Sqrt[3] ArcTan[(1+2^(2/3) ((1+x)/x)^(1/3))/Sqrt[3]]+20 2^(2/3) Log[2-2^(2/3) ((1+x)/x)^(1/3)]-10 2^(2/3) Log[2+2^(2/3) ((1+x)/x)^(1/3)+2^(1/3) ((1+x)/x)^(2/3)]+40 RootSum[1-#1^3+#1^6&,Log[((1+x)/x)^(1/3)-#1]/#1&]),x]*)
 
 
 (* ::Input:: *)
@@ -1115,7 +1124,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*AlgebraicIntegrateHeuristic`Private`$algebraicIntegrateDebug=True;*)
+(*AlgebraicIntegrateHeuristic`Private`$algebraicIntegrateDebug=.;*)
 
 
 (* ::Text:: *)
@@ -1132,6 +1141,71 @@ EndPackage[];
 
 (* ::Input:: *)
 (*int[(1+x^2)/((1-x^2) Sqrt[1-x^4-x^8]),x]*)
+
+
+(* ::Input:: *)
+(*int[1/((-1+x) (x+x^3)^(1/4)),x,"MaxRationalDegree" -> 8,"MaxNumeratorDegree" -> 8,"MaxDenominatorDegree" -> 8,"TableSize" -> "Medium"]*)
+
+
+(* ::Input:: *)
+(*integrate[1/((-1+x) (x+x^3)^(1/4)),x]//First//ToRadicals*)
+(*postProcess[%,x]*)
+
+
+(* ::Input:: *)
+(*int[(-2+x)/((-1+x^2) (x+x^3)^(1/4)),x,"MaxRationalDegree" -> 8,"MaxNumeratorDegree" -> 8,"MaxDenominatorDegree" -> 8,"TableSize" -> "Medium"]*)
+
+
+(* ::Input:: *)
+(*int[(-5+x^4)/((x+x^3)^(1/4) (-1+x^4)),x,"MaxRationalDegree" -> 8,"MaxNumeratorDegree" -> 8,"MaxDenominatorDegree" -> 8,"TableSize" -> "Medium"]*)
+
+
+(* ::Input:: *)
+(*int[1/((-2+x) (-x^2+x^3)^(1/4)),x]*)
+
+
+(* ::Input:: *)
+(*int[((1+2 x+2 x^2) (x^2+x^4)^(1/4))/(1+2 x^2),x,"MaxRationalDegree" -> 8,"MaxNumeratorDegree" -> 8,"MaxDenominatorDegree" -> 8,"TableSize" -> "Medium"]*)
+
+
+(* ::Input:: *)
+(*int[((x+2 x^2) (x^2+x^4)^(1/4))/(1+2 x^2),x,"MaxRationalDegree" -> 8,"MaxNumeratorDegree" -> 8,"MaxDenominatorDegree" -> 8,"TableSize" -> "Medium"]*)
+
+
+(* ::Input:: *)
+(*int[((-1+2 x) (-x^2+x^4)^(1/4))/((-1+x) x),x,"MaxRationalDegree" -> 8,"MaxNumeratorDegree" -> 8,"MaxDenominatorDegree" -> 8,"TableSize" -> "Medium"]*)
+
+
+(* ::Input:: *)
+(*int[((-1+2 x+2 x^2) (-x^2+x^4)^(1/4))/(-1+2 x^2),x,"MaxRationalDegree" -> 8,"MaxNumeratorDegree" -> 8,"MaxDenominatorDegree" -> 8,"TableSize" -> "Medium"]*)
+
+
+(* ::Input:: *)
+(*int[((-2+x) (-x^2+x^4)^(1/4))/(-1+2 x^2),x,"MaxRationalDegree" -> 8,"MaxNumeratorDegree" -> 8,"MaxDenominatorDegree" -> 8,"TableSize" -> "Medium"]*)
+
+
+(* ::Input:: *)
+(*int[(-1+x^2)/((1+x^2) (x^2+x^6)^(1/4)),x,"MaxRationalDegree" -> 8,"MaxNumeratorDegree" -> 8,"MaxDenominatorDegree" -> 24,"TableSize" -> "Medium"]*)
+
+
+(* ::Input:: *)
+(*int[(-1+x^4)/((1+x^2+x^4) (x^2+x^6)^(1/4)),x,"MaxRationalDegree" -> 8,"MaxNumeratorDegree" -> 8,"MaxDenominatorDegree" -> 24,"TableSize" -> "Medium"]*)
+
+
+(* ::Input:: *)
+(*int[(-1+x^8)/((x^2+x^6)^(1/4) (1+x^8)),x,"MaxRationalDegree" -> 8,"MaxNumeratorDegree" -> 8,"MaxDenominatorDegree" -> 8,"TableSize" -> "Medium"]*)
+
+
+(* ::Input:: *)
+(*int[((-1+x^2) (x^2+x^6)^(1/4))/(x^2 (1+x^2)),x,"MaxRationalDegree" -> 8,"MaxNumeratorDegree" -> 8,"MaxDenominatorDegree" -> 24,"TableSize" -> "Medium"]*)
+
+
+(* ::Input:: *)
+(*int[((1+x^2) (-x^3+x^4)^(1/4))/(-1+x+2 x^2),x,"MaxRationalDegree" -> 8,"MaxNumeratorDegree" -> 8,"MaxDenominatorDegree" -> 24,"TableSize" -> "Medium"]*)
+
+
+(* ::Input:: *)
+(*int[((1+x) (x^3+x^5)^(1/4))/(x (-1+x^3)),x,"MaxRationalDegree" -> 8,"MaxNumeratorDegree" -> 8,"MaxDenominatorDegree" -> 24,"TableSize" -> "Medium"]*)
 
 
 (* ::Subsection::Closed:: *)
