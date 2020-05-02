@@ -712,8 +712,13 @@ postProcess[e_, x_] := Module[{rootSum, function, simp, permutations, numerics},
 
 	simp = simp /. (h:Sin|Cos|Tan|Cot|Sec|Csc)[Pi r_Rational] :> FunctionExpand[h[Pi r]];
 	simp = simp /. (h : ArcSinh | ArcCosh | ArcSin | ArcCos)[a_] :> TrigToExp[h[a]];
-	simp = simp // togetherAll // powerExpand // togetherAll;
+
+	(* The order of the next three lines is important, for example 
+		int[(x Sqrt[x^4 - x^2])/(-3 + 2 x^2), x]
+    we don't want to write Sqrt[x^4 - x^2] as x Sqrt[x^2 - 1.] *)
+	simp = simp // togetherAll;
 	simp = simp /. Power[p_, r_Rational] /; PolynomialQ[p, x] :> Expand[p]^r;
+	simp = simp // powerExpand // togetherAll;
 
 	(* Some examples for the following rule:
 		int[((1 + x^6)*Sqrt[-x - x^4 + x^7])/(1 + 2*x^3 - 2*x^9 + x^12), x]
@@ -764,6 +769,7 @@ postProcess[e_, x_] := Module[{rootSum, function, simp, permutations, numerics},
 	];
 
 	simp = collect[simp] /. Power[p_, r_Rational] :> Expand[p]^r;
+	simp = simp /. p_ /; PolynomialQ[p,x] :> Collect[p, x];
 
 	simp /. {$rootSum -> RootSum, function -> Function}
 ]
@@ -1144,20 +1150,20 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[1/((-1+x) (x+x^3)^(1/4)),x,"MaxRationalDegree" -> 8,"MaxNumeratorDegree" -> 8,"MaxDenominatorDegree" -> 8,"TableSize" -> "Medium"]*)
+(*int[1/((-1+x) (x+x^3)^(1/4)),x,"MaxRationalDegree"->8,"MaxNumeratorDegree"->8,"MaxDenominatorDegree"->8,"TableSize"->"Medium"]*)
 
 
 (* ::Input:: *)
-(*integrate[1/((-1+x) (x+x^3)^(1/4)),x]//First//ToRadicals*)
+(*ToRadicals[First[integrate[1/((-1+x) (x+x^3)^(1/4)),x]]]*)
 (*postProcess[%,x]*)
 
 
 (* ::Input:: *)
-(*int[(-2+x)/((-1+x^2) (x+x^3)^(1/4)),x,"MaxRationalDegree" -> 8,"MaxNumeratorDegree" -> 8,"MaxDenominatorDegree" -> 8,"TableSize" -> "Medium"]*)
+(*int[(-2+x)/((-1+x^2) (x+x^3)^(1/4)),x,"MaxRationalDegree"->8,"MaxNumeratorDegree"->8,"MaxDenominatorDegree"->8,"TableSize"->"Medium"]*)
 
 
 (* ::Input:: *)
-(*int[(-5+x^4)/((x+x^3)^(1/4) (-1+x^4)),x,"MaxRationalDegree" -> 8,"MaxNumeratorDegree" -> 8,"MaxDenominatorDegree" -> 8,"TableSize" -> "Medium"]*)
+(*int[(-5+x^4)/((x+x^3)^(1/4) (-1+x^4)),x,"MaxRationalDegree"->8,"MaxNumeratorDegree"->8,"MaxDenominatorDegree"->8,"TableSize"->"Medium"]*)
 
 
 (* ::Input:: *)
@@ -1165,47 +1171,47 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[((1+2 x+2 x^2) (x^2+x^4)^(1/4))/(1+2 x^2),x,"MaxRationalDegree" -> 8,"MaxNumeratorDegree" -> 8,"MaxDenominatorDegree" -> 8,"TableSize" -> "Medium"]*)
+(*int[((1+2 x+2 x^2) (x^2+x^4)^(1/4))/(1+2 x^2),x,"MaxRationalDegree"->8,"MaxNumeratorDegree"->8,"MaxDenominatorDegree"->8,"TableSize"->"Medium"]*)
 
 
 (* ::Input:: *)
-(*int[((x+2 x^2) (x^2+x^4)^(1/4))/(1+2 x^2),x,"MaxRationalDegree" -> 8,"MaxNumeratorDegree" -> 8,"MaxDenominatorDegree" -> 8,"TableSize" -> "Medium"]*)
+(*int[((x+2 x^2) (x^2+x^4)^(1/4))/(1+2 x^2),x,"MaxRationalDegree"->8,"MaxNumeratorDegree"->8,"MaxDenominatorDegree"->8,"TableSize"->"Medium"]*)
 
 
 (* ::Input:: *)
-(*int[((-1+2 x) (-x^2+x^4)^(1/4))/((-1+x) x),x,"MaxRationalDegree" -> 8,"MaxNumeratorDegree" -> 8,"MaxDenominatorDegree" -> 8,"TableSize" -> "Medium"]*)
+(*int[((-1+2 x) (-x^2+x^4)^(1/4))/((-1+x) x),x,"MaxRationalDegree"->8,"MaxNumeratorDegree"->8,"MaxDenominatorDegree"->8,"TableSize"->"Medium"]*)
 
 
 (* ::Input:: *)
-(*int[((-1+2 x+2 x^2) (-x^2+x^4)^(1/4))/(-1+2 x^2),x,"MaxRationalDegree" -> 8,"MaxNumeratorDegree" -> 8,"MaxDenominatorDegree" -> 8,"TableSize" -> "Medium"]*)
+(*int[((-1+2 x+2 x^2) (-x^2+x^4)^(1/4))/(-1+2 x^2),x,"MaxRationalDegree"->8,"MaxNumeratorDegree"->8,"MaxDenominatorDegree"->8,"TableSize"->"Medium"]*)
 
 
 (* ::Input:: *)
-(*int[((-2+x) (-x^2+x^4)^(1/4))/(-1+2 x^2),x,"MaxRationalDegree" -> 8,"MaxNumeratorDegree" -> 8,"MaxDenominatorDegree" -> 8,"TableSize" -> "Medium"]*)
+(*int[((-2+x) (-x^2+x^4)^(1/4))/(-1+2 x^2),x,"MaxRationalDegree"->8,"MaxNumeratorDegree"->8,"MaxDenominatorDegree"->8,"TableSize"->"Medium"]*)
 
 
 (* ::Input:: *)
-(*int[(-1+x^2)/((1+x^2) (x^2+x^6)^(1/4)),x,"MaxRationalDegree" -> 8,"MaxNumeratorDegree" -> 8,"MaxDenominatorDegree" -> 24,"TableSize" -> "Medium"]*)
+(*int[(-1+x^2)/((1+x^2) (x^2+x^6)^(1/4)),x,"MaxRationalDegree"->8,"MaxNumeratorDegree"->8,"MaxDenominatorDegree"->24,"TableSize"->"Medium"]*)
 
 
 (* ::Input:: *)
-(*int[(-1+x^4)/((1+x^2+x^4) (x^2+x^6)^(1/4)),x,"MaxRationalDegree" -> 8,"MaxNumeratorDegree" -> 8,"MaxDenominatorDegree" -> 24,"TableSize" -> "Medium"]*)
+(*int[(-1+x^4)/((1+x^2+x^4) (x^2+x^6)^(1/4)),x,"MaxRationalDegree"->8,"MaxNumeratorDegree"->8,"MaxDenominatorDegree"->24,"TableSize"->"Medium"]*)
 
 
 (* ::Input:: *)
-(*int[(-1+x^8)/((x^2+x^6)^(1/4) (1+x^8)),x,"MaxRationalDegree" -> 8,"MaxNumeratorDegree" -> 8,"MaxDenominatorDegree" -> 8,"TableSize" -> "Medium"]*)
+(*int[(-1+x^8)/((x^2+x^6)^(1/4) (1+x^8)),x,"MaxRationalDegree"->8,"MaxNumeratorDegree"->8,"MaxDenominatorDegree"->8,"TableSize"->"Medium"]*)
 
 
 (* ::Input:: *)
-(*int[((-1+x^2) (x^2+x^6)^(1/4))/(x^2 (1+x^2)),x,"MaxRationalDegree" -> 8,"MaxNumeratorDegree" -> 8,"MaxDenominatorDegree" -> 24,"TableSize" -> "Medium"]*)
+(*int[((-1+x^2) (x^2+x^6)^(1/4))/(x^2 (1+x^2)),x,"MaxRationalDegree"->8,"MaxNumeratorDegree"->8,"MaxDenominatorDegree"->24,"TableSize"->"Medium"]*)
 
 
 (* ::Input:: *)
-(*int[((1+x^2) (-x^3+x^4)^(1/4))/(-1+x+2 x^2),x,"MaxRationalDegree" -> 8,"MaxNumeratorDegree" -> 8,"MaxDenominatorDegree" -> 24,"TableSize" -> "Medium"]*)
+(*int[((1+x^2) (-x^3+x^4)^(1/4))/(-1+x+2 x^2),x,"MaxRationalDegree"->8,"MaxNumeratorDegree"->8,"MaxDenominatorDegree"->24,"TableSize"->"Medium"]*)
 
 
 (* ::Input:: *)
-(*int[((1+x) (x^3+x^5)^(1/4))/(x (-1+x^3)),x,"MaxRationalDegree" -> 8,"MaxNumeratorDegree" -> 8,"MaxDenominatorDegree" -> 24,"TableSize" -> "Medium"]*)
+(*int[((1+x) (x^3+x^5)^(1/4))/(x (-1+x^3)),x,"MaxRationalDegree"->8,"MaxNumeratorDegree"->8,"MaxDenominatorDegree"->24,"TableSize"->"Medium"]*)
 
 
 (* ::Subsection::Closed:: *)
@@ -1214,6 +1220,10 @@ EndPackage[];
 
 (* ::Input:: *)
 (*AlgebraicIntegrateHeuristic`Private`$algebraicIntegrateDebug=.;*)
+
+
+(* ::Input:: *)
+(*int[(x Sqrt[-x^2+x^4])/(-3+2 x^2),x]*)
 
 
 (* ::Input:: *)
@@ -1401,10 +1411,6 @@ EndPackage[];
 (* ::Input:: *)
 (*Cases[DownValues[AlgebraicIntegrateHeuristic`Private`testSolveAlgebraicIntegral][[All,-1]],{_,_,_,Except[{0,0,_}]}]*)
 (*Median[DownValues[AlgebraicIntegrateHeuristic`Private`testSolveAlgebraicIntegral][[All,-1,2]]]*)
-
-
-(* ::InheritFromParent:: *)
-(* 0.354006`4.94893082603342*)
 
 
 (* ::Text:: *)
@@ -1873,7 +1879,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[(Sqrt[-1-x^3] (-2+x^3))/((1+x^3) (1+x^2+x^3)),x]*)
+(*int[(Sqrt[1+x^3] (-2+x^3))/((1+x^3) (1+x^2+x^3)),x]*)
 
 
 (* ::Input:: *)
@@ -1885,7 +1891,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[(Sqrt[-1-x^2-x^3] (-2+x^3))/((1+x^3) (1+x^2+x^3)),x]*)
+(*int[(Sqrt[1+x^2+x^3] (-2+x^3))/((1+x^3) (1+x^2+x^3)),x]*)
 
 
 (* ::Input:: *)
@@ -1893,7 +1899,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[((-1+x^4) Sqrt[1+x^2+x^4] (1+x^2+3 x^4+x^6+x^8))/((1+x^4)^3 (1-x^2+x^4)),x]*)
+(*int[((x^4-1)(1+x^2+3 x^4+x^6+x^8) Sqrt[1+x^2+x^4])/((1+x^4)^3 (1-x^2+x^4)),x]*)
 
 
 (* ::Input:: *)
@@ -1949,7 +1955,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[(Sqrt[-1-x^2-x^4] (-1+x^4) (1+x^2+3 x^4+x^6+x^8))/((1+x^2+x^4)^2 (1+3 x^2+5 x^4+3 x^6+x^8)),x]*)
+(*int[(Sqrt[1+x^2+x^4] (-1+x^4) (1+x^2+3 x^4+x^6+x^8))/((1+x^2+x^4)^2 (1+3 x^2+5 x^4+3 x^6+x^8)),x]*)
 
 
 (* ::Input:: *)
@@ -2185,7 +2191,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[(Sqrt[-1-x^2-x^4] (-1+x^4))/(1+x^4+x^8),x]*)
+(*int[(Sqrt[1+x^2+x^4] (x^4-1))/(1+x^4+x^8),x]*)
 
 
 (* ::Input:: *)
