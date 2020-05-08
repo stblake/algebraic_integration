@@ -551,9 +551,10 @@ solveRational[num_, den_, p_, r_, usubstitution_, radicandDenominator_, x_, u_, 
 	radrat = PowerExpand[radicandDenominator^(-1/r)]; (* Radical contribution to the rational part of the integrand. *)
 	ddu = Together[D[usubstitution, x]];
 
-	degreeBound = Max[Exponent[num, x], Exponent[den, x]] + 
-		Max[Exponent[Numerator @ usubstitution, x], Exponent[Denominator @ usubstitution, x]] + 
-		Max[Exponent[Numerator @ ddu, x], Exponent[Denominator @ ddu, x]];
+	degreeBound = Max[Exponent[num, x], Exponent[den, x], 
+			Exponent[Numerator @ usubstitution, x], Exponent[Denominator @ usubstitution, x], 
+			Exponent[Numerator @ ddu, x], Exponent[Denominator @ ddu, x]];
+
 	debugPrint["degree bound on the rational part is ", degreeBound];
 	degreeBound = Min[degreeBound, maxRationalDegree];
 
@@ -592,7 +593,7 @@ solveRadicand[poly_, form_, x_] := Module[{rules},
 	(* rules = SolveAlways[poly == form, x]; *)
 	
 	If[Exponent[poly, x] === Exponent[form, x],
-		rules = Quiet[Solve[! Eliminate[!(poly == form), {x}], Cases[form, (A|B)[_], Infinity]], {Solve::"svars"}];
+		rules = Quiet[Solve[! Eliminate[!(poly == form), {x}], Union @ Cases[form, (A|B)[_], Infinity]], {Solve::"svars"}];
 		{! MatchQ[rules, {} | _SolveAlways], rules},
 		{False, {}}	
 	]
@@ -682,11 +683,19 @@ log2ArcTanh = c1_. Log[p_] + c2_. Log[q_] /;
 
 
 (* ::Text:: *)
-(*A simplification based on A&S 4.4.34:    ArcTan[z1] \[PlusMinus] ArcTan[z2] == ArcTan[(z1 \[PlusMinus] z2)/(1 \[MinusPlus] z1 z2)]*)
+(*A simplification based on A&S 4.4.34:    ArcTan[x] \[PlusMinus] ArcTan[y] == ArcTan[(x \[PlusMinus] y)/(1 \[MinusPlus] x y)]*)
 
 
 as4434m = a_. ArcTan[z1_] + b_. ArcTan[z2_] /; PossibleZeroQ[a + b] :> (a - b)/2 ArcTan[collectnumden @ Cancel[(z1 - z2)/(1 + z1 z2)]];
 as4434p = a_. ArcTan[z1_] + b_. ArcTan[z2_] /; PossibleZeroQ[a - b] :> a ArcTan[collectnumden @ Cancel[(z1 + z2)/(1 - z1 z2)]];
+
+
+(* ::Text:: *)
+(*ArcTanh[x] \[PlusMinus] ArcTanh[y] == ArcTanh[(x \[PlusMinus] y)/(1 \[PlusMinus] x y)]*)
+
+
+arcTanhDiff = a_. ArcTanh[z1_] + b_. ArcTanh[z2_] /; PossibleZeroQ[a + b] :> (a - b)/2 ArcTanh[collectnumden @ Cancel[(z1 - z2)/(1 - z1 z2)]];
+arcTanhSum = a_. ArcTanh[z1_] + b_. ArcTanh[z2_] /; PossibleZeroQ[a - b] :> a ArcTanh[collectnumden @ Cancel[(z1 + z2)/(1 + z1 z2)]];
 
 
 collect[e_] := Module[{permutations, simp},
@@ -753,7 +762,7 @@ postProcess[e_, x_] := Module[{rootSum, function, simp, permutations, numerics},
 	simp = collect[simp];
 
 	simp = simp //. log2ArcTanh;
-	simp = simp //. {as4434m, as4434p};
+	simp = simp //. {as4434m, as4434p, arcTanhDiff, arcTanhSum};
 	
 	(* Pick the nicer of ArcTanh[a/b] or ArcTan[b/a]. *)
 	simp = simp /. ArcTanh[a_] /; nicerQ[Numerator[a], Denominator[a], x] :> ArcTanh[collectnumden @ Together[Denominator[a]/Numerator[a]]];
@@ -764,7 +773,7 @@ postProcess[e_, x_] := Module[{rootSum, function, simp, permutations, numerics},
 
 	(* Remove constants. *)
 	If[Head[simp] === Plus, 
-		numerics = Cases[simp, n_ /; NumericQ[n], {1}];
+		numerics = Cases[simp, n_ /; FreeQ[n, x], {1}];
 		simp -= Total[numerics];
 	];
 
@@ -1031,7 +1040,7 @@ End[];
 EndPackage[];
 
 
-(* ::Section:: *)
+(* ::Section::Closed:: *)
 (*Examples, wish list, bugs/deficiencies, regression tests, ...*)
 
 
