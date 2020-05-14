@@ -352,6 +352,7 @@ polynomialsUndetermined3[x_Symbol, maxDegree_Integer] :=
 
 
 $Testing = False;
+$timeConstraint = 0.125;
 
 
 ClearAll[solveAlgebraicIntegral];
@@ -382,7 +383,7 @@ solveAlgebraicIntegral[integrand_, x_, OptionsPattern[]] := Module[
 
 	If[! algebraicQ[integrand, x] || ! singleRadicalQ[integrand, x], 
 		Return[{integrand, 0, 0}]];
-  
+
 	(* Rewrite the integrand in the form r(x)+(q[x]/h[x]) y^r, where 
 		y \[Equal] p[x], r(x) is the non-algebraic (rational) part, and 
 		q[x], h[x], p[x] are polynomials in x. *)
@@ -648,11 +649,13 @@ rationalUndetermined[x_Symbol, max_Integer] :=
 
 
 Clear[togetherAll];
+
 togetherAll[e_] /; FreeQ[e, RootSum] := Map[Together, e, {2, Infinity}]
 togetherAll[e_] := e
 
 
 Clear[powerExpand];
+
 powerExpand[e_] := e /. Power[a_ b_^n_Integer, r_Rational] /; 
 	(*! NumericQ[a] && ! NumericQ[b] && n < 0 && *) Mod[n, Denominator[r]] == 0 :> (a^r) (b^(n r)) 
 
@@ -661,30 +664,35 @@ ClearAll[continuousQ];
 
 continuousQ[e_, x_] := TimeConstrained[
 	TrueQ[Reduce[Abs[e] < Infinity, x, Reals]], 
-	0.2, 
+	$timeConstraint, 
 	True
 ]
 
 
 ClearAll[nicerQ];
 
-nicerQ[a_, b_, x_] /; NumberQ[a] && ! NumberQ[b] := True
+nicerQ[a_, b_, x_] /; FreeQ[a, x] && ! FreeQ[b, x] := True
 nicerQ[a_, b_, x_] := continuousQ[1/a, x] && ! continuousQ[1/b, x]
 
 
 (* A simplification based on
 	 D[(Log[a[x] + b[x]] - Log[-a[x] + b[x]]) - 2*ArcTanh[a[x]/b[x]], x] \[Equal] 0 *)
+ClearAll[log2ArcTanh];
+
 log2ArcTanh = c1_. Log[p_] + c2_. Log[q_] /;
 		! PossibleZeroQ[p - q] && 
 		PossibleZeroQ[c1 + c2] && 
 		PossibleZeroQ[(p + q)/2 + (p - q)/2 - p] && 
-		PossibleZeroQ[(p + q)/2 - (p - q)/2 - q] :> 
-	(c2 - c1) ArcTanh[collectnumden @ Cancel[(p + q)/(q - p)]];
+		PossibleZeroQ[(p + q)/2 - (p - q)/2 - q] && 
+		LeafCount[collectnumden @ Cancel @ Together @ Apart[(p + q)/(q - p)]] < LeafCount[(p + q)/(q - p)] :> 
+	(c2 - c1) ArcTanh[collectnumden @ Cancel @ Together @ Apart[(p + q)/(q - p)]];
 
 
 (* ::Text:: *)
 (*A simplification based on A&S 4.4.34:    ArcTan[x] \[PlusMinus] ArcTan[y] == ArcTan[(x \[PlusMinus] y)/(1 \[MinusPlus] x y)]*)
 
+
+ClearAll[as4434m, as4434p];
 
 as4434m = a_. ArcTan[z1_] + b_. ArcTan[z2_] /; PossibleZeroQ[a + b] :> (a - b)/2 ArcTan[collectnumden @ Cancel[(z1 - z2)/(1 + z1 z2)]];
 as4434p = a_. ArcTan[z1_] + b_. ArcTan[z2_] /; PossibleZeroQ[a - b] :> a ArcTan[collectnumden @ Cancel[(z1 + z2)/(1 - z1 z2)]];
@@ -694,9 +702,13 @@ as4434p = a_. ArcTan[z1_] + b_. ArcTan[z2_] /; PossibleZeroQ[a - b] :> a ArcTan[
 (*ArcTanh[x] \[PlusMinus] ArcTanh[y] == ArcTanh[(x \[PlusMinus] y)/(1 \[PlusMinus] x y)]*)
 
 
-arcTanhDiff = a_. ArcTanh[z1_] + b_. ArcTanh[z2_] /; PossibleZeroQ[a + b] :> (a - b)/2 ArcTanh[collectnumden @ Cancel[(z1 - z2)/(1 - z1 z2)]];
-arcTanhSum = a_. ArcTanh[z1_] + b_. ArcTanh[z2_] /; PossibleZeroQ[a - b] :> a ArcTanh[collectnumden @ Cancel[(z1 + z2)/(1 + z1 z2)]];
+ClearAll[arcTanhDiff, arcTanhSum];
 
+arcTanhDiff = a_. ArcTanh[z1_] + b_. ArcTanh[z2_] /; PossibleZeroQ[a + b] :> (a - b)/2 ArcTanh[collectnumden @ Cancel @ Together @ Apart[(z1 - z2)/(1 - z1 z2)]];
+arcTanhSum = a_. ArcTanh[z1_] + b_. ArcTanh[z2_] /; PossibleZeroQ[a - b] :> a ArcTanh[collectnumden @ Cancel @ Together @ Apart[(z1 + z2)/(1 + z1 z2)]];
+
+
+ClearAll[collect];
 
 collect[e_] := Module[{permutations, simp},
 	permutations = Table[Select[Tuples[{Power[_, _Rational], _Log, _ArcTan, _ArcTanh, _$rootSum},{k}], Length[Union[#]] == k&], {k, 4}];
@@ -705,7 +717,15 @@ collect[e_] := Module[{permutations, simp},
 ]
 
 
-collectnumden[e_] := Collect[Numerator[e], Power[_, _Rational]]/Collect[Denominator[e], Power[_, _Rational]]
+ClearAll[collectnumden];
+
+collectnumden[e_] := collectnumden[e] = Collect[Numerator[e], Power[_, _Rational]]/Collect[Denominator[e], Power[_, _Rational]]
+
+
+ClearAll[partialExpand];
+
+partialExpand[e_] /; MatchQ[e, c_?NumericQ p_Plus] := e /. c_?NumericQ (p_Plus) :> Distribute[c p]
+partialExpand[e_] := e
 
 
 (* ::Text:: *)
@@ -716,6 +736,13 @@ collectnumden[e_] := Collect[Numerator[e], Power[_, _Rational]]/Collect[Denomina
 
 Clear[postProcess];
 postProcess[e_, x_] := Module[{rootSum, function, simp, permutations, numerics},
+
+	(* Remove constants. *)
+	simp = partialExpand[simp];
+	If[Head[simp] === Plus, 
+		numerics = Cases[simp, n_ /; FreeQ[n, x], {1}];
+		simp -= Total[numerics];
+	];
 
 	simp = e /. {RootSum -> $rootSum, Function -> function};
 
@@ -742,14 +769,15 @@ postProcess[e_, x_] := Module[{rootSum, function, simp, permutations, numerics},
 	simp = simp /. (h:Log|ArcTan)[arg_] :> h[Cancel @ Together @ arg];
 	simp = simp /. c_. Log[ex_] /; Denominator[ex] =!= 1 :> c Log[Numerator[ex]] - c Log[Denominator[ex]];
 
-	(* Just for display purposes, as we often require multiple lines to display result. *)
-	simp = simp /. c_?NumericQ (p_Plus) :> Distribute[c p];
+	simp = partialExpand[simp];
 
 	(* Another simplification to cancel logarithms. *)
 	simp = simp /. Log[ex_^n_Integer] :> n Log[ex];
 	simp = collect[simp];
 
 	simp = simp /. (h:Log|ArcTan|ArcTanh)[arg_] :> h[collectnumden @ Cancel @ Together @ arg]; (* Yes, we have to do this twice. *)
+
+	simp = simp /. Log[ex_] :> Log[Collect[ex, Power[_, _Rational]]];
 
 	(* Pick the nicer of ArcTan[a/b] or -ArcTan[b/a] *)
 	simp = simp /. ArcTan[a_] /; nicerQ[Numerator[a], Denominator[a], x] :> -ArcTan[collectnumden @ Cancel[Denominator[a]/Numerator[a]]];
@@ -763,15 +791,17 @@ postProcess[e_, x_] := Module[{rootSum, function, simp, permutations, numerics},
 
 	simp = simp //. log2ArcTanh;
 	simp = simp //. {as4434m, as4434p, arcTanhDiff, arcTanhSum};
+
+	simp = simp /. ArcTan[a_] :> ArcTan[collectnumden @ Cancel @ Together @ Apart[a]];
+
+	(* Pick the nicer of ArcTan[a/b] or -ArcTan[b/a]. *)
+	simp = simp /. ArcTan[a_] /; nicerQ[Numerator[a], Denominator[a], x] :> -ArcTan[collectnumden @ Cancel[Denominator[a]/Numerator[a]]];
 	
 	(* Pick the nicer of ArcTanh[a/b] or ArcTan[b/a]. *)
 	simp = simp /. ArcTanh[a_] /; nicerQ[Numerator[a], Denominator[a], x] :> ArcTanh[collectnumden @ Together[Denominator[a]/Numerator[a]]];
 
-	If[MatchQ[simp, c_?NumericQ p_Plus],
-		simp = simp /. c_?NumericQ (p_Plus) :> Distribute[c p] (* Again... *)
-	];
-
 	(* Remove constants. *)
+	simp = partialExpand[simp];
 	If[Head[simp] === Plus, 
 		numerics = Cases[simp, n_ /; FreeQ[n, x], {1}];
 		simp -= Total[numerics];
@@ -779,9 +809,21 @@ postProcess[e_, x_] := Module[{rootSum, function, simp, permutations, numerics},
 
 	simp = collect[simp] /. Power[p_, r_Rational] :> Expand[p]^r;
 	simp = simp /. p_ /; PolynomialQ[p,x] :> Collect[p, x];
+	simp = simp /. Log[ex_] :> Log[Collect[ex, Power[_, _Rational]]];
 
+	simp = partialExpand[simp];
 	simp /. {$rootSum -> RootSum, function -> Function}
 ]
+
+
+(* ::Input:: *)
+(*postProcess[*)
+(*Log[1-3 (-x+Sqrt[-1+x^2])-(-x+Sqrt[-1+x^2])^2-(-x+Sqrt[-1+x^2])^3]-Log[1-x+Sqrt[-1+x^2]+3 (-x+Sqrt[-1+x^2])^2-(-x+Sqrt[-1+x^2])^3],x]*)
+
+
+(* ::Input:: *)
+(*2 Log[2+Sqrt[6] u]-Log[4-2 Sqrt[6] u+6 u^2]/.u->1/(x (x+x^6)^(1/3))*)
+(*postProcess[%,x]*)
 
 
 (* ::Input:: *)
@@ -896,7 +938,7 @@ elementaryQ[expr_] := Complement[
 
 
 (* ::Text:: *)
-(*Mathematica has trouble with some linear and quadratic radical rationals which have elementary forms. eg. ((1 + x)^(1/3)/x^3). We have not stitched these into solveAlgebraicIntegral[] yet. *)
+(*Mathematica has trouble with some linear and quadratic radical rationals which have elementary forms. eg. ((1 + x)^(1/3)/x^3).*)
 
 
 (* ::Input:: *)
@@ -907,18 +949,40 @@ rational2dQ[e_, {x_, y_}] := With[{te = Together[e]},
 Denominator[te] =!= 1 && PolynomialQ[Numerator[te],{x,y}] && PolynomialQ[Denominator[te],{x,y}]]
 
 
+ClearAll[integrate];
+
 integrate[e_, x_] := Integrate[e, x]
 
 
 integrate[e_, x_] /; ListQ[ linearRadicalToRational[e, x, $u] ] := 
-	Module[{integrand, subst},
+	Module[{integrand, subst, integral},
 	{integrand, subst} = linearRadicalToRational[e, x, $u];
-		Integrate[integrand, $u] /. subst
-	]
+	integral = Integrate[integrand, $u] /. subst;
+	integral	
+]
 
 
 (* ::Input:: *)
 (*integrate[(1+u)^(1/3)/u^3,u]*)
+
+
+integrate[e_, x_] /; ListQ[ quadraticRadicalToRational[e, x, $u] ] := 
+	Module[{integrand, subst, integral, numerics},
+	{integrand, subst} = quadraticRadicalToRational[e, x, $u];
+	integral = Integrate[integrand, $u] /. subst;
+	integral = integral // Apart // Expand;
+
+	If[Head[integral] === Plus, 
+		numerics = Cases[integral, n_ /; FreeQ[n, x], {1}];
+		integral -= Total[numerics];
+	];
+
+	integral
+]
+
+
+(* ::Input:: *)
+(*integrate[Sqrt[1+u^2]/((-1+u) (1+u)^2),u]*)
 
 
 (* ::Subsubsection::Closed:: *)
@@ -937,12 +1001,14 @@ integrate[e_, x_] /; ListQ[ linearRadicalToRational[e, x, $u] ] :=
 (*where n = LCM[n[1], n[2], ...] and M[1] = m[1]*n/n[1], M[2] = m[2]*n/n[2], ... *)
 
 
+ClearAll[linearRadicalToRational];
+
 linearRadicalToRational[e_, x_, u_] := linearRadicalToRational[e, x, u] = Module[
 {y, radicals, a, b, n, reps, exy},
 
 (* Find radicals of the form (a x + b)^(n/m). *)
 radicals = Cases[e, y:(a_. x + b_.)^n_ /; 
-	FreeQ[{a,b},x] && Head[n] == Rational :> {y,a x + b, Numerator[n], Denominator[n], a, b}, {0, Infinity}];
+	FreeQ[{a,b},x] && Head[n] == Rational :> {y, a x + b, Numerator[n], Denominator[n], a, b}, {0, Infinity}];
 
 If[radicals === {} || Length[Union[ radicals[[All,2]] ]] > 1, 
 Return[ False ]];
@@ -974,16 +1040,18 @@ exy = n/a u^(n-1) exy /. {x -> (u^n - b)/a, y -> u};
 
 (* ::Input:: *)
 (*linearRadicalToRational[((1+u)^(2/3) (1-4 u+2 u^2))/(3 (-1+u)^2),u,t]*)
-(*Integrate[First[%],t] /. Last[%]*)
-(*Integrate[((1+u)^(2/3) (1-4 u+2 u^2))/(3 (-1+u)^2),u]*)
+(*\[Integral]First[%]\[DifferentialD]t/. Last[%]*)
+(*\[Integral]((1+u)^(2/3) (1-4 u+2 u^2))/(3 (-1+u)^2) \[DifferentialD]u*)
 
 
 (* ::Subsubsection::Closed:: *)
 (*quadraticRadicalToRational*)
 
 
-quadraticRadicalToRational[e_, x_, u_] := Module[
-{y, radicals, a, b, c, exy, dx, U, X, \[Alpha], \[Beta]},
+ClearAll[quadraticRadicalToRational];
+
+quadraticRadicalToRational[e_, x_, u_] := quadraticRadicalToRational[e, x, u] = Module[
+{y, radicals, a, b, c, exy, dx, U, X, \[Alpha], \[Beta], euler1, euler2, euler3, transformed},
 (* Find radicals of the form ((a x + b)/(c x + d))^(n/m) *)
 radicals = Cases[e, y:r_^n_/;
 PolynomialQ[r,x] && Exponent[r,x] == 2 && Head[n] == Rational :>
@@ -1001,35 +1069,64 @@ exy = Cancel @ Together[e /. {radicals[[1,1]] -> y, radicals[[1,1]]^-1 -> y^-1}]
 If[!(PolynomialQ[exy, {x, y}] || rational2dQ[exy, {x, y}]), 
 	Return[ False ]];
 
-a = Coefficient[radicals[[1,2]], x,2];
-b = Coefficient[radicals[[1,2]], x,1];
-c = Coefficient[radicals[[1,2]], x,0];
+a = Coefficient[radicals[[1,2]], x, 2];
+b = Coefficient[radicals[[1,2]], x, 1];
+c = Coefficient[radicals[[1,2]], x, 0];
 
-Which[
+(* This is here for compact forms for solveAlgebraicIntegral. *)
+
+If[! (MatchQ[Head[a], Integer|Rational] && 
+	  MatchQ[Head[b], Integer|Rational] && 
+	  MatchQ[Head[c], Integer|Rational]),
+	Return[ False ]];
+
+transformed = {};
+
+If[
 a > 0,
 	(* Euler's first substitution. *)
 	X = (u^2 - c)/(b - 2 Sqrt[a] u);
 	U = radicals[[1,1]] - Sqrt[a] x;
 	dx = 2(-Sqrt[a] u^2 + b u - Sqrt[a]c)/(-2Sqrt[a]u + b)^2;
-	exy = exy dx /. {y -> Sqrt[a]X + u, x -> X},
-c > 0,
+	euler1 = {Cancel[exy dx /. {y -> Sqrt[a]X + u, x -> X}], u -> U};
+	AppendTo[transformed, euler1]
+];
+
+If[a < 0 && c > 0,
 	(* Euler's second substitution. *)
-	X = Cancel @ Together[(2Sqrt[c]u - b)/(a - u^2)];
+	X = Cancel @ Together[(2 Sqrt[c] u - b)/(a - u^2)];
 	U = (radicals[[1,1]] - Sqrt[c])/x;	
 	dx = 2(Sqrt[c] u^2 - b u + a Sqrt[c])/(u^2 - a)^2;
-	exy = exy dx /. {y -> X u + Sqrt[c], x -> X},
-True, 
+	euler2 = {Cancel[exy dx /. {y -> X u + Sqrt[c], x -> X}], u -> U};
+	AppendTo[transformed, euler2]
+];
+
+If[b^2 - 4 a c > 0, 
 	(* Euler's third substitution. *)
 	\[Alpha] = -b/(2 a) - Sqrt[b^2 - 4 a c]/(2 a);
 	\[Beta] = -b/(2 a) + Sqrt[b^2 - 4 a c]/(2 a);
 	X = Cancel @ Together[(a \[Beta] - \[Alpha] u^2)/(a - u^2)];
 	U = radicals[[1,1]]/(x - \[Alpha]);
 	dx = 2 u a (\[Beta] - \[Alpha])/(u^2 - a)^2;
-	exy = exy dx /. {y -> (X - \[Alpha])u, x -> X}
+	euler3 = {Cancel[exy dx /. {y -> (X - \[Alpha])u, x -> X}], u -> U};
+	AppendTo[transformed, euler3]
 ];
 
-{exy // Cancel, u -> U}
+SortBy[transformed, LeafCount] // First
 ]
+
+
+(* ::Input:: *)
+(*f=((-1-4 x-x^2) Sqrt[-1+x^2])/(1+2 x^3+x^4);*)
+(*quadraticRadicalToRational[f,x,u]*)
+(*Integrate[%//First,u]*)
+(*postProcess[%/. Last[%%],x]*)
+(*D[%,x] - f // Simplify*)
+(*Clear[f]*)
+
+
+(* ::Input:: *)
+(*Integrate[((-1-4 x-x^2) Sqrt[-1+x^2])/(1+2 x^3+x^4),x]*)
 
 
 (* ::Subsection::Closed:: *)
@@ -1040,7 +1137,7 @@ End[];
 EndPackage[];
 
 
-(* ::Section::Closed:: *)
+(* ::Section:: *)
 (*Examples, wish list, bugs/deficiencies, regression tests, ...*)
 
 
@@ -1148,6 +1245,14 @@ EndPackage[];
 
 (* ::Input:: *)
 (*int[x/Sqrt[-71-96 x+10 x^2+x^4],x]*)
+
+
+(* ::Text:: *)
+(*An integral which was solved by Euler*)
+
+
+(* ::Input:: *)
+(*int[(1-x^2)^2/((x^2+1) (x^4+6 x^2+1)^(3/4)),x]*)
 
 
 (* ::Text:: *)
@@ -1908,7 +2013,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[((x^4-1)(1+x^2+3 x^4+x^6+x^8) Sqrt[1+x^2+x^4])/((1+x^4)^3 (1-x^2+x^4)),x]*)
+(*int[((x^4-1) (1+x^2+3 x^4+x^6+x^8) Sqrt[1+x^2+x^4])/((1+x^4)^3 (1-x^2+x^4)),x]*)
 
 
 (* ::Input:: *)
