@@ -663,7 +663,7 @@ powerExpand[e_] := e /. Power[a_ b_^n_Integer, r_Rational] /;
 ClearAll[continuousQ];
 
 continuousQ[e_, x_] := TimeConstrained[
-	TrueQ[Reduce[Abs[e] < Infinity, x, Reals]], 
+	TrueQ[! Reduce[1/e == 0, x, Reals]], 
 	$timeConstraint, 
 	True
 ]
@@ -684,7 +684,7 @@ log2ArcTanh = c1_. Log[p_] + c2_. Log[q_] /;
 		PossibleZeroQ[c1 + c2] && 
 		PossibleZeroQ[(p + q)/2 + (p - q)/2 - p] && 
 		PossibleZeroQ[(p + q)/2 - (p - q)/2 - q] && 
-		LeafCount[collectnumden @ Cancel @ Together @ Apart[(p + q)/(q - p)]] < LeafCount[(p + q)/(q - p)] :> 
+		LeafCount[collectnumden @ Cancel @ Together @ Apart[(p + q)/(q - p)]] < 2 LeafCount[{p, q}] :> 
 	(c2 - c1) ArcTanh[collectnumden @ Cancel @ Together @ Apart[(p + q)/(q - p)]];
 
 
@@ -956,6 +956,7 @@ integrate[e_, x_] := Integrate[e, x]
 
 integrate[e_, x_] /; ListQ[ linearRadicalToRational[e, x, $u] ] := 
 	Module[{integrand, subst, integral},
+
 	{integrand, subst} = linearRadicalToRational[e, x, $u];
 	integral = Integrate[integrand, $u] /. subst;
 	integral	
@@ -968,10 +969,12 @@ integrate[e_, x_] /; ListQ[ linearRadicalToRational[e, x, $u] ] :=
 
 integrate[e_, x_] /; ListQ[ quadraticRadicalToRational[e, x, $u] ] := 
 	Module[{integrand, subst, integral, numerics},
+
 	{integrand, subst} = quadraticRadicalToRational[e, x, $u];
 	integral = Integrate[integrand, $u] /. subst;
 	integral = integral // Apart // Expand;
 
+	(* Remove constants. *)
 	If[Head[integral] === Plus, 
 		numerics = Cases[integral, n_ /; FreeQ[n, x], {1}];
 		integral -= Total[numerics];
@@ -1187,6 +1190,18 @@ EndPackage[];
 
 
 (* ::Text:: *)
+(*This solution to this integral is terrible. *)
+
+
+(* ::Input:: *)
+(*int[Sqrt[x^4-1]/(x^4+1),x]*)
+
+
+(* ::Input:: *)
+(*D[-(1/2) ArcTan[(x (1-x^2))/Sqrt[-1+x^4]]-1/2 ArcTanh[(x (1+x^2))/Sqrt[-1+x^4]],x] - Sqrt[x^4-1]/(x^4+1) // Simplify (* Solution from Rubi. *)*)
+
+
+(* ::Text:: *)
 (*Is there anything we can do for these integrals?*)
 
 
@@ -1199,7 +1214,7 @@ EndPackage[];
 
 
 (* ::Text:: *)
-(*This isn't specifically a bug, but the result form is unfortunate.*)
+(*This isn't specifically a bug, but the resulting form is unfortunate.*)
 
 
 (* ::Input:: *)
@@ -1220,15 +1235,15 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[((3+2 x^2) Sqrt[x+2 x^3])/(1+2 x^2)^2,x]*)
+(*int[((2 x^2+3) Sqrt[2 x^3+x])/(2 x^2+1)^2,x]*)
 
 
 (* ::Input:: *)
-(*int[((3+2 x^5) Sqrt[x-2 x^4-x^6])/(-1+x^5)^2,x]*)
+(*int[((2 x^5+3) Sqrt[-x^6-2 x^4+x])/(x^5-1)^2,x]*)
 
 
 (* ::Input:: *)
-(*int[((3+x^4) Sqrt[x-x^5])/(1-2 x^4-x^6+x^8),x]*)
+(*int[((x^4+3) Sqrt[x-x^5])/(x^8-x^6-2 x^4+1),x]*)
 
 
 (* ::Subsection::Closed:: *)
