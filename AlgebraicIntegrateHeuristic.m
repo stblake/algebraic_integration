@@ -566,6 +566,8 @@ solveRational[num_, den_, p_, r_, usubstitution_, radicandDenominator_, x_, u_, 
 
 		debugPrint[num/den == ratX];	
 
+		(* Previously SolveAlways was used to solve for the undetermined coefficients, however 
+		   this approach doesn't work if there are parameters in the integrand.  *)
 		(* ratSolution = SolveAlways[Collect[Expand[num Denominator[ratX] - Numerator[ratX] den], x] == 0, x]; *)
 
 		eqn = Collect[Expand[num Denominator[ratX] - Numerator[ratX] den], x] == 0;
@@ -934,7 +936,7 @@ elementaryQ[expr_] := Complement[
 
 
 (* ::Subsection::Closed:: *)
-(*integrating linear and quadratic radicals *)
+(*Integrating linear and quadratic radicals *)
 
 
 (* ::Text:: *)
@@ -1085,8 +1087,7 @@ If[! (MatchQ[Head[a], Integer|Rational] &&
 
 transformed = {};
 
-If[
-a > 0,
+If[a > 0,
 	(* Euler's first substitution. *)
 	X = (u^2 - c)/(b - 2 Sqrt[a] u);
 	U = radicals[[1,1]] - Sqrt[a] x;
@@ -1130,6 +1131,183 @@ SortBy[transformed, LeafCount] // First
 
 (* ::Input:: *)
 (*Integrate[((-1-4 x-x^2) Sqrt[-1+x^2])/(1+2 x^3+x^4),x]*)
+
+
+(* ::Subsection:: *)
+(*Specific forms solved with undetermined coefficients*)
+
+
+(* ::Text:: *)
+(*Some specific methods for solving otherwise difficult integrals. These methods were motivated by an integral posted by Henri Cohen in sci.math.symbolic in 1993*)
+
+
+(* ::Input:: *)
+(*Integrate[x/Sqrt[-71-96 x+10 x^2+x^4],x]*)
+
+
+(* ::Subsubsection::Closed:: *)
+(*Integrate[a[x]/(b[x] Sqrt[r[x]])] == c Log[p[x] + q[x] r[x]]*)
+
+
+(* ::Text:: *)
+(*Here we require a[x], b[x], r[x] are all polynomials in x. Given*)
+(**)
+(*Integrate[a[x]/(b[x] Sqrt[r[x]])] == c Log[p[x] + q[x] r[x]]*)
+(**)
+(*we differentiate both sides and equate coefficients to give the system of (polynomial) differential equations with undetermined coefficients in the polynomials p[x] and q[x]; and a single coefficient c:*)
+(**)
+(*-2*a[x]*q[x]*r[x] + 2*c*b[x]*r[x]*p'[x] == 0*)
+(*-2*a[x]*p[x] + 2*c*b[x]*r[x]*q'[x] + c*b[x]*q[x]*r'[x] == 0*)
+(**)
+(*The derivation of these equations is as follows:*)
+
+
+(* ::Input:: *)
+(*Clear[a,b,c,p,q,r,R];*)
+(*D[c Log[p[x]+q [x]Sqrt[r[x]]],x]//Together//Cancel//ExpandDenominator;*)
+(*%==a[x]/(b[x]Sqrt[r[x]]) /. {r[x]^(1/2) -> R,r[x]^(-1/2) -> 1/R};*)
+(*Numerator[%[[1]]]Denominator[%[[2]]]==Denominator[%[[1]]]Numerator[%[[2]]] /. {r[x]^(1/2) -> R,r[x]^(-1/2) -> 1/R};*)
+(*Expand[Subtract @@ %] /. R^2->r[x];*)
+(*Coefficient[Collect[%,R],R,0]==0*)
+(*Coefficient[Collect[%%,R],R,1]==0*)
+
+
+undetermined[maxDegree_, offset_] := Sum[V[offset + n] x^n, {n, 0, maxDegree}]
+
+
+logPartSolve1[a_, b_, r_, x_, degreeBound_:12] := 
+	logPartSolve1[Function @@ {x,a}, Function @@ {x,b}, Function @@ {x,r}, x, degreeBound]
+
+
+logPartSolve1[a_Function,b_Function,r_Function,x_, degreeBound_:12] := Module[
+{p, q, eqns, vars, c, sol, l, logs},
+
+Do[
+	p = Function @@ {x, undetermined[bound, 0]};
+	q = Function @@ {x, undetermined[bound, bound + 1]};
+
+	eqns = And @@ {
+		-2 a[x] q[x] r[x] + 2 c b[x] r[x] Derivative[1][p][x] == 0,
+		-2 a[x] p[x] + 2 c b[x] r[x] Derivative[1][q][x] + c b[x] q[x] Derivative[1][r][x] == 0
+	};
+
+	vars = Append[Union @ Cases[eqns, V[_], Infinity], c];
+	sol = Solve[! Eliminate[!eqns, {x}], vars];
+
+	sol = sol /. ConditionalExpression[e_,___] :> e /. C[1] -> 1;
+	sol = DeleteCases[sol, {(_ -> _?PossibleZeroQ) ..}];
+
+	If[! MatchQ[sol, {} | {{}} | _Solve | False], 
+		Break[]
+	],
+	{bound, degreeBound}];
+
+	If[MatchQ[sol, {} | {{}} | _Solve | False], 
+		Return[ False ]
+	];
+
+	logs = Table[
+		c Log[p[x] + q[x]Sqrt[r[x]]] /. sol[[k]] /. V[_] -> Apply[LCM, Denominator /@ Most[sol[[k]][[All,-1]]]],
+		{k, Length[sol]}];
+
+	Select[logs, Cancel[Together[D[#, x] - a[x]/(b[x] Sqrt[r[x]])]] === 0&, 1] /. {{e_} :> e, {} -> False}
+]
+
+
+(* ::Text:: *)
+(*Ref: Henri Cohen on sci.math.symbolic in 1993, solved by Bronstein using AXIOM:*)
+
+
+(* ::Input:: *)
+(*a=x;*)
+(*b=1;*)
+(*r=-71-96 x+10 x^2+x^4;*)
+(*logPartSolve1[a,b,r,x]//Timing*)
+(*D[%//Last,x]-a/(b Sqrt[r])//Simplify*)
+(*Clear[a,b,r]*)
+
+
+(* ::Text:: *)
+(*Ref: Schultz, 2015*)
+
+
+(* ::Input:: *)
+(*a=29x^2+18x-3;*)
+(*b=1;*)
+(*r=x^6+4x^5+6x^4-12x^3+33x^2-16x;*)
+(*logPartSolve1[a,b,r,x,30]//Timing*)
+(*D[%//Last,x]-a/(b Sqrt[r])//Simplify*)
+(*Clear[a,b,r]*)
+
+
+(* ::Text:: *)
+(*Ref: Deconinck & Patterson "Computing the Abel Map"*)
+
+
+(* ::Input:: *)
+(*a=39x^2+9x-1;*)
+(*b=1;*)
+(*r=x^6+4x^4+10x^3+4x^2-4x+1;*)
+(*logPartSolve1[a,b,r,x,40]//Timing*)
+(*D[%//Last,x]-a/(b Sqrt[r])//Simplify*)
+(*Clear[a,b,r]*)
+
+
+(* ::Text:: *)
+(*Algebraic integral from the Facebook AI paper.*)
+
+
+(* ::Input:: *)
+(*a=16 x^3-42 x^2+2 x;*)
+(*b=1;*)
+(*r=-16 x^8+112 x^7-204 x^6+28 x^5-x^4+1;*)
+(*logPartSolve1[a,b,r,x]//Timing//ExpToTrig*)
+(*D[%//Last,x]-a/(b Sqrt[r])//Simplify*)
+(*Clear[a,b,r]*)
+
+
+(* ::Text:: *)
+(*Some more nice examples I have put together:*)
+
+
+(* ::Input:: *)
+(*a=x;*)
+(*b=1;*)
+(*r=1+4 x+3 x^2-2 x^3+x^4;*)
+(*Timing[logPartSolve1[a,b,r,x]]*)
+(*Simplify[\!\( *)
+(*\*SubscriptBox[\(\[PartialD]\), \(x\)]\(Last[%]\)\)-a/(b Sqrt[r])]*)
+(*Clear[a,b,r]*)
+
+
+(* ::Input:: *)
+(*a=x+x^2;*)
+(*b=1;*)
+(*r=2 x+4 x^2+2 x^3+x^4+2 x^5+x^6;*)
+(*Timing[logPartSolve1[a,b,r,x]]*)
+(*Simplify[\!\( *)
+(*\*SubscriptBox[\(\[PartialD]\), \(x\)]\(Last[%]\)\)-a/(b Sqrt[r])]*)
+(*Clear[a,b,r]*)
+
+
+(* ::Input:: *)
+(*a=-x+x^2;*)
+(*b=1;*)
+(*r=-2 x+4 x^2-2 x^3+x^4-2 x^5+x^6;*)
+(*Timing[logPartSolve1[a,b,r,x]]*)
+(*Simplify[\!\( *)
+(*\*SubscriptBox[\(\[PartialD]\), \(x\)]\(Last[%]\)\)-a/(b Sqrt[r])]*)
+(*Clear[a,b,r]*)
+
+
+(* ::Input:: *)
+(*a=1+3x;*)
+(*b=1;*)
+(*r=-1-4 x-5 x^2-2 x^3+x^4;*)
+(*Timing[logPartSolve1[a,b,r,x]]*)
+(*Simplify[\!\( *)
+(*\*SubscriptBox[\(\[PartialD]\), \(x\)]\(Last[%]\)\)-a/(b Sqrt[r])]*)
+(*Clear[a,b,r]*)
 
 
 (* ::Subsection::Closed:: *)
