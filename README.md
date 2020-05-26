@@ -87,3 +87,32 @@ Out[2017]= {0, 0, (3 (2 + x - x^3 - x^4)^(2/3) (-4 - 2 x - 3 x^3 + 2 x^4))/(10 x
 
 Out[2018]= (2 + x - x^4)/x^3
 ```
+
+We now have some additional specific methods for integrals of the form ```Integrate[a[x]/(b[x] Sqrt[r[x]])] == c Log[p[x] + q[x] r[x]]```. For example, the following integral was posted on sci.math.symbolic by Henri Cohen in 1993 and was solved by Manuel Bronstein using AXIOM: 
+
+```
+In[561]:= solveAlgebraicIntegral[x/Sqrt[-71 - 96 x + 10 x^2 + x^4], x]
+
+Out[561]= {0, 0, -(1/8)
+    Log[-10001 - 3124 x^2 + 1408 x^3 - 54 x^4 + 128 x^5 - 20 x^6 - x^8 + Sqrt[-71 - 96 x + 10 x^2 + x^4] (781 - 528 x + 27 x^2 - 80 x^3 + 15 x^4 + x^6)]}
+```
+
+Here are a number of similar integrals I came up with
+
+```
+In[652]:= solveAlgebraicIntegral[x/Sqrt[1 + 4 x + 3 x^2 - 2 x^3 + x^4], x]
+
+Out[652]= {0, 0, -(1/6) Log[13 - 42 x^2 + 56 x^3 - 36 x^4 + 12 x^5 - 2 x^6 + Sqrt[1 + 4 x + 3 x^2 - 2 x^3 + x^4] (14 - 28 x + 24 x^2 - 10 x^3 + 2 x^4)]}
+```
+
+```
+In[653]:= solveAlgebraicIntegral[(1 + 3 x)/Sqrt[-1 - 4 x - 5 x^2 - 2 x^3 + x^4], x]
+
+Out[653]= {0, 0, -(1/2) Log[11 - 4 x - 24 x^2 - 16 x^3 + 38 x^4 - 16 x^5 + 2 x^6 + (2 + 18 x - 30 x^2 + 14 x^3 - 2 x^4) Sqrt[-1 - 4 x - 5 x^2 - 2 x^3 + x^4]]}
+```
+
+```
+In[654]:= solveAlgebraicIntegral[(x^2 - x)/Sqrt[-2 x + 4 x^2 - 2 x^3 + x^4 - 2 x^5 + x^6], x]
+
+Out[654]= {0, 0, -(1/6)Log[-1 + 4 x^3 - 2 x^6 + (2 x + 2 x^2 + 2 x^3) Sqrt[-2 x + 4 x^2 - 2 x^3 + x^4 - 2 x^5 + x^6]]}
+```
