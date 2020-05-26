@@ -88,7 +88,7 @@ Out[2017]= {0, 0, (3 (2 + x - x^3 - x^4)^(2/3) (-4 - 2 x - 3 x^3 + 2 x^4))/(10 x
 Out[2018]= (2 + x - x^4)/x^3
 ```
 
-We now have some additional specific methods for integrals of the form ```Integrate[a[x]/(b[x] Sqrt[r[x]])] == c Log[p[x] + q[x] r[x]]```. For example, the following integral was posted on sci.math.symbolic by Henri Cohen in 1993 and was solved by Manuel Bronstein using AXIOM: 
+We now have some additional specific methods for integrals of the form ```Integrate[a[x]/(b[x] Sqrt[r[x]])] == c Log[p[x] + q[x] Sqrt[r[x]]]```. For example, the following integral was posted on sci.math.symbolic by Henri Cohen in 1993 and was solved by Manuel Bronstein using AXIOM: 
 
 ```
 In[561]:= solveAlgebraicIntegral[x/Sqrt[-71 - 96 x + 10 x^2 + x^4], x]
