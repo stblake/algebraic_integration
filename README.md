@@ -116,3 +116,9 @@ In[654]:= solveAlgebraicIntegral[(x^2 - x)/Sqrt[-2 x + 4 x^2 - 2 x^3 + x^4 - 2 x
 
 Out[654]= {0, 0, -(1/6)Log[-1 + 4 x^3 - 2 x^6 + (2 x + 2 x^2 + 2 x^3) Sqrt[-2 x + 4 x^2 - 2 x^3 + x^4 - 2 x^5 + x^6]]}
 ```
+
+```
+In[90]:= solveAlgebraicIntegral[(-1 - 2 x + 3 x^2)/Sqrt[-3 - 2 x - x^2 + 4 x^3 - x^4 - 2 x^5 + x^6], x]
+
+Out[90]= {0, 0, -Log[-1 + x + x^2 - x^3 + Sqrt[-3 - 2 x - x^2 + 4 x^3 - x^4 - 2 x^5 + x^6]]}
+```
