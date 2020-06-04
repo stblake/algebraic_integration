@@ -14,6 +14,8 @@
 
 (* ::Text:: *)
 (*This package implements a heuristic for solving some pseudo-elliptic integrals using a combination of integration by substitution and the method of undetermined coefficients.*)
+(**)
+(*TODO: include Gunther substitutions and other logPartSolve routines. *)
 
 
 (* ::Subsection::Closed:: *)
@@ -103,6 +105,33 @@ Cases[e, Power[p_, q_] /; (! FreeQ[p,x] && ! MatchQ[Head[q], Integer|Rational]),
 
 (* ::Input:: *)
 (*algebraicQ[((2+x^3)+x^Pi+Sqrt[(-1+x) (1+x+x^2)])/(x^2 (-2-4 x^2+2 x^3)Sqrt[-1+x^3]),x]*)
+
+
+(* ::Subsection::Closed:: *)
+(*simpleRadicalQ*)
+
+
+simpleRadicalQ[_, x_] := {False, 0, 0, 0}
+simpleRadicalQ[r_^(-1/2), x_] /; PolynomialQ[r, x] := {True, 1, 1, r}
+simpleRadicalQ[p_ r_^(-1/2), x_] /; PolynomialQ[p, x] && PolynomialQ[r, x] := {True, p, 1, r}
+simpleRadicalQ[q_^-1 r_^(-1/2), x_] /; PolynomialQ[q, x] && PolynomialQ[r, x] := {True, 1, q, r}
+simpleRadicalQ[p_/q_ r_^(-1/2), x_] /; PolynomialQ[p, x] && PolynomialQ[q, x] && PolynomialQ[r, x] := {True, p, q, r}
+
+
+(* ::Input:: *)
+(*simpleRadicalQ[(x^2+1)/((x^2-1) Sqrt[x^3+x]),x]*)
+
+
+(* ::Input:: *)
+(*simpleRadicalQ[1/Sqrt[x^4-x^3-2 x^2+3 x+3],x]*)
+
+
+(* ::Input:: *)
+(*simpleRadicalQ[x/Sqrt[x^4-x^3-2 x^2+3 x+3],x]*)
+
+
+(* ::Input:: *)
+(*simpleRadicalQ[1/(x Sqrt[x^4-x^3-2 x^2+3 x+3]),x]*)
 
 
 (* ::Subsection::Closed:: *)
@@ -363,19 +392,21 @@ Options[solveAlgebraicIntegral] = {
 	"MaxNumeratorDegree" -> 8,
 	"MaxDenominatorDegree" -> 4,
 	"TableSize" -> "Small",
+	"DegreeBound" -> 8,
 	"Elementary" -> True
 }; 
 
 solveAlgebraicIntegral[integrand_, x_, OptionsPattern[]] := Module[
 	{start, k = 0, y = Symbol["y"], u = Symbol["u"], radicands, pSqCan, solution, rationalPart, 
-	integrandNumerator, integrandDenominator, p, r, y2radical, matched, radicandMatchRules, 
+	integrandNumerator, integrandDenominator, p, r, a, b, y2radical, matched, radicandMatchRules, 
 	rationalMatchRules, rationalFormU, integrandU, intU, intX, unintegratedPart, integratedPart,
-	cancellingCoefficient, cancellingTerm, uform, radicandNumeratorU, radicandU,
+	cancellingCoefficient, cancellingTerm, uform, radicandNumeratorU, radicandU, integral,
 	radicandDenominatorU, usubstitutionParam, radicandNumeratorUParam, radicandDenominatorUParam},
  
 	maxRationalDegree    = OptionValue["MaxRationalDegree"];
 	maxNumeratorDegree   = OptionValue["MaxNumeratorDegree"];
 	maxDenominatorDegree = OptionValue["MaxDenominatorDegree"];
+	degreeBound          = OptionValue["DegreeBound"];
 
 	If[$Testing, start = AbsoluteTime[]];
  
@@ -516,6 +547,22 @@ solveAlgebraicIntegral[integrand_, x_, OptionsPattern[]] := Module[
 						"TableSize" -> OptionValue["TableSize"]]}];
 
 	debugPrint[k];
+
+	If[unintegratedPart =!= 0, 
+		{matched, a, b, r} = simpleRadicalQ[unintegratedPart, x];
+		If[matched, 
+			Which[
+				debugPrint["Trying logPartSolve1..."];
+				integral = logPartSolve1[a, b, r, x, degreeBound] // ExpToTrig;
+				integral =!= False, 
+					debugPrint["logPartSolve1 returned ", integral];
+					unintegratedPart = 0;
+					integratedPart += integral
+
+				(* More to come here... *)
+			];
+		]
+	];
 
 	If[$Testing,
 		testSolveAlgebraicIntegral[integrand // Hash] = {
@@ -675,6 +722,7 @@ ClearAll[nicerQ];
 
 nicerQ[a_, b_, x_] /; FreeQ[a, x] && ! FreeQ[b, x] := True
 nicerQ[a_, b_, x_] := continuousQ[1/a, x] && ! continuousQ[1/b, x]
+nicerQ[a_, b_, x_] := !(! continuousQ[1/a, x] && continuousQ[1/b, x])
 
 
 (* A simplification based on
@@ -1133,7 +1181,7 @@ SortBy[transformed, LeafCount] // First
 (*Integrate[((-1-4 x-x^2) Sqrt[-1+x^2])/(1+2 x^3+x^4),x]*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Specific forms solved with undetermined coefficients*)
 
 
@@ -1146,17 +1194,17 @@ SortBy[transformed, LeafCount] // First
 
 
 (* ::Subsubsection::Closed:: *)
-(*Integrate[a[x]/(b[x] Sqrt[r[x]])] == c Log[p[x] + q[x] r[x]]*)
+(*logPartSolve1	\[LongDash]	Integrate[a[x]/(b[x] Sqrt[r[x]])] == c Log[p[x] + q[x] Sqrt[r[x]]]*)
 
 
 (* ::Text:: *)
-(*Here we require a[x], b[x], r[x] are all polynomials in x. Given*)
+(*Here we require a[x], b[x], r[x] to be polynomials in x. Given*)
 (**)
 (*Integrate[a[x]/(b[x] Sqrt[r[x]])] == c Log[p[x] + q[x] r[x]]*)
 (**)
 (*we differentiate both sides and equate coefficients to give the system of (polynomial) differential equations with undetermined coefficients in the polynomials p[x] and q[x]; and a single coefficient c:*)
 (**)
-(*-2*a[x]*q[x]*r[x] + 2*c*b[x]*r[x]*p'[x] == 0*)
+(*                     -2*a[x]*q[x]*r[x] + 2*c*b[x]*r[x]*p'[x] == 0*)
 (*-2*a[x]*p[x] + 2*c*b[x]*r[x]*q'[x] + c*b[x]*q[x]*r'[x] == 0*)
 (**)
 (*The derivation of these equations is as follows:*)
@@ -1172,19 +1220,23 @@ SortBy[transformed, LeafCount] // First
 (*Coefficient[Collect[%%,R],R,1]==0*)
 
 
-undetermined[maxDegree_, offset_] := Sum[V[offset + n] x^n, {n, 0, maxDegree}]
+(* ::Text:: *)
+(*It is important to note that this method can fail as we do not have the a good method to bound the degrees of p[x], q[x]. This is a difficult problem which was solved by Trager.*)
+
+
+undetermined[maxDegree_, x_, offset_] := Sum[V[offset + n] x^n, {n, 0, maxDegree}]
 
 
 logPartSolve1[a_, b_, r_, x_, degreeBound_:12] := 
 	logPartSolve1[Function @@ {x,a}, Function @@ {x,b}, Function @@ {x,r}, x, degreeBound]
 
 
-logPartSolve1[a_Function,b_Function,r_Function,x_, degreeBound_:12] := Module[
+logPartSolve1[a_Function, b_Function, r_Function, x_, degreeBound_:12] := Module[
 {p, q, eqns, vars, c, sol, l, logs},
 
 Do[
-	p = Function @@ {x, undetermined[bound, 0]};
-	q = Function @@ {x, undetermined[bound, bound + 1]};
+	p = Function @@ {x, undetermined[bound, x, 0]};
+	q = Function @@ {x, undetermined[bound, x, bound + 1]};
 
 	eqns = And @@ {
 		-2 a[x] q[x] r[x] + 2 c b[x] r[x] Derivative[1][p][x] == 0,
@@ -1376,7 +1428,18 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*D[-(1/2) ArcTan[(x (1-x^2))/Sqrt[-1+x^4]]-1/2 ArcTanh[(x (1+x^2))/Sqrt[-1+x^4]],x] - Sqrt[x^4-1]/(x^4+1) // Simplify (* Solution from Rubi. *)*)
+(*Simplify[\!\( *)
+(*\*SubscriptBox[\(\[PartialD]\), \(x\)]\((\(-*)
+(*\*FractionBox[\(1\), \(2\)]\)\ ArcTan[*)
+(*\*FractionBox[\(x\ \((1 - *)
+(*\*SuperscriptBox[\(x\), \(2\)])\)\), *)
+(*SqrtBox[\(\(-1\) + *)
+(*\*SuperscriptBox[\(x\), \(4\)]\)]]] - *)
+(*\*FractionBox[\(1\), \(2\)]\ ArcTanh[*)
+(*\*FractionBox[\(x\ \((1 + *)
+(*\*SuperscriptBox[\(x\), \(2\)])\)\), *)
+(*SqrtBox[\(\(-1\) + *)
+(*\*SuperscriptBox[\(x\), \(4\)]\)]]])\)\)-Sqrt[x^4-1]/(x^4+1)]*)
 
 
 (* ::Text:: *)
@@ -1385,6 +1448,10 @@ EndPackage[];
 
 (* ::Input:: *)
 (*int[x/((4-x^3) Sqrt[1-x^3]),x]*)
+
+
+(* ::Input:: *)
+(*Kauers[x/((4-x^3) Sqrt[1-x^3]),x]*)
 
 
 (* ::Input:: *)
@@ -1433,14 +1500,6 @@ EndPackage[];
 
 
 (* ::Text:: *)
-(*Top of the wish list. From sci.math.symbolic in the early 90's:*)
-
-
-(* ::Input:: *)
-(*int[x/Sqrt[-71-96 x+10 x^2+x^4],x]*)
-
-
-(* ::Text:: *)
 (*An integral which was solved by Euler*)
 
 
@@ -1457,12 +1516,11 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[1/((-1+x) (x+x^3)^(1/4)),x,"MaxRationalDegree"->8,"MaxNumeratorDegree"->8,"MaxDenominatorDegree"->8,"TableSize"->"Medium"]*)
+(*int[1/((-2+x) (-x^2+x^3)^(1/4)),x]*)
 
 
 (* ::Input:: *)
-(*ToRadicals[First[integrate[1/((-1+x) (x+x^3)^(1/4)),x]]]*)
-(*postProcess[%,x]*)
+(*int[1/((-1+x) (x+x^3)^(1/4)),x,"MaxRationalDegree"->8,"MaxNumeratorDegree"->8,"MaxDenominatorDegree"->8,"TableSize"->"Medium"]*)
 
 
 (* ::Input:: *)
@@ -1471,10 +1529,6 @@ EndPackage[];
 
 (* ::Input:: *)
 (*int[(-5+x^4)/((x+x^3)^(1/4) (-1+x^4)),x,"MaxRationalDegree"->8,"MaxNumeratorDegree"->8,"MaxDenominatorDegree"->8,"TableSize"->"Medium"]*)
-
-
-(* ::Input:: *)
-(*int[1/((-2+x) (-x^2+x^3)^(1/4)),x]*)
 
 
 (* ::Input:: *)
@@ -1527,6 +1581,26 @@ EndPackage[];
 
 (* ::Input:: *)
 (*AlgebraicIntegrateHeuristic`Private`$algebraicIntegrateDebug=.;*)
+
+
+(* ::Input:: *)
+(*int[x/Sqrt[-71-96 x+10 x^2+x^4],x]*)
+
+
+(* ::Input:: *)
+(*int[x/Sqrt[1+4 x+3 x^2-2 x^3+x^4],x]*)
+
+
+(* ::Input:: *)
+(*int[(1+3 x)/Sqrt[-1-4 x-5 x^2-2 x^3+x^4],x]*)
+
+
+(* ::Input:: *)
+(*int[(x^2-x)/Sqrt[-2 x+4 x^2-2 x^3+x^4-2 x^5+x^6],x]*)
+
+
+(* ::Input:: *)
+(*int[(-1-2 x+3 x^2)/Sqrt[-3-2 x-x^2+4 x^3-x^4-2 x^5+x^6],x]*)
 
 
 (* ::Input:: *)
@@ -1689,7 +1763,7 @@ EndPackage[];
 (*int[((-2+3 x^5) Sqrt[1+x^5])/(1+x^4+2 x^5+x^10),x]*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*regression testing*)
 
 
