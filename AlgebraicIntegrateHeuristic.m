@@ -401,15 +401,16 @@ solveAlgebraicIntegral[integrand_, x_, opts:OptionsPattern[]] /;
 Module[{linrat},
 		linrat = linearRationalSubstitution[integrand, x, $u]; 
 		debugPrint["linear rational substitution = ", linrat];
-		{#1, #2, postProcess[#3, x]}& @@ (solveAlgebraicIntegral[linrat // First, $u, opts] /. Last[linrat])
+		{#1, #2, postProcess[#3, x]}& @@ (solveAlgebraicIntegral[linrat // First, $u, opts] /. Last[linrat] // Simplify // PowerExpand)
 ]
 
-solveAlgebraicIntegral[integrand_, x_, OptionsPattern[]] := Module[
+solveAlgebraicIntegral[integrand_, x_, opts : OptionsPattern[]] := Module[
 	{start, k = 0, y(* = Symbol["y"]*), u(* = Symbol["u"]*), radicands, pSqCan, solution, rationalPart, 
 	integrandNumerator, integrandDenominator, p, r, a, b, y2radical, matched, radicandMatchRules, 
 	rationalMatchRules, rationalFormU, integrandU, intU, intX, unintegratedPart, integratedPart,
 	cancellingCoefficient, cancellingTerm, uform, radicandNumeratorU, radicandU, integral,
-	radicandDenominatorU, usubstitutionParam, radicandNumeratorUParam, radicandDenominatorUParam},
+	radicandDenominatorU, usubstitutionParam, radicandNumeratorUParam, radicandDenominatorUParam, 
+	exnum, lexnum, integrated},
  
 	maxRationalDegree    = OptionValue["MaxRationalDegree"];
 	maxNumeratorDegree   = OptionValue["MaxNumeratorDegree"];
@@ -556,6 +557,8 @@ solveAlgebraicIntegral[integrand_, x_, OptionsPattern[]] := Module[
 
 	debugPrint[k];
 
+	(* Try specific solvers. *)
+
 	If[unintegratedPart =!= 0, 
 		{matched, a, b, r} = simpleRadicalQ[unintegratedPart, x];
 		If[matched, 
@@ -569,6 +572,30 @@ solveAlgebraicIntegral[integrand_, x_, OptionsPattern[]] := Module[
 
 				(* More to come here... *)
 			];
+		]
+	];
+
+	(* Last resort - try integrating term-by-term. *)
+
+	If[integratedPart === 0,
+		exnum = Expand @ Numerator[integrand];
+		If[Head[exnum] === Plus, 
+			debugPrint["Expanding integrand and integrating term-by-term."];
+			lexnum = List @@ exnum;
+			unintegratedPart = 0;
+			integratedPart = 0;
+			Do[
+				debugPrint["Integrating ", numterm/Denominator[integrand]];
+				integrated = solveAlgebraicIntegral[numterm/Denominator[integrand], x, opts];
+				debugPrint["Recursive call to solveAlgebraicIntegral returned ", integrated];
+				unintegratedPart += integrated[[1]] + integrated[[2]];
+				integratedPart += integrated[[3]];
+			, {numterm, lexnum}];
+
+			If[integratedPart === 0,
+				unintegratedPart = integrand;
+				integratedPart = 0
+			]
 		]
 	];
 
@@ -701,7 +728,7 @@ rationalUndetermined[x_Symbol, max_Integer] :=
 (Sum[V[k] x^k, {k, 0, max}]/Sum[V[max + k + 1] x^k, {k, 0, max}])
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*postProcess*)
 
 
@@ -729,6 +756,7 @@ continuousQ[e_, x_] := TimeConstrained[
 ClearAll[nicerQ];
 
 nicerQ[a_, b_, x_] /; FreeQ[a, x] && ! FreeQ[b, x] := True
+nicerQ[a_, b_, x_] /; ! FreeQ[a, x] && FreeQ[b, x] := False
 nicerQ[a_, b_, x_] := continuousQ[1/a, x] && ! continuousQ[1/b, x]
 nicerQ[a_, b_, x_] := !(! continuousQ[1/a, x] && continuousQ[1/b, x])
 
@@ -750,15 +778,15 @@ log2ArcTanh = c1_. Log[p_] + c2_. Log[q_] /;
 (*A simplification based on A&S 4.4.34:    ArcTan[x] \[PlusMinus] ArcTan[y] == ArcTan[(x \[PlusMinus] y)/(1 \[MinusPlus] x y)]*)
 
 
-ClearAll[as4434m, as4434p];
+ClearAll[arcTanDiff, arcTanSum];
 
-as4434m = a_. ArcTan[z1_] + b_. ArcTan[z2_] /; PossibleZeroQ[a + b] && 
-	LeafCount[collectnumden @ Cancel @ Together @ Apart[(z1 - z2)/(1 + z1 z2)]] < LeafCount[{z1, z2}] :> 
-	(a - b)/2 ArcTan[collectnumden @ Cancel @ Together @ Apart[(z1 - z2)/(1 + z1 z2)]];
+arcTanDiff = a_. ArcTan[z1_] + b_. ArcTan[z2_] /; PossibleZeroQ[a + b] && 
+	LeafCount[collectnumden @ Cancel[(z1 - z2)/(1 + z1 z2)]] < LeafCount[z1/z2] :> 
+	(a - b)/2 ArcTan[collectnumden @ Cancel[(z1 - z2)/(1 + z1 z2)]];
 
-as4434p = a_. ArcTan[z1_] + b_. ArcTan[z2_] /; PossibleZeroQ[a - b] && 
-	LeafCount[collectnumden @ Cancel @ Together @ Apart[(z1 + z2)/(1 - z1 z2)]] < LeafCount[{z1, z2}] :> 
-	a ArcTan[collectnumden @ Cancel @ Together @ Apart[(z1 + z2)/(1 - z1 z2)]];
+arcTanSum = a_. ArcTan[z1_] + b_. ArcTan[z2_] /; PossibleZeroQ[a - b] && 
+	LeafCount[collectnumden @ Cancel[(z1 + z2)/(1 - z1 z2)]] < LeafCount[z1/z2] :> 
+	a ArcTan[collectnumden @ Cancel[(z1 + z2)/(1 - z1 z2)]];
 
 
 (* ::Text:: *)
@@ -768,12 +796,12 @@ as4434p = a_. ArcTan[z1_] + b_. ArcTan[z2_] /; PossibleZeroQ[a - b] &&
 ClearAll[arcTanhDiff, arcTanhSum];
 
 arcTanhDiff = a_. ArcTanh[z1_] + b_. ArcTanh[z2_] /; PossibleZeroQ[a + b]  && 
-	LeafCount[collectnumden @ Cancel @ Together @ Apart[(z1 - z2)/(1 - z1 z2)]] < LeafCount[{z1, z2}] :> 
-	(a - b)/2 ArcTanh[collectnumden @ Cancel @ Together @ Apart[(z1 - z2)/(1 - z1 z2)]];
+	LeafCount[collectnumden @ Cancel[(z1 - z2)/(1 - z1 z2)]] < LeafCount[z1/z2] :> 
+	(a - b)/2 ArcTanh[collectnumden @ Cancel[(z1 - z2)/(1 - z1 z2)]];
 
 arcTanhSum = a_. ArcTanh[z1_] + b_. ArcTanh[z2_] /; PossibleZeroQ[a + b]  && 
-	LeafCount[collectnumden @ Cancel @ Together @ Apart[(z1 + z2)/(1 + z1 z2)]] < LeafCount[{z1, z2}] :> 
-	a ArcTanh[collectnumden @ Cancel @ Together @ Apart[(z1 + z2)/(1 + z1 z2)]];
+	LeafCount[collectnumden @ Cancel[(z1 + z2)/(1 + z1 z2)]] < LeafCount[z1/z2] :> 
+	a ArcTanh[collectnumden @ Cancel[(z1 + z2)/(1 + z1 z2)]];
 
 
 ClearAll[collect];
@@ -803,7 +831,7 @@ partialExpand[e_] := e
 
 
 Clear[postProcess];
-postProcess[e_, x_] := Module[{$rootSum, $function, simp, permutations, numerics},
+postProcess[e_, x_] := Module[{$function, simp, permutations, numerics},
 
 	(* Remove constants. *)
 	simp = partialExpand[simp];
@@ -858,9 +886,9 @@ postProcess[e_, x_] := Module[{$rootSum, $function, simp, permutations, numerics
 	simp = collect[simp];
 
 	simp = simp //. log2ArcTanh;
-	simp = simp //. {as4434m, as4434p, arcTanhDiff, arcTanhSum};
+	simp = simp //. {arcTanDiff, arcTanSum, arcTanhDiff, arcTanhSum};
 
-	simp = simp /. ArcTan[a_] :> ArcTan[collectnumden @ Cancel @ Together @ Apart[a]];
+	simp = simp /. ArcTan[a_] :> ArcTan[collectnumden @ Cancel @ Together[a]];
 
 	(* Pick the nicer of ArcTan[a/b] or -ArcTan[b/a]. *)
 	simp = simp /. ArcTan[a_] /; nicerQ[Numerator[a], Denominator[a], x] :> -ArcTan[collectnumden @ Cancel[Denominator[a]/Numerator[a]]];
@@ -882,6 +910,10 @@ postProcess[e_, x_] := Module[{$rootSum, $function, simp, permutations, numerics
 	simp = partialExpand[simp];
 	simp /. {$rootSum -> RootSum, $function -> Function}
 ]
+
+
+(* ::Input:: *)
+(*postProcess[(4 (-1+x^4)^(1/4)-4 x^4 (-1+x^4)^(1/4)+5 x^5 RootSum[2-2 #1^4+#1^8&,(-Log[x] #1+Log[(-1+x^4)^(1/4)-x #1] #1)/(-1+#1^4)&])/(20 x^5),x]*)
 
 
 (* ::Input:: *)
@@ -1213,6 +1245,26 @@ SortBy[transformed, LeafCount] // First
 (*Integrate[R((d u - b)/(a - u), (p u^D + q)^(n/m)/(s u + r)^D)]*)
 
 
+semiRationalise[e_, x_] := Module[{flden, conj, num, den}, 
+
+flden = FactorSquareFree[Denominator[e]];
+conj = Times @@ Cases[flden, a_. x + b_ :> b - a x];
+
+If[conj === 1, 
+	e, 
+	den = conj Denominator[e] // Expand // FactorSquareFree;
+	num = conj Numerator[e] // Expand // FactorSquareFree;
+	num/den
+]
+]
+
+
+(* ::Input:: *)
+(*semiRationalise[(-2 2^(3/4) u^2)/((1+u) (1+u^2) (1+u^4)^(3/4)),u]*)
+
+
+ClearAll[linearRationalSubstitution];
+
 linearRationalSubstitution[e_, x_, u_] := linearRationalSubstitution[e, x, u] = Module[
 {radicals, radicand, deg, a, b, d, p, q, r, s, radU,
  eqn, soln, solns, subX, subU, intU, dx, subs, goodsubs},
@@ -1229,6 +1281,7 @@ deg = Exponent[radicand, x];
 radU = Collect[radicand /. {x -> (d u - b)/(a - u)} // Together // Cancel, u];
 eqn = Numerator[radU](r + s u)^deg == Denominator[radU](p u^deg + q);
 solns = Solve[!Eliminate[!eqn, {u}] && a!=0 && b!=0 && p!=0 && q!=0, {a,b,d,p,q}];
+solns = DeleteCases[solns, s_ /; !FreeQ[s, Power[_Integer, _Rational]]];
 
 If[MatchQ[solns, {}|{{}} | _Solve | {{(_ -> _?PossibleZeroQ) ..}..}], 
 	Return[ False ]];
@@ -1240,7 +1293,7 @@ subs = Table[
 	subU = (a x + b)/(x + d) /. soln // Cancel;
 	subU = subU /. a|b|d|p|q|r|s -> 1 // Cancel;
 
-	{intU, u -> subU},
+	{semiRationalise[intU, u], u -> subU},
 {soln, solns}];
 
 goodsubs = Cases[subs, 
@@ -1253,6 +1306,14 @@ If[goodsubs === {},
 
 SortBy[goodsubs, LeafCount] // First
 ]
+
+
+(* ::Input:: *)
+(*linearRationalSubstitution[(3 x^2+1)/Sqrt[x^3+x-1],x,u]*)
+
+
+(* ::Input:: *)
+(*linearRationalSubstitution[(1-x^2)^2/((x^2+1) (x^4+6 x^2+1)^(3/4)),x,u]*)
 
 
 (* ::Input:: *)
@@ -1501,6 +1562,14 @@ EndPackage[];
 (*int[((-1+x^8) (-1+x^4)^(1/4))/(x^6 (1+x^8)),x]*)
 
 
+(* ::Text:: *)
+(*A (very difficult) integral which was solved by Euler in 1777.*)
+
+
+(* ::Input:: *)
+(*int[(1-x^2)^2/((x^2+1) (x^4+6 x^2+1)^(3/4)),x]*)
+
+
 (* ::Subsection::Closed:: *)
 (*current bugs and deficiencies*)
 
@@ -1590,17 +1659,9 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[(-1+x)/(x (1+x^4)^(1/4)),x]*)
-(*(-1+x)/(x (1+x^4)^(1/4))//Expand*)
+(*int[(x-1)/(x (1+x^4)^(1/4)),x]*)
+(*Expand[(-1+x)/(x (1+x^4)^(1/4))]*)
 (*int[1/(1+x^4)^(1/4),x]-int[1/(x (1+x^4)^(1/4)),x]*)
-
-
-(* ::Text:: *)
-(*An integral which was solved by Euler*)
-
-
-(* ::Input:: *)
-(*int[(1-x^2)^2/((x^2+1) (x^4+6 x^2+1)^(3/4)),x]*)
 
 
 (* ::Text:: *)
