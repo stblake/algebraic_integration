@@ -396,6 +396,14 @@ Options[solveAlgebraicIntegral] = {
 	"Elementary" -> True
 }; 
 
+solveAlgebraicIntegral[integrand_, x_, opts:OptionsPattern[]] /; 
+	ListQ[linearRationalSubstitution[integrand, x, $u]] := 
+Module[{linrat},
+		linrat = linearRationalSubstitution[integrand, x, $u]; 
+		debugPrint["linear rational substitution = ", linrat];
+		{#1, #2, postProcess[#3, x]}& @@ (solveAlgebraicIntegral[linrat // First, $u, opts] /. Last[linrat])
+]
+
 solveAlgebraicIntegral[integrand_, x_, OptionsPattern[]] := Module[
 	{start, k = 0, y(* = Symbol["y"]*), u(* = Symbol["u"]*), radicands, pSqCan, solution, rationalPart, 
 	integrandNumerator, integrandDenominator, p, r, a, b, y2radical, matched, radicandMatchRules, 
@@ -1191,7 +1199,7 @@ SortBy[transformed, LeafCount] // First
 (*Integrate[((-1-4 x-x^2) Sqrt[-1+x^2])/(1+2 x^3+x^4),x]*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Linear rational substitutions*)
 
 
@@ -1205,7 +1213,7 @@ SortBy[transformed, LeafCount] // First
 (*Integrate[R((d u - b)/(a - u), (p u^D + q)^(n/m)/(s u + r)^D)]*)
 
 
-linearRationalSubstitution[e_, x_, u_] := Module[
+linearRationalSubstitution[e_, x_, u_] := linearRationalSubstitution[e, x, u] = Module[
 {radicals, radicand, deg, a, b, d, p, q, r, s, radU,
  eqn, soln, solns, subX, subU, intU, dx, subs, goodsubs},
 
@@ -1885,6 +1893,10 @@ EndPackage[];
 (* ::Text:: *)
 (*15-Apr-2020 0.409 Seconds*)
 (*16-Apr-2020 0.372 Seconds*)
+
+
+(* ::Input:: *)
+(*int[1/((x+1) (x^4+6 x^2+1)^(1/4)),x]*)
 
 
 (* ::Input:: *)
