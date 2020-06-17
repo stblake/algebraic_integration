@@ -122,3 +122,23 @@ In[90]:= solveAlgebraicIntegral[(-1 - 2 x + 3 x^2)/Sqrt[-3 - 2 x - x^2 + 4 x^3 -
 
 Out[90]= {0, 0, -Log[-1 + x + x^2 - x^3 + Sqrt[-3 - 2 x - x^2 + 4 x^3 - x^4 - 2 x^5 + x^6]]}
 ```
+
+We can now solve some integrals which require a linear rational substitution to simplify the radicand prior to the usual call to solveAlgebraicIntegral. For example 
+
+```
+In[967]:= solveAlgebraicIntegral[1/((x + 1) (x^4 + 6 x^2 + 1)^(1/4)), x]
+
+Out[967]= {0, 0, ArcTan[(-1 + x)/(2^(1/4) (1 + 6 x^2 + x^4)^(1/4))]/(2 2^(3/4)) + ArcTanh[(-1 + x)/(2^(1/4) (1 + 6 x^2 + x^4)^(1/4))]/(2 2^(3/4))}
+```
+
+```
+In[1157]:= solveAlgebraicIntegral[Sqrt[x^4 + 6 x^2 + 1]/((x - 1) (x + 1)^3), x]
+
+Out[1157]= {0, 0, Sqrt[1 + 6 x^2 + x^4]/(4 (1 + x)^2) + Log[-1 + x]/(2 Sqrt[2]) - Log[1 + 2 x + x^2 + Sqrt[2] Sqrt[1 + 6 x^2 + x^4]]/(4 Sqrt[2])}
+```
+
+```
+In[1158]:= solveAlgebraicIntegral[Sqrt[x^4 + 6 x^2 + 1]/(x (x^2 + 1)), x]
+
+Out[1158]= {0, 0, -2 ArcTan[Sqrt[1 + 6 x^2 + x^4]/(-1 + Sqrt[2] + (1 + Sqrt[2]) x^2)] + ArcTanh[((-1 + x) (1 + x))/Sqrt[1 + 6 x^2 + x^4]]}
+```
