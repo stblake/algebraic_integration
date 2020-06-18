@@ -400,7 +400,7 @@ solveAlgebraicIntegral[integrand_, x_, opts:OptionsPattern[]] /;
 	ListQ[linearRationalSubstitution[integrand, x, $u]] := 
 Module[{linrat},
 		linrat = linearRationalSubstitution[integrand, x, $u]; 
-		debugPrint["linear rational substitution = ", linrat];
+		debugPrint[Style["LINEAR RATIONAL", Red], "substitution = ", linrat];
 		{#1, #2, postProcess[#3, x]}& @@ (solveAlgebraicIntegral[linrat // First, $u, opts] /. Last[linrat] // Simplify // PowerExpand)
 ]
 
@@ -618,7 +618,7 @@ solveAlgebraicIntegral[integrand_, x_, opts : OptionsPattern[]] := Module[
 (*solveAlgebraicIntegral[%, x]*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*solveRational*)
 
 
@@ -634,9 +634,11 @@ solveRational[num_, den_, p_, r_, usubstitution_, radicandDenominator_, x_, u_, 
 	radrat = PowerExpand[radicandDenominator^(-1/r)]; (* Radical contribution to the rational part of the integrand. *)
 	ddu = Together[D[usubstitution, x]];
 
-	degreeBound = Max[Exponent[num, x], Exponent[den, x], 
-			Exponent[Numerator @ usubstitution, x], Exponent[Denominator @ usubstitution, x], 
-			Exponent[Numerator @ ddu, x], Exponent[Denominator @ ddu, x]];
+	(* + 1 added to degreeBound below for (x^3 + x^2)^(1/3). *)
+
+	degreeBound = 1 + Max[Exponent[num, x], Exponent[den, x], 
+			Exponent[Numerator @ usubstitution, x] + Exponent[Denominator @ usubstitution, x], 
+			Exponent[Numerator @ ddu, x] + Exponent[Denominator @ ddu, x]];
 
 	debugPrint["degree bound on the rational part is ", degreeBound];
 	degreeBound = Min[degreeBound, maxRationalDegree];
@@ -728,7 +730,7 @@ rationalUndetermined[x_Symbol, max_Integer] :=
 (Sum[V[k] x^k, {k, 0, max}]/Sum[V[max + k + 1] x^k, {k, 0, max}])
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*postProcess*)
 
 
@@ -770,8 +772,24 @@ log2ArcTanh = c1_. Log[p_] + c2_. Log[q_] /;
 		PossibleZeroQ[c1 + c2] && 
 		PossibleZeroQ[(p + q)/2 + (p - q)/2 - p] && 
 		PossibleZeroQ[(p + q)/2 - (p - q)/2 - q] && 
-		LeafCount[collectnumden @ Cancel @ Together @ Apart[(p + q)/(q - p)]] < 2 LeafCount[{p, q}] :> 
-	(c2 - c1) ArcTanh[collectnumden @ Cancel @ Together @ Apart[(p + q)/(q - p)]];
+		LeafCount[collectnumden @ Cancel[(p + q)/(q - p)]] < 2 LeafCount[p/q] :> 
+	(c2 - c1) ArcTanh[collectnumden @ Cancel[(p + q)/(q - p)]];
+
+
+canonic[e_] := Module[{pf, simp},
+
+	pf = Apart[Together @ e];
+	If[Head[pf] =!= Plus, 
+		simp = pf,
+		simp = e
+	];
+
+	Cancel[simp]
+]
+
+
+(* ::Input:: *)
+(*(x+x^3+x Sqrt[1-x^2+x^4])/(1-x^2+x^4+(1+x^2) Sqrt[1-x^2+x^4]) // canonic*)
 
 
 (* ::Text:: *)
@@ -781,12 +799,12 @@ log2ArcTanh = c1_. Log[p_] + c2_. Log[q_] /;
 ClearAll[arcTanDiff, arcTanSum];
 
 arcTanDiff = a_. ArcTan[z1_] + b_. ArcTan[z2_] /; PossibleZeroQ[a + b] && 
-	LeafCount[collectnumden @ Cancel[(z1 - z2)/(1 + z1 z2)]] < LeafCount[z1/z2] :> 
-	(a - b)/2 ArcTan[collectnumden @ Cancel[(z1 - z2)/(1 + z1 z2)]];
+	LeafCount[collectnumden @ canonic[(z1 - z2)/(1 + z1 z2)]] < LeafCount[z1/z2] :> 
+	(a - b)/2 ArcTan[collectnumden @ canonic[(z1 - z2)/(1 + z1 z2)]];
 
 arcTanSum = a_. ArcTan[z1_] + b_. ArcTan[z2_] /; PossibleZeroQ[a - b] && 
-	LeafCount[collectnumden @ Cancel[(z1 + z2)/(1 - z1 z2)]] < LeafCount[z1/z2] :> 
-	a ArcTan[collectnumden @ Cancel[(z1 + z2)/(1 - z1 z2)]];
+	LeafCount[collectnumden @ canonic[(z1 + z2)/(1 - z1 z2)]] < LeafCount[z1/z2] :> 
+	a ArcTan[collectnumden @ canonic[(z1 + z2)/(1 - z1 z2)]];
 
 
 (* ::Text:: *)
@@ -796,12 +814,12 @@ arcTanSum = a_. ArcTan[z1_] + b_. ArcTan[z2_] /; PossibleZeroQ[a - b] &&
 ClearAll[arcTanhDiff, arcTanhSum];
 
 arcTanhDiff = a_. ArcTanh[z1_] + b_. ArcTanh[z2_] /; PossibleZeroQ[a + b]  && 
-	LeafCount[collectnumden @ Cancel[(z1 - z2)/(1 - z1 z2)]] < LeafCount[z1/z2] :> 
-	(a - b)/2 ArcTanh[collectnumden @ Cancel[(z1 - z2)/(1 - z1 z2)]];
+	LeafCount[collectnumden @ canonic[(z1 - z2)/(1 - z1 z2)]] < LeafCount[z1/z2] :> 
+	(a - b)/2 ArcTanh[collectnumden @ canonic[(z1 - z2)/(1 - z1 z2)]];
 
-arcTanhSum = a_. ArcTanh[z1_] + b_. ArcTanh[z2_] /; PossibleZeroQ[a + b]  && 
-	LeafCount[collectnumden @ Cancel[(z1 + z2)/(1 + z1 z2)]] < LeafCount[z1/z2] :> 
-	a ArcTanh[collectnumden @ Cancel[(z1 + z2)/(1 + z1 z2)]];
+arcTanhSum = a_. ArcTanh[z1_] + b_. ArcTanh[z2_] /; PossibleZeroQ[a - b]  && 
+	LeafCount[collectnumden @ canonic[(z1 + z2)/(1 + z1 z2)]] < LeafCount[z1/z2] :> 
+	a ArcTanh[collectnumden @ canonic[(z1 + z2)/(1 + z1 z2)]];
 
 
 ClearAll[collect];
@@ -862,7 +880,7 @@ postProcess[e_, x_] := Module[{$function, simp, permutations, numerics},
 	simp = collect[simp];	
 
 	(* This can often result in a simplification as denominators of sums of logs often cancel. *)
-	simp = simp /. (h:Log|ArcTan)[arg_] :> h[Cancel @ Together @ arg];
+	simp = simp /. (h:Log|ArcTan|ArcTanh)[arg_] :> h[Cancel @ Together @ arg];
 	simp = simp /. c_. Log[ex_] /; Denominator[ex] =!= 1 :> c Log[Numerator[ex]] - c Log[Denominator[ex]];
 
 	simp = partialExpand[simp];
@@ -871,12 +889,12 @@ postProcess[e_, x_] := Module[{$function, simp, permutations, numerics},
 	simp = simp /. Log[ex_^n_Integer] :> n Log[ex];
 	simp = collect[simp];
 
-	simp = simp /. (h:Log|ArcTan|ArcTanh)[arg_] :> h[collectnumden @ Cancel @ Together @ arg]; (* Yes, we have to do this twice. *)
+	simp = simp /. (h:Log|ArcTan|ArcTanh)[arg_] :> h[collectnumden @ canonic @ arg]; (* Yes, we have to do this twice. *)
 
 	simp = simp /. Log[ex_] :> Log[Collect[ex, Power[_, _Rational]]];
 
 	(* Pick the nicer of ArcTan[a/b] or -ArcTan[b/a] *)
-	simp = simp /. ArcTan[a_] /; nicerQ[Numerator[a], Denominator[a], x] :> -ArcTan[collectnumden @ Cancel[Denominator[a]/Numerator[a]]];
+	simp = simp /. ArcTan[a_] /; nicerQ[Numerator[a], Denominator[a], x] :> -ArcTan[collectnumden @ canonic[Denominator[a]/Numerator[a]]];
 
 	(* Remove constant multiples in logands. *)
 	simp = simp /. Log[logand_] /; FactorSquareFreeList[logand][[1]] =!= {1,1} :> 
@@ -888,13 +906,13 @@ postProcess[e_, x_] := Module[{$function, simp, permutations, numerics},
 	simp = simp //. log2ArcTanh;
 	simp = simp //. {arcTanDiff, arcTanSum, arcTanhDiff, arcTanhSum};
 
-	simp = simp /. ArcTan[a_] :> ArcTan[collectnumden @ Cancel @ Together[a]];
+	simp = simp /. ArcTan[a_] :> ArcTan[collectnumden @ canonic[a]];
 
 	(* Pick the nicer of ArcTan[a/b] or -ArcTan[b/a]. *)
-	simp = simp /. ArcTan[a_] /; nicerQ[Numerator[a], Denominator[a], x] :> -ArcTan[collectnumden @ Cancel[Denominator[a]/Numerator[a]]];
-	
+	simp = simp /. ArcTan[a_] /; nicerQ[Numerator[a], Denominator[a], x] :> -ArcTan[collectnumden @ canonic[Denominator[a]/Numerator[a]]];
+
 	(* Pick the nicer of ArcTanh[a/b] or ArcTan[b/a]. *)
-	simp = simp /. ArcTanh[a_] /; nicerQ[Numerator[a], Denominator[a], x] :> ArcTanh[collectnumden @ Together[Denominator[a]/Numerator[a]]];
+	simp = simp /. ArcTanh[a_] /; nicerQ[Numerator[a], Denominator[a], x] :> ArcTanh[collectnumden @ canonic[Denominator[a]/Numerator[a]]];
 
 	(* Remove constants. *)
 	simp = partialExpand[simp];
@@ -910,6 +928,10 @@ postProcess[e_, x_] := Module[{$function, simp, permutations, numerics},
 	simp = partialExpand[simp];
 	simp /. {$rootSum -> RootSum, $function -> Function}
 ]
+
+
+(* ::Input:: *)
+(*postProcess[-(ArcTan[(-((-1-x^2)/x)+Sqrt[-3+(-1-x^2)^2/x^2])/Sqrt[3]]/(2 Sqrt[3]))+1/2 ArcTan[(2 (-((-1-x^2)/x)+Sqrt[-3+(-1-x^2)^2/x^2]))/(-3+(-((-1-x^2)/x)+Sqrt[-3+(-1-x^2)^2/x^2])^2)]+1/8 Log[1+(-1-x^2)/x-Sqrt[-3+(-1-x^2)^2/x^2]]-1/8 Log[3+(-1-x^2)/x-Sqrt[-3+(-1-x^2)^2/x^2]]-1/8 Log[1-(-1-x^2)/x+Sqrt[-3+(-1-x^2)^2/x^2]]+1/8 Log[3-(-1-x^2)/x+Sqrt[-3+(-1-x^2)^2/x^2]],x]*)
 
 
 (* ::Input:: *)
@@ -1563,7 +1585,7 @@ EndPackage[];
 
 
 (* ::Text:: *)
-(*A (very difficult) integral which was solved by Euler in 1777.*)
+(*A difficult integral which was solved by Euler in 1777.*)
 
 
 (* ::Input:: *)
@@ -1732,7 +1754,7 @@ EndPackage[];
 (*int[((1+x) (x^3+x^5)^(1/4))/(x (-1+x^3)),x,"MaxRationalDegree"->8,"MaxNumeratorDegree"->8,"MaxDenominatorDegree"->24,"TableSize"->"Medium"]*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*previously bugs or edge cases*)
 
 
