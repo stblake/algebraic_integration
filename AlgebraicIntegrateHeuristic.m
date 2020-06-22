@@ -14,8 +14,6 @@
 
 (* ::Text:: *)
 (*This package implements a heuristic for solving some pseudo-elliptic integrals using a combination of integration by substitution and the method of undetermined coefficients.*)
-(**)
-(*TODO: include Gunther substitutions and other logPartSolve routines. *)
 
 
 (* ::Subsection::Closed:: *)
@@ -28,6 +26,10 @@ solveAlgebraicIntegral::usage = "solveAlgebraicIntegral[f, x] is a heuristic for
 pseudo-elliptic integral. solveAlgebraicIntegral returns {rp, up, ip}, where rp is the (unintegrated) rational part, \
 up is the unintegrated part, and ip is the integrated part.";
 
+$verboseLevel::usage = "Controls how much information is shown when calling solveAlgebraicIntegral. With \
+$verboseLevel = 0; no information is shown, $verboseLevel = 1; only top level information is shown, \
+$verboseLevel = 2; intermediate-level information is shown, and $verboseLevel = 3; shows all information.";
+
 Begin["`Private`"];
 
 
@@ -35,11 +37,25 @@ Begin["`Private`"];
 (*debugPrint*)
 
 
-$algebraicIntegrateDebug = False;
+$verboseLevel = 0;
 
 
-debugPrint[e__] /; TrueQ[$algebraicIntegrateDebug] := Print @ Style[Row @ {e} /. 
-	{A[l_] :> Symbol["A"][l], V[l_] :> Symbol["V"][l], B[l_] :> Symbol["B"][l]}, Brown]
+debugPrint1[e__] /; TrueQ[$verboseLevel > 0] := Block[{Internal`$ContextMarks = False},
+	Print @ Style[Row @ {e} /. 
+		{A[l_] :> Symbol["A"][l], V[l_] :> Symbol["V"][l], B[l_] :> Symbol["B"][l]}, Darker @ Green]
+]
+
+
+debugPrint2[e__] /; TrueQ[$verboseLevel > 1] := Block[{Internal`$ContextMarks = False},
+	Print @ Style[Row @ {e} /. 
+		{A[l_] :> Symbol["A"][l], V[l_] :> Symbol["V"][l], B[l_] :> Symbol["B"][l]}, Brown]
+]
+
+
+debugPrint3[e__] /; TrueQ[$verboseLevel > 2] := Block[{Internal`$ContextMarks = False},
+	Print @ Style[Row @ {e} /. 
+		{A[l_] :> Symbol["A"][l], V[l_] :> Symbol["V"][l], B[l_] :> Symbol["B"][l]}, Gray]
+]
 
 
 (* ::Subsection::Closed:: *)
@@ -381,30 +397,93 @@ polynomialsUndetermined3[x_Symbol, maxDegree_Integer] :=
 
 
 $Testing = False;
-$timeConstraint = 0.125;
+$timeConstraint = 0.25;
 
 
 ClearAll[solveAlgebraicIntegral];
 
 Options[solveAlgebraicIntegral] = {
-	"Verify" -> True, 
+	VerifySolutions -> True, 
 	"MaxRationalDegree" -> 8,
 	"MaxNumeratorDegree" -> 8,
 	"MaxDenominatorDegree" -> 4,
 	"TableSize" -> "Small",
 	"DegreeBound" -> 8,
+	"LinearRational" -> True,
 	"Elementary" -> True
 }; 
 
-solveAlgebraicIntegral[integrand_, x_, opts:OptionsPattern[]] /; 
-	ListQ[linearRationalSubstitution[integrand, x, $u]] := 
-Module[{linrat},
-		linrat = linearRationalSubstitution[integrand, x, $u]; 
-		debugPrint[Style["LINEAR RATIONAL", Red], "substitution = ", linrat];
-		{#1, #2, postProcess[#3, x]}& @@ (solveAlgebraicIntegral[linrat // First, $u, opts] /. Last[linrat] // Simplify // PowerExpand)
+solveAlgebraicIntegral[integrand_, x_, opts : OptionsPattern[]] := Module[
+{rationalPart, unintegratedPart, integratedPart, linRat, result},
+
+{rationalPart, unintegratedPart, integratedPart} = {0, integrand, 0};
+
+(* Linear rational substitution. *)
+
+If[TrueQ[OptionValue["LinearRational"]],
+	result = linearRationalIntegrate[unintegratedPart, x, opts];
+	rationalPart    += result[[1]]; 
+	unintegratedPart = result[[2]];
+	integratedPart  += result[[3]];
+	debugPrint1["Linear rational : ", {rationalPart, unintegratedPart, integratedPart}];
+];
+
+(* Rational substitution with undetermined coefficients. *)
+
+result = rationalUndeterminedIntegrate[unintegratedPart, x, opts];
+rationalPart    += result[[1]]; 
+unintegratedPart = result[[2]];
+integratedPart  += result[[3]];
+debugPrint1["Rational undetermined : ", {rationalPart, unintegratedPart, integratedPart}];
+
+(* Expand and integrate term-by-term. *)
+
+result = expandIntegrate[unintegratedPart, x, opts];
+rationalPart    += result[[1]]; 
+unintegratedPart = result[[2]];
+integratedPart  += result[[3]];
+debugPrint1["expandIntegrate : ", {rationalPart, unintegratedPart, integratedPart}];
+
+
+(* Gunther substitution. *)
+
+result = guntherIntegrate[unintegratedPart, x, opts];
+rationalPart    += result[[1]]; 
+unintegratedPart = result[[2]];
+integratedPart  += result[[3]];
+debugPrint1["Gunther : ", {rationalPart, unintegratedPart, integratedPart}];
+
+(* Solving for the logarithmic part with undetermined coefficients. *)
+
+result = logPartIntegrate[unintegratedPart, x, opts];
+rationalPart    += result[[1]]; 
+unintegratedPart = result[[2]];
+integratedPart  += result[[3]];
+debugPrint1["logPart : ", {rationalPart, unintegratedPart, integratedPart}];
+
+(* Partial fraction expansion and integrate term-by-term. *)
+
+result = apartIntegrate[unintegratedPart, x, opts];
+rationalPart    += result[[1]]; 
+unintegratedPart = result[[2]];
+integratedPart  += result[[3]];
+debugPrint1["apartIntegrate : ", {rationalPart, unintegratedPart, integratedPart}];
+
+{rationalPart, unintegratedPart, integratedPart}
 ]
 
-solveAlgebraicIntegral[integrand_, x_, opts : OptionsPattern[]] := Module[
+
+(* ::Subsection::Closed:: *)
+(*rationalUndeterminedIntegrate*)
+
+
+ClearAll[rationalUndeterminedIntegrate];
+
+Options[rationalUndeterminedIntegrate] = Options[solveAlgebraicIntegral]; 
+
+rationalUndeterminedIntegrate[0|0., x_, OptionsPattern[]] := {0, 0, 0}
+
+rationalUndeterminedIntegrate[integrand_, x_, opts : OptionsPattern[]] := Module[
 	{start, k = 0, y(* = Symbol["y"]*), u(* = Symbol["u"]*), radicands, pSqCan, solution, rationalPart, 
 	integrandNumerator, integrandDenominator, p, r, a, b, y2radical, matched, radicandMatchRules, 
 	rationalMatchRules, rationalFormU, integrandU, intU, intX, unintegratedPart, integratedPart,
@@ -429,7 +508,7 @@ solveAlgebraicIntegral[integrand_, x_, opts : OptionsPattern[]] := Module[
 		q[x], h[x], p[x] are polynomials in x. *)
 
 	{integrandNumerator, integrandDenominator, {p, r}, y2radical, rationalPart} = normalise[integrand, {x, y}];
-	debugPrint["normalise returned ", {rationalPart, integrandNumerator, integrandDenominator, {p, r}, y2radical}];
+	debugPrint3["normalise returned ", {rationalPart, integrandNumerator, integrandDenominator, {p, r}, y2radical}];
 
 	(* Defaults. *)
 	RationalSubstitution = $Failed;
@@ -440,7 +519,7 @@ solveAlgebraicIntegral[integrand_, x_, opts : OptionsPattern[]] := Module[
 	(* Check the algebraic part of the integrand is p(x)/q(r)*r(x)^n/m. *)
 	integrandNumerator = Cancel[integrandNumerator/y^Exponent[integrandNumerator, y] ];
 	If[! FreeQ[integrandNumerator, y], 
-		debugPrint["normalise failed ", {integrandNumerator, integrandDenominator}];
+		debugPrint3["normalise failed ", {integrandNumerator, integrandDenominator}];
 		Return[ {0, integrand, 0} ]
 	];
 
@@ -482,9 +561,9 @@ solveAlgebraicIntegral[integrand_, x_, opts : OptionsPattern[]] := Module[
 
 				If[matched,				
 					(* Loop over solutions to the radical part. *)
-					debugPrint["radicand of the form ", radicand[u]];
-					debugPrint["u substitution = ", uform];
-					debugPrint["radicand numerator/denominator = ", radicandNumeratorU, ", ", radicandDenominatorU];
+					debugPrint3["radicand of the form ", radicand[u]];
+					debugPrint3["u substitution = ", uform];
+					debugPrint3["radicand numerator/denominator = ", radicandNumeratorU, ", ", radicandDenominatorU];
 			
 					Do[
 						debugPrint["radicand matches ", Style[radicand[u], Darker @ Green], ", ", radicandNumeratorU, radicandMatchRule];
@@ -496,8 +575,8 @@ solveAlgebraicIntegral[integrand_, x_, opts : OptionsPattern[]] := Module[
 						If[! FreeQ[{radicandDenominatorUParam, radicandDenominatorUParam}, C[_]|A[_]], 
 							Continue[]];
 
-						debugPrint["radicand numerator = ", radicandNumeratorUParam];
-						debugPrint["radicand denominator = ", radicandDenominatorUParam];
+						debugPrint3["radicand numerator = ", radicandNumeratorUParam];
+						debugPrint3["radicand denominator = ", radicandDenominatorUParam];
 
 						usubstitutionParam = Together[ uform /. radicandMatchRule /. {A[1]|A[2]|B[1]|B[2] -> 1, A[0]|B[0] -> 0} ];
 
@@ -505,7 +584,7 @@ solveAlgebraicIntegral[integrand_, x_, opts : OptionsPattern[]] := Module[
 							! FreeQ[radicandNumeratorUParam, B[_]|A[_]], 
 								Continue[]];
 
-						debugPrint["u substitution = ", usubstitution, ", ", Style[usubstitutionParam, Red]];
+						debugPrint3["u substitution = ", usubstitution, ", ", Style[usubstitutionParam, Red]];
 
 						(* Solve for the rational part of the integral. *)
 						{matched, rationalFormU, rationalMatchRules} = solveRational[
@@ -515,21 +594,21 @@ solveAlgebraicIntegral[integrand_, x_, opts : OptionsPattern[]] := Module[
 
 						If[matched, 
 							(* We have found a match. *)
-							debugPrint["solution to rational part is ", rationalFormU];
+							debugPrint3["solution to rational part is ", rationalFormU];
 	
 							integrandU = rationalFormU (radicand[u]^(1/r) /. radicandMatchRule /. {A[1]|A[2]|B[1]|B[2] -> 1, A[0]|B[0] -> 0});
-							debugPrint["calling Integrate on ", integrandU];
+							debugPrint3["calling Integrate on ", integrandU];
 	
 							intU = integrate[integrandU, u];
-							debugPrint["Integrate returned ", intU];
+							debugPrint3["Integrate returned ", intU];
 	
 							If[FreeQ[intU, Integrate(* | RootSum | Root *)] && (! OptionValue["Elementary"] || elementaryQ[intU]),
 								intX = intU /. u -> usubstitutionParam;
-								debugPrint["integral is ", intX];
+								debugPrint3["integral is ", intX];
 								intX = postProcess[intX, x];
-								debugPrint["post processed integral is ", intX];
+								debugPrint3["post processed integral is ", intX];
 								(* Sanity check. *)
-								If[TrueQ[! OptionValue["Verify"]] || TrueQ[(
+								If[TrueQ[! OptionValue[VerifySolutions]] || TrueQ[(
 										(* Order tests from fastest to slowest. *)
 										(* seriesZeroQ[intX, unintegratedPart, x] ||  *)
 										numericZeroQ[D[intX, x] - unintegratedPart] || 
@@ -541,10 +620,10 @@ solveAlgebraicIntegral[integrand_, x_, opts : OptionsPattern[]] := Module[
 									uform = RationalSubstitution = usubstitutionParam; (* Keep the u-substitution. *)
 									Throw[{}],
 									(* else *)
-									debugPrint["we got something wrong!"];
+									debugPrint3["we got something wrong!"];
 								],
 								(* else *)
-								debugPrint["could not integrate wrt u"];
+								debugPrint3["could not integrate wrt u"];
 							]
 						],
 					{radicandMatchRule, radicandMatchRules}]
@@ -557,48 +636,6 @@ solveAlgebraicIntegral[integrand_, x_, opts : OptionsPattern[]] := Module[
 
 	debugPrint[k];
 
-	(* Try specific solvers. *)
-
-	If[unintegratedPart =!= 0, 
-		{matched, a, b, r} = simpleRadicalQ[unintegratedPart, x];
-		If[matched, 
-			Which[
-				debugPrint["Trying logPartSolve1..."];
-				integral = logPartSolve1[a, b, r, x, degreeBound] // ExpToTrig;
-				integral =!= False, 
-					debugPrint["logPartSolve1 returned ", integral];
-					unintegratedPart = 0;
-					integratedPart += integral
-
-				(* More to come here... *)
-			];
-		]
-	];
-
-	(* Last resort - try integrating term-by-term. *)
-
-	If[integratedPart === 0,
-		exnum = Expand @ Numerator[integrand];
-		If[Head[exnum] === Plus, 
-			debugPrint["Expanding integrand and integrating term-by-term."];
-			lexnum = List @@ exnum;
-			unintegratedPart = 0;
-			integratedPart = 0;
-			Do[
-				debugPrint["Integrating ", numterm/Denominator[integrand]];
-				integrated = solveAlgebraicIntegral[numterm/Denominator[integrand], x, opts];
-				debugPrint["Recursive call to solveAlgebraicIntegral returned ", integrated];
-				unintegratedPart += integrated[[1]] + integrated[[2]];
-				integratedPart += integrated[[3]];
-			, {numterm, lexnum}];
-
-			If[integratedPart === 0,
-				unintegratedPart = integrand;
-				integratedPart = 0
-			]
-		]
-	];
-
 	If[$Testing,
 		testSolveAlgebraicIntegral[integrand // Hash] = {
 			integrand, 
@@ -607,7 +644,10 @@ solveAlgebraicIntegral[integrand_, x_, opts : OptionsPattern[]] := Module[
 			{rationalPart, unintegratedPart, integratedPart}}
 	];
 
-	{rationalPart, unintegratedPart, integratedPart}
+	If[integratedPart === 0 && rationalPart === 0,
+		{0, integrand, 0},
+		{rationalPart, unintegratedPart, integratedPart}
+	]
 ]
 
 
@@ -618,7 +658,7 @@ solveAlgebraicIntegral[integrand_, x_, opts : OptionsPattern[]] := Module[
 (*solveAlgebraicIntegral[%, x]*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*solveRational*)
 
 
@@ -640,15 +680,15 @@ solveRational[num_, den_, p_, r_, usubstitution_, radicandDenominator_, x_, u_, 
 			Exponent[Numerator @ usubstitution, x] + Exponent[Denominator @ usubstitution, x], 
 			Exponent[Numerator @ ddu, x] + Exponent[Denominator @ ddu, x]];
 
-	debugPrint["degree bound on the rational part is ", degreeBound];
+	debugPrint3["degree bound on the rational part is ", degreeBound];
 	degreeBound = Min[degreeBound, maxRationalDegree];
 
 	Do[
 		ratU = rationalUndetermined[u, maxDegree];
-		debugPrint[{ratU, Together[ratU /. u -> usubstitution], radrat, usubstitution, ddu}];
+		debugPrint3[{ratU, Together[ratU /. u -> usubstitution], radrat, usubstitution, ddu}];
 		ratX = Cancel @ Together[ ratU du radrat /. {u -> usubstitution, du -> ddu} ];
 
-		debugPrint[num/den == ratX];	
+		debugPrint3[num/den == ratX];	
 
 		(* Previously SolveAlways was used to solve for the undetermined coefficients, however 
 		   this approach doesn't work if there are parameters in the integrand.  *)
@@ -660,11 +700,11 @@ solveRational[num_, den_, p_, r_, usubstitution_, radicandDenominator_, x_, u_, 
 
 		If[TrueQ[ratSolution =!= {} && ! MatchQ[ratSolution, _Solve] && ! MatchQ[ratSolution, {{(_ -> _?PossibleZeroQ) ..}..}]],
 			ratSolution = ratSolution[[1]];
-			debugPrint["solution to the rational part is ", ratSolution];
+			debugPrint3["solution to the rational part is ", ratSolution];
 			parameterisedFormU = Cancel[ratU /. ratSolution];
-			debugPrint["parameterised forms are ", parameterisedFormU];
+			debugPrint3["parameterised forms are ", parameterisedFormU];
 			Throw[ {True, parameterisedFormU, ratSolution} ],
-			debugPrint["no solution to the rational part"];
+			debugPrint3["no solution to the rational part"];
 		],
 	{maxDegree, degreeBound}];
 
@@ -1267,6 +1307,40 @@ SortBy[transformed, LeafCount] // First
 (*Integrate[R((d u - b)/(a - u), (p u^D + q)^(n/m)/(s u + r)^D)]*)
 
 
+ClearAll[linearRationalIntegrate];
+
+Options[linearRationalIntegrate] = Options[solveAlgebraicIntegral];
+
+linearRationalIntegrate[0|0., _, OptionsPattern[]] := {0, 0, 0}
+
+linearRationalIntegrate[e_, x_, opts : OptionsPattern[]] := Module[{t, linRat, options, result},
+
+	t = Unique[Symbol["u"]];
+
+	linRat = linearRationalSubstitution[e, x, t];
+
+	If[!ListQ[linRat], 
+		Return[ {0, e, 0} ]
+	];
+
+	debugPrint2["Linear rational substitution is ", linRat];
+
+	options = Append[DeleteCases[{opts}, HoldPattern["LinearRational" -> True]], "LinearRational" -> False];
+	result = solveAlgebraicIntegral[linRat // First, t, Sequence @@ options];
+	
+	debugPrint2["Integral of ", linRat // First, " is ", result];
+
+	postProcess[result /. Last[linRat], x]
+]
+
+
+(* ::Input:: *)
+(*$verboseLevel=2;*)
+(*linearRationalIntegrate[1/((x+1) (x^4+6 x^2+1)^(1/4)),x]*)
+
+
+ClearAll[semiRationalise];
+
 semiRationalise[e_, x_] := Module[{flden, conj, num, den}, 
 
 flden = FactorSquareFree[Denominator[e]];
@@ -1331,6 +1405,10 @@ SortBy[goodsubs, LeafCount] // First
 
 
 (* ::Input:: *)
+(*linearRationalSubstitution[(x-1)/((1+x) Sqrt[x+x^2+x^3]),x,u]*)
+
+
+(* ::Input:: *)
 (*linearRationalSubstitution[(3 x^2+1)/Sqrt[x^3+x-1],x,u]*)
 
 
@@ -1351,15 +1429,272 @@ SortBy[goodsubs, LeafCount] // First
 
 
 (* ::Subsection::Closed:: *)
+(*Generalised Gunther Substitutions*)
+
+
+(* ::Text:: *)
+(*Ref: S. Gunther, "Sur l'\[EAcute]valuation de certaines int\[EAcute]grales pseudo-elliptiques", Bulletin de la S. M. F., tome 10 (1882), p. 88-97*)
+
+
+Clear[guntherIntegrate];
+
+Options[guntherIntegrate] = Options[solveAlgebraicIntegral];
+
+guntherIntegrate[0|0., OptionsPattern[]] := {0, 0, 0}
+
+guntherIntegrate[e_, x_, OptionsPattern[]] := Module[
+{t, p, q, r, n, result, ratIntegral},
+
+t = Unique[Symbol["u"]];
+
+If[Not[algebraicQ[e, x] && singleEllipticRadicalQ[e, x]], 
+	Return[ {0, e, 0} ]
+];
+
+{{r,n}} = Cases[e, Power[p_, n_Rational] /; (! FreeQ[p, x] && PolynomialQ[p, x]) :> {p,Abs[n]}, {0, Infinity}];
+
+Which[
+PolynomialQ[Numerator[e], x] && PolynomialQ[Denominator[e]/r^n, x],
+	(* Radical is in the denominator. *)
+	p = Numerator[e];
+	q = Denominator[e]/r^FractionalPart[n];
+	r = r^Max[1,IntegerPart[n]];
+	result = guntherSolve1[p, q, r, 1/FractionalPart[n], x, t];
+	If[result === $Failed, 
+		{0, e, 0},
+		debugPrint2["guntherSolve1 returned ", result];
+		ratIntegral = Integrate[result // First, t];
+		{0, 0, postProcess[ratIntegral /. t -> Last[result], x]}
+	],
+PolynomialQ[Denominator[e], x] && PolynomialQ[Numerator[e]/r^n, x],
+	(* Radical is in the numerator. *)
+	p = Numerator[e]/r^FractionalPart[n];
+	q = Denominator[e];
+	r = r^Max[1,IntegerPart[n]];
+	result = guntherSolve2[p, q, r, 1/FractionalPart[n], x, t];
+	If[result === $Failed, 
+		{0, e, 0},
+		debugPrint2["guntherSolve2 returned ", result];
+		ratIntegral = Integrate[result // First, t];
+		{0, 0, postProcess[ratIntegral /. t -> Last[result], x]}
+	], 
+True, 
+	{0, e, 0}
+]
+]
+
+
+(* ::Input:: *)
+(*guntherIntegrate[((-1+x^2)^2 (x+x^3))/(Sqrt[1+x^4] (1-2 x^2+4 x^4-2 x^6+x^8)),x]*)
+(*D[%//Last,x]-((-1+x^2)^2 (x+x^3))/(Sqrt[1+x^4] (1-2 x^2+4 x^4-2 x^6+x^8))//Simplify*)
+
+
+(* ::Input:: *)
+(*guntherIntegrate[((x+x^3) Sqrt[1+x^4])/(1-2 x^2+4 x^4-2 x^6+x^8),x]*)
+(*D[%//Last,x]-((x+x^3) Sqrt[1+x^4])/(1-2 x^2+4 x^4-2 x^6+x^8)//Simplify*)
+
+
+(* ::Input:: *)
+(*guntherIntegrate[((x+x^3) (1+x^4)^(3/2))/((-1+x^2)^2 (1-2 x^2+4 x^4-2 x^6+x^8)),x]*)
+(*D[%//Last,x]-((x+x^3) (1+x^4)^(3/2))/((-1+x^2)^2 (1-2 x^2+4 x^4-2 x^6+x^8))//Simplify*)
+
+
+(* ::Input:: *)
+(*guntherIntegrate[(1-x^4)/(Sqrt[1+x^4] (3-x^2+3 x^4)),x]*)
+(*D[%//Last,x]-(1-x^4)/(Sqrt[1+x^4] (3-x^2+3 x^4))//Simplify*)
+
+
+(* ::Input:: *)
+(*guntherIntegrate[Sqrt[1+x^4]/(3x^3+7x^7),x]*)
+(*D[%//Last,x]-Sqrt[1+x^4]/(3x^3+7 x^7)//Simplify*)
+
+
+(* ::Input:: *)
+(*guntherIntegrate[x/((3 x-1)Sqrt[x^4-x^3]),x]*)
+(*D[%//Last,x]-x/((3 x-1)Sqrt[x^4-x^3])//Simplify*)
+
+
+(* ::Input:: *)
+(*guntherIntegrate[(2 x^2-x)/((2-x+x^2)Sqrt[x^4-x^3]),x]*)
+(*D[%//Last,x]-(2 x^2-x)/((2-x+x^2)Sqrt[x^4-x^3])//Simplify*)
+
+
+(* ::Subsubsection::Closed:: *)
+(*guntherSolve1	(u == p[x]/(q[x])^(1/m))*)
+
+
+(* ::Text:: *)
+(*guntherSolve1 uses a substitution of the form u == p[x]/(q[x])^(1/m)*)
+
+
+ClearAll[guntherSolve1];
+
+guntherSolve1[p_, q_, r_, m_, x_, u_] := Catch @ Module[
+{degMax, y, form, yform, unparameterised, eqn, vars, soln},
+
+debugPrint2["Trying guntherSolve1"];
+
+degMax = Max[3, Exponent[p,x] - Exponent[q,x] + Exponent[r,x] - 1];
+debugPrint2["Degree bound = ", degMax];
+
+Do[
+	If[ndeg == 0 && ddeg == 0 || ndeg > ddeg, 
+		Continue[]];
+
+	debugPrint2["numerator/denominator degree = ", ndeg, ", ", ddeg];
+
+	y = Sum[C[k] x^k, {k, 0, deg}]/r^(1/m);
+	debugPrint2["Substitution form is ", y];
+
+	form = Sum[V[k] u^(m k), {k, 0, ndeg}]/Sum[V[ndeg + 1 + k] u^(m k), {k, 0, ddeg}];
+	form = form /. V[ndeg|ndeg + 1 + ddeg] -> 1;
+	yform = form /. u -> y;
+
+	unparameterised = Cancel[r^(1/m) Together[yform D[y,x]]];
+	eqn = Numerator[unparameterised] q - Denominator[unparameterised] p==0;
+	vars = Union @ Cases[eqn, (C|V)[_], Infinity];
+
+	soln = TimeConstrained[
+		Solve[!Eliminate[!eqn, {x}], vars],
+		$timeConstraint, 
+		{}
+	];
+
+	soln = DeleteCases[soln, {Rule[_,0]..}];
+
+	If[soln =!= {},
+		{form, y} = {form, y} /. soln[[1]] /. {V[0] -> 1, V[1] -> 0, C[_] -> 1};
+		If[!MatchQ[form, Indeterminate|0],
+			Throw @ Cancel[ {form, y} ]
+		]
+	],
+{ndeg, 0, 2}, {ddeg, 1, 2}, {deg, 1, degMax}];
+
+$Failed
+]
+
+
+(* ::Input:: *)
+(*(u^2 du)/(u^4+1)/.{u -> (1-x^2)/Sqrt[1+x^4], du->D[(1-x^2)/Sqrt[1+x^4],x]}//Simplify*)
+(*guntherSolve1[x (-1+x^2)^2 (1+x^2),1-2 x^2+4 x^4-2 x^6+x^8,1+x^4,2,x,u]*)
+(*Integrate[%//First,u] /. u-> Last[%]*)
+(*postProcess[%, x]*)
+(*D[%,x] - ((-1+x^2)^2 (x+x^3))/(Sqrt[1+x^4] (1-2 x^2+4 x^4-2 x^6+x^8))//Simplify*)
+
+
+(* ::Subsubsection::Closed:: *)
+(*guntherSolve2	(u == (q[x])^(1/m)/p[x])*)
+
+
+(* ::Text:: *)
+(*guntherSolve2 uses a substitution of the form u == (q[x])^(1/m)/p[x]*)
+
+
+ClearAll[guntherSolve2];
+
+guntherSolve2[p_, q_, r_, m_, x_, u_] := Catch @ Module[
+{degMax, y, form, yform, unparameterised, eqn, vars, soln},
+
+debugPrint2["Trying guntherSolve2"];
+
+degMax = Max[3, Exponent[p,x] - Exponent[q,x] + Exponent[r,x] - 1];
+debugPrint2["Degree bound = ", degMax];
+
+Do[
+	If[ndeg == 0 && ddeg == 0 || ndeg > ddeg, 
+		Continue[]];
+
+	debugPrint2["numerator/denominator degree = ", ndeg, ", ", ddeg];
+
+	y = r^(1/m)/Sum[C[k] x^k, {k, 0, deg}];
+	debugPrint2["Substitution form is ", y];
+
+	form = Sum[V[k] u^(m k), {k, 0, ndeg}]/Sum[V[ndeg + 1 + k] u^(m k), {k, 0, ddeg}];
+	form = form /. V[ndeg|ndeg + 1 + ddeg] -> 1;
+	yform = form /. u -> y;
+
+	unparameterised = Cancel[r^(-1/m) Together[yform D[y,x]]];
+	eqn = Numerator[unparameterised] q - Denominator[unparameterised] p==0;
+	vars = Union @ Cases[eqn, (C|V)[_], Infinity];
+
+	soln = TimeConstrained[
+		Solve[!Eliminate[!eqn, {x}], vars],
+		$timeConstraint, 
+		{}
+	];
+
+	soln = DeleteCases[soln, {Rule[_,0]..}];
+
+	If[soln =!= {},
+		{form, y} = {form, y} /. soln[[1]] /. {V[0] -> 1, V[1] -> 0, C[_] -> 1};
+		If[!MatchQ[form, Indeterminate|0],
+			Throw @ Cancel[ {form, y} ]
+		]
+	],
+{ndeg, 0, 2}, {ddeg, 1, 2}, {deg, 1, degMax}];
+
+$Failed
+]
+
+
+(* ::Input:: *)
+(*(u^2 du)/(u^4+1)/.{u -> Sqrt[1+x^4]/(1-x^2), du->D[Sqrt[1+x^4]/(1-x^2),x]}//Simplify*)
+(*guntherSolve2[x+x^3,1-2 x^2+4 x^4-2 x^6+x^8,1+x^4,2,x,u]*)
+(*Integrate[%//First,u] /. u-> Last[%]*)
+(*postProcess[%, x]*)
+(*D[%,x] - ((x+x^3) Sqrt[1+x^4])/(1-2 x^2+4 x^4-2 x^6+x^8)//Simplify*)
+
+
+(* ::Subsection::Closed:: *)
 (*Specific forms solved with undetermined coefficients*)
 
 
 (* ::Text:: *)
-(*Some specific methods for solving otherwise difficult integrals. These methods were motivated by an integral posted by Henri Cohen in sci.math.symbolic in 1993*)
+(*Some specific methods for solving otherwise difficult integrals. These methods were motivated by an integral posted by Henri Cohen in sci.math.symbolic in 1993: *)
 
 
 (* ::Input:: *)
 (*Integrate[x/Sqrt[-71-96 x+10 x^2+x^4],x]*)
+
+
+ClearAll[logPartIntegrate];
+
+Options[logPartIntegrate] = Options[solveAlgebraicIntegral];
+
+logPartIntegrate[0|0., _, OptionsPattern[]] := {0, 0, 0}
+
+logPartIntegrate[e_, x_, opts:OptionsPattern[]] := Module[
+{degreeBound, a, b, r, n, sol},
+
+degreeBound = OptionValue["DegreeBound"];
+
+a = Numerator[e];
+b = Denominator[e];
+
+If[Not[algebraicQ[e, x] && singleEllipticRadicalQ[e, x] && PolynomialQ[a, x]], 
+	Return[ {0, e, 0} ]
+];
+
+{{r,n}} = Cases[e, Power[p_, n_Rational] /; (! FreeQ[p, x] && PolynomialQ[p, x]) :> {p, Abs[n]}, {0, Infinity}];
+
+If[! PolynomialQ[b/r^n, x],
+	Return[ {0, e, 0} ]
+];
+
+sol = logPartSolve1[a, b/r^n, r, x, degreeBound];
+If[sol =!= False, 
+	Return[ {0, 0, sol} ]
+];
+
+(* Many more to come... *)
+
+
+
+{0, e, 0}]
+
+
+(* ::Input:: *)
+(*logPartIntegrate[x/Sqrt[1+4 x+3 x^2-2 x^3+x^4],x]*)
 
 
 (* ::Subsubsection::Closed:: *)
@@ -1390,7 +1725,7 @@ SortBy[goodsubs, LeafCount] // First
 
 
 (* ::Text:: *)
-(*It is important to note that this method can fail as we do not have the a good method to bound the degrees of p[x], q[x]. This is a difficult problem which was solved by Trager.*)
+(*It is important to note that this method can fail as we do not have the a good method to bound the degrees of p[x], q[x]. This is a difficult problem which was solved by Abel, Davenport and Trager.*)
 
 
 undetermined[maxDegree_, x_, offset_] := Sum[V[offset + n] x^n, {n, 0, maxDegree}]
@@ -1430,6 +1765,8 @@ Do[
 	logs = Table[
 		c Log[p[x] + q[x]Sqrt[r[x]]] /. sol[[k]] /. V[_] -> Apply[LCM, Denominator /@ Most[sol[[k]][[All,-1]]]],
 		{k, Length[sol]}];
+
+	logs = logs /. LCM -> Times; (* Incase LCM doesn't simplify. eg. LCM[1, Sqrt[2]] *)
 
 	Select[logs, Cancel[Together[D[#, x] - a[x]/(b[x] Sqrt[r[x]])]] === 0&, 1] /. {{e_} :> e, {} -> False}
 ]
@@ -1532,6 +1869,81 @@ Do[
 
 
 (* ::Subsection::Closed:: *)
+(*Expand Integrate*)
+
+
+rationalQ[e_, x_] := With[
+    {te = Together[e]}, 
+    Denominator[te] =!=1 && PolynomialQ[Numerator[te], x] && PolynomialQ[Denominator[te], x]
+]
+
+
+ClearAll[expandIntegrate];
+
+Options[expandIntegrate] = Options[solveAlgebraicIntegral];
+
+expandIntegrate[0|0., _, opts:OptionsPattern[]] := {0, 0, 0}
+
+
+expandIntegrate[e_, x_, opts:OptionsPattern[]] := Module[
+{exnum, lexnum, unintegratedPart, integratedPart, term, integrated, rationalPart},
+
+exnum = Expand @ Numerator[e];
+
+If[Head[exnum] === Plus, 
+	debugPrint2["Expanding integrand and integrating term-by-term."];
+	lexnum = List @@ exnum;
+	rationalPart = 0;
+	unintegratedPart = 0;
+	integratedPart = 0;
+	Do[
+		term = numterm/Denominator[e];
+		If[rationalQ[term, x], 
+			rationalPart += term,
+			debugPrint2["Integrating ", term, " wrt ", x];
+			integrated = solveAlgebraicIntegral[term, x, opts];
+			debugPrint2["Recursive call to solveAlgebraicIntegral returned ", integrated];
+			rationalPart += integrated[[1]];
+			unintegratedPart += integrated[[2]];
+			integratedPart += integrated[[3]]
+		], 
+	{numterm, lexnum}];
+
+	If[integratedPart === 0,
+		unintegratedPart = e;
+		integratedPart = 0;
+		rationalPart = 0;
+	];
+	{rationalPart, unintegratedPart, integratedPart}, 
+	{0, e, 0}
+]
+]
+
+
+(* ::Input:: *)
+(*$verboseLevel=3;*)
+(*expandIntegrate[-((2 2^(3/4) (-1+u) u^2)/((-1+u^4) (1+u^4)^(3/4))),u]*)
+
+
+(* ::Subsection::Closed:: *)
+(*Apart Integrate*)
+
+
+ClearAll[apartIntegrate];
+
+Options[apartIntegrate] = Options[solveAlgebraicIntegral];
+
+apartIntegrate[0|0., _, opts:OptionsPattern[]] := {0, 0, 0}
+
+
+apartIntegrate[e_, x_, opts:OptionsPattern[]] := Module[{},
+
+
+{0, e, 0}
+]
+
+
+(* ::Subsection::Closed:: *)
 (*End Package*)
 
 
@@ -1544,7 +1956,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*AlgebraicIntegrateHeuristic`Private`$algebraicIntegrateDebug=.;*)
+(*$verboseLevel=3;*)
 (*int=solveAlgebraicIntegral;*)
 
 
@@ -1644,15 +2056,6 @@ EndPackage[];
 
 
 (* ::Text:: *)
-(*Can we get a solution for all x?*)
-
-
-(* ::Input:: *)
-(*AlgebraicIntegrateHeuristic`Private`$algebraicIntegrateDebug=.;*)
-(*Assuming[x>0,int[(x-1)/((1+x) Sqrt[x+x^2+x^3]),x]]*)
-
-
-(* ::Text:: *)
 (*Investigate if these are bugs:*)
 
 
@@ -1674,16 +2077,6 @@ EndPackage[];
 
 (* ::Input:: *)
 (*AlgebraicIntegrateHeuristic`Private`$algebraicIntegrateDebug=.;*)
-
-
-(* ::Text:: *)
-(*Here we see that expanding the integral and integrating term-by-term works. *)
-
-
-(* ::Input:: *)
-(*int[(x-1)/(x (1+x^4)^(1/4)),x]*)
-(*Expand[(-1+x)/(x (1+x^4)^(1/4))]*)
-(*int[1/(1+x^4)^(1/4),x]-int[1/(x (1+x^4)^(1/4)),x]*)
 
 
 (* ::Text:: *)
@@ -1754,12 +2147,20 @@ EndPackage[];
 (*int[((1+x) (x^3+x^5)^(1/4))/(x (-1+x^3)),x,"MaxRationalDegree"->8,"MaxNumeratorDegree"->8,"MaxDenominatorDegree"->24,"TableSize"->"Medium"]*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*previously bugs or edge cases*)
 
 
 (* ::Input:: *)
 (*AlgebraicIntegrateHeuristic`Private`$algebraicIntegrateDebug=.;*)
+
+
+(* ::Input:: *)
+(*int[(x-1)/(x (1+x^4)^(1/4)),x]*)
+
+
+(* ::Input:: *)
+(*int[(x-1)/((1+x) Sqrt[x+x^2+x^3]),x]*)
 
 
 (* ::Input:: *)
@@ -1947,10 +2348,6 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*AlgebraicIntegrateHeuristic`Private`$algebraicIntegrateDebug=.;*)
-
-
-(* ::Input:: *)
 (*ClearAll[AlgebraicIntegrateHeuristic`Private`testSolveAlgebraicIntegral];*)
 (*AlgebraicIntegrateHeuristic`Private`$Testing=True;*)
 
@@ -1976,6 +2373,14 @@ EndPackage[];
 (* ::Text:: *)
 (*15-Apr-2020 0.409 Seconds*)
 (*16-Apr-2020 0.372 Seconds*)
+
+
+(* ::Input:: *)
+(*$verboseLevel = 0;*)
+
+
+(* ::Input:: *)
+(*int[(1-x)/Sqrt[3+2 x-5 x^2-4 x^3+x^4+2 x^5+x^6],x]*)
 
 
 (* ::Input:: *)
