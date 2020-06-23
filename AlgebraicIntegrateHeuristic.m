@@ -436,15 +436,6 @@ unintegratedPart = result[[2]];
 integratedPart  += result[[3]];
 debugPrint1["Rational undetermined : ", {rationalPart, unintegratedPart, integratedPart}];
 
-(* Expand and integrate term-by-term. *)
-
-result = expandIntegrate[unintegratedPart, x, opts];
-rationalPart    += result[[1]]; 
-unintegratedPart = result[[2]];
-integratedPart  += result[[3]];
-debugPrint1["expandIntegrate : ", {rationalPart, unintegratedPart, integratedPart}];
-
-
 (* Gunther substitution. *)
 
 result = guntherIntegrate[unintegratedPart, x, opts];
@@ -463,11 +454,20 @@ debugPrint1["logPart : ", {rationalPart, unintegratedPart, integratedPart}];
 
 (* Partial fraction expansion and integrate term-by-term. *)
 
-result = apartIntegrate[unintegratedPart, x, opts];
+result = partialFractionIntegrate[unintegratedPart, x, opts];
 rationalPart    += result[[1]]; 
 unintegratedPart = result[[2]];
 integratedPart  += result[[3]];
-debugPrint1["apartIntegrate : ", {rationalPart, unintegratedPart, integratedPart}];
+debugPrint1["partialFractionIntegrate : ", {rationalPart, unintegratedPart, integratedPart}];
+
+(* Expand and integrate term-by-term. *)
+
+result = expandIntegrate[unintegratedPart, x, opts];
+rationalPart    += result[[1]]; 
+unintegratedPart = result[[2]];
+integratedPart  += result[[3]];
+debugPrint1["expandIntegrate : ", {rationalPart, unintegratedPart, integratedPart}];
+
 
 {rationalPart, unintegratedPart, integratedPart}
 ]
@@ -501,7 +501,7 @@ rationalUndeterminedIntegrate[integrand_, x_, opts : OptionsPattern[]] := Module
 	(* Single radical? *)
 
 	If[! algebraicQ[integrand, x] || ! singleRadicalQ[integrand, x], 
-		Return[{integrand, 0, 0}]];
+		Return[{0, integrand, 0}]];
 
 	(* Rewrite the integrand in the form r(x)+(q[x]/h[x]) y^r, where 
 		y \[Equal] p[x], r(x) is the non-algebraic (rational) part, and 
@@ -1564,6 +1564,7 @@ Do[
 
 	If[soln =!= {},
 		{form, y} = {form, y} /. soln[[1]] /. {V[0] -> 1, V[1] -> 0, C[_] -> 1};
+		RationalSubstitution = y;
 		If[!MatchQ[form, Indeterminate|0],
 			Throw @ Cancel[ {form, y} ]
 		]
@@ -1627,6 +1628,7 @@ Do[
 
 	If[soln =!= {},
 		{form, y} = {form, y} /. soln[[1]] /. {V[0] -> 1, V[1] -> 0, C[_] -> 1};
+		RationalSubstitution = y;
 		If[!MatchQ[form, Indeterminate|0],
 			Throw @ Cancel[ {form, y} ]
 		]
@@ -1677,7 +1679,7 @@ If[Not[algebraicQ[e, x] && singleEllipticRadicalQ[e, x] && PolynomialQ[a, x]],
 
 {{r,n}} = Cases[e, Power[p_, n_Rational] /; (! FreeQ[p, x] && PolynomialQ[p, x]) :> {p, Abs[n]}, {0, Infinity}];
 
-If[! PolynomialQ[b/r^n, x],
+If[! PolynomialQ[b/r^n, x] || TrueQ[n != 2],
 	Return[ {0, e, 0} ]
 ];
 
@@ -1882,7 +1884,7 @@ ClearAll[expandIntegrate];
 
 Options[expandIntegrate] = Options[solveAlgebraicIntegral];
 
-expandIntegrate[0|0., _, opts:OptionsPattern[]] := {0, 0, 0}
+expandIntegrate[0|0., x_, opts:OptionsPattern[]] := {0, 0, 0}
 
 
 expandIntegrate[e_, x_, opts:OptionsPattern[]] := Module[
@@ -1926,20 +1928,62 @@ If[Head[exnum] === Plus,
 
 
 (* ::Subsection::Closed:: *)
-(*Apart Integrate*)
+(*Partial Fraction Integrate*)
 
 
-ClearAll[apartIntegrate];
+ClearAll[apartList];
 
-Options[apartIntegrate] = Options[solveAlgebraicIntegral];
+apartList[e_, x_] := Module[{pf},
 
-apartIntegrate[0|0., _, opts:OptionsPattern[]] := {0, 0, 0}
+pf = List @@ Apart[e, x];
+
+pf = GatherBy[pf, Union[Cases[#, Power[p_, n_Rational] /; (! FreeQ[p, x] && PolynomialQ[p, x]) :> p^Abs[n],{0,Infinity}]]&];
+
+Simplify[ Cancel[Together[Total[#]]]& /@ pf ]
+]
 
 
-apartIntegrate[e_, x_, opts:OptionsPattern[]] := Module[{},
+ClearAll[partialFractionIntegrate];
+
+Options[partialFractionIntegrate] = Options[solveAlgebraicIntegral];
+
+partialFractionIntegrate[0|0., x_, opts:OptionsPattern[]] := {0, 0, 0}
 
 
-{0, e, 0}
+partialFractionIntegrate[e_, x_, opts:OptionsPattern[]] := Module[
+{exy, pf, unintegratedPart, integratedPart, integrated, rationalPart},
+
+If[! algebraicQ[e, x], 
+	Return[ {0, e, 0} ]
+];
+
+pf = apartList[e, x];
+
+If[Length[pf] > 1, 
+	debugPrint2["Expanding integrand and integrating term-by-term."];
+	rationalPart = 0;
+	unintegratedPart = 0;
+	integratedPart = 0;
+	Do[
+		If[rationalQ[term, x], 
+			rationalPart += term,
+			debugPrint2["Integrating ", term, " wrt ", x];
+			integrated = solveAlgebraicIntegral[term, x, opts];
+			debugPrint2["Recursive call to solveAlgebraicIntegral returned ", integrated];
+			rationalPart += integrated[[1]];
+			unintegratedPart += integrated[[2]];
+			integratedPart += integrated[[3]]
+		], 
+	{term, pf}];
+
+	If[integratedPart === 0,
+		unintegratedPart = e;
+		integratedPart = 0;
+		rationalPart = 0;
+	];
+	{rationalPart, unintegratedPart, integratedPart}, 
+	{0, e, 0}
+]
 ]
 
 
@@ -2377,6 +2421,10 @@ EndPackage[];
 
 (* ::Input:: *)
 (*$verboseLevel = 0;*)
+
+
+(* ::InheritFromParent:: *)
+(*int[(1+x^3-(1+x^4)^(1/4)+x^3 (1+x^4)^(1/4))/((-1+x^3) Sqrt[1+x^4]),x]*)
 
 
 (* ::Input:: *)
