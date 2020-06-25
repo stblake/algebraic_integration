@@ -1317,7 +1317,10 @@ linearRationalIntegrate[e_, x_, opts : OptionsPattern[]] := Module[{t, linRat, o
 
 	t = Unique[Symbol["u"]];
 
-	linRat = linearRationalSubstitution[e, x, t];
+	linRat = TimeConstrained[
+		linearRationalSubstitution[e, x, t], 
+		$timeConstraint, 
+		False];
 
 	If[!ListQ[linRat], 
 		Return[ {0, e, 0} ]
@@ -1530,15 +1533,18 @@ True,
 ClearAll[guntherSolve1];
 
 guntherSolve1[p_, q_, r_, m_, x_, u_] := Catch @ Module[
-{degMax, y, form, yform, unparameterised, eqn, vars, soln},
+{degp, degq, degMax, y, form, yform, unparameterised, eqn, vars, soln, solnre},
 
 debugPrint2["Trying guntherSolve1"];
 
-degMax = Max[3, Exponent[p,x] - Exponent[q,x] + Exponent[r,x] - 1];
+degp = Exponent[p,x];
+degq = Exponent[q,x];
+
+degMax = Max[3, degp - degq + Exponent[r,x] - 1];
 debugPrint2["Degree bound = ", degMax];
 
 Do[
-	If[ndeg == 0 && ddeg == 0 || ndeg > ddeg, 
+	If[ndeg == 0 && ddeg == 0(* || ndeg > ddeg *), 
 		Continue[]];
 
 	debugPrint2["numerator/denominator degree = ", ndeg, ", ", ddeg];
@@ -1551,16 +1557,24 @@ Do[
 	yform = form /. u -> y;
 
 	unparameterised = Cancel[r^(1/m) Together[yform D[y,x]]];
-	eqn = Numerator[unparameterised] q - Denominator[unparameterised] p==0;
+
+	If[degp > Exponent[Numerator @ unparameterised, x] || 
+		degq > Exponent[Denominator @ unparameterised, x],
+		Continue[]];
+
+	eqn = Numerator[unparameterised] q - Denominator[unparameterised] p == 0;
 	vars = Union @ Cases[eqn, (C|V)[_], Infinity];
 
 	soln = TimeConstrained[
-		Solve[!Eliminate[!eqn, {x}], vars],
+		Solve[! Eliminate[! eqn, {x}], vars],
 		$timeConstraint, 
 		{}
 	];
 
 	soln = DeleteCases[soln, {Rule[_,0]..}];
+	solnre = Cases[soln, s_ /; FreeQ[N[s], _Complex]];
+	If[solnre =!= {}, 
+		soln = solnre];
 
 	If[soln =!= {},
 		{form, y} = {form, y} /. soln[[1]] /. {V[0] -> 1, V[1] -> 0, C[_] -> 1};
@@ -1577,8 +1591,8 @@ $Failed
 
 (* ::Input:: *)
 (*(u^2 du)/(u^4+1)/.{u -> (1-x^2)/Sqrt[1+x^4], du->D[(1-x^2)/Sqrt[1+x^4],x]}//Simplify*)
-(*guntherSolve1[x (-1+x^2)^2 (1+x^2),1-2 x^2+4 x^4-2 x^6+x^8,1+x^4,2,x,u]*)
-(*Integrate[%//First,u] /. u-> Last[%]*)
+(*guntherSolve1[x (-1+x^2)^2 (1+x^2),1-2 x^2+4 x^4-2 x^6+x^8,1+x^4,2,x,u]//Timing*)
+(*Integrate[%//Last//First,u] /. u-> Last[Last[%]]*)
 (*postProcess[%, x]*)
 (*D[%,x] - ((-1+x^2)^2 (x+x^3))/(Sqrt[1+x^4] (1-2 x^2+4 x^4-2 x^6+x^8))//Simplify*)
 
@@ -1594,9 +1608,12 @@ $Failed
 ClearAll[guntherSolve2];
 
 guntherSolve2[p_, q_, r_, m_, x_, u_] := Catch @ Module[
-{degMax, y, form, yform, unparameterised, eqn, vars, soln},
+{degp, degq, degMax, y, form, yform, unparameterised, eqn, vars, soln, solnre},
 
 debugPrint2["Trying guntherSolve2"];
+
+degp = Exponent[p,x];
+degq = Exponent[q,x];
 
 degMax = Max[3, Exponent[p,x] - Exponent[q,x] + Exponent[r,x] - 1];
 debugPrint2["Degree bound = ", degMax];
@@ -1615,7 +1632,12 @@ Do[
 	yform = form /. u -> y;
 
 	unparameterised = Cancel[r^(-1/m) Together[yform D[y,x]]];
-	eqn = Numerator[unparameterised] q - Denominator[unparameterised] p==0;
+
+	If[degp > Exponent[Numerator @ unparameterised, x] || 
+		degq > Exponent[Denominator @ unparameterised, x],
+		Continue[]];
+
+	eqn = Numerator[unparameterised] q - Denominator[unparameterised] p == 0;
 	vars = Union @ Cases[eqn, (C|V)[_], Infinity];
 
 	soln = TimeConstrained[
@@ -1625,6 +1647,9 @@ Do[
 	];
 
 	soln = DeleteCases[soln, {Rule[_,0]..}];
+	solnre = Cases[soln, s_ /; FreeQ[N[s], _Complex]];
+	If[solnre =!= {}, 
+		soln = solnre];
 
 	If[soln =!= {},
 		{form, y} = {form, y} /. soln[[1]] /. {V[0] -> 1, V[1] -> 0, C[_] -> 1};
@@ -2013,7 +2038,7 @@ EndPackage[];
 
 
 (* ::Text:: *)
-(*My favourite 4 examples thus far:*)
+(*My favourite examples thus far:*)
 
 
 (* ::Input:: *)
@@ -2030,6 +2055,10 @@ EndPackage[];
 
 (* ::Input:: *)
 (*int[(1+x^8)/((1-x^8) Sqrt[1-x^2+x^4]),x]*)
+
+
+(* ::Input:: *)
+(*int[(x^6-x^4)^(1/6),x]*)
 
 
 (* ::Text:: *)
