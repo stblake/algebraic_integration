@@ -525,7 +525,7 @@ rationalUndeterminedIntegrate[integrand_, x_, opts : OptionsPattern[]] := Module
 
 	(* Possible radicands in u. *)
 	If[(Numerator[r] === 2 && Exponent[p, x] > 2) || ! OptionValue["Elementary"],
-		radicands = {A[1] # + A[0] &, A[2] #^2 + A[0] &, A[2] #^2 + A[1] # + A[0] &},
+		radicands = {A[1] # + A[0] &, (* A[2] #^2 + A[0] &, *) A[2] #^2 + A[1] # + A[0] &},
 		radicands = {A[1] # + A[0] &}
 	];
 
@@ -555,7 +555,11 @@ rationalUndeterminedIntegrate[integrand_, x_, opts : OptionsPattern[]] := Module
 				(* Check the denominator can be removed from the radical. *)
 				If[Mod[Exponent[radicandDenominatorU, x], Numerator[r]] != 0, 
 					Continue[]];
-
+(*
+				If[Exponent[radicandNumeratorU, x] != Exponent[Numerator[r], x] || 
+					Exponent[radicandNumeratorU, x] != 2 Exponent[Numerator[r],x],
+					Continue[]];
+*)
 				(* Find solution to the numerator of the radical part. *)
 				{matched, radicandMatchRules} = solveRadicand[p, radicandNumeratorU, x];
 
@@ -720,7 +724,7 @@ solveRadicand[poly_, form_, x_] := Module[{rules},
 	(* rules = SolveAlways[poly == form, x]; *)
 	
 	If[Exponent[poly, x] === Exponent[form, x],
-		rules = Quiet[Solve[! Eliminate[!(poly == form), {x}], Union @ Cases[form, (A|B)[_], Infinity]], {Solve::"svars"}];
+		rules = Quiet[Solve[! Eliminate[!(poly == form), {x}], Reverse @ Union @ Cases[form, (A|B)[_], Infinity]], {Solve::"svars"}];
 		{! MatchQ[rules, {} | _SolveAlways], rules},
 		{False, {}}	
 	]
@@ -812,7 +816,7 @@ log2ArcTanh = c1_. Log[p_] + c2_. Log[q_] /;
 		PossibleZeroQ[c1 + c2] && 
 		PossibleZeroQ[(p + q)/2 + (p - q)/2 - p] && 
 		PossibleZeroQ[(p + q)/2 - (p - q)/2 - q] && 
-		LeafCount[collectnumden @ Cancel[(p + q)/(q - p)]] < 2 LeafCount[p/q] :> 
+		LeafCount[collectnumden @ Cancel[(p + q)/(q - p)]] < LeafCount[p/q] :> 
 	(c2 - c1) ArcTanh[collectnumden @ Cancel[(p + q)/(q - p)]];
 
 
@@ -971,6 +975,10 @@ postProcess[e_, x_] := Module[{$function, simp, permutations, numerics},
 
 
 (* ::Input:: *)
+(*postProcess[Log[(1+x^8)/x]-Log[2-(1+x^8)/x+2 Sqrt[1-(1+x^8)/x+(3 (1+x^8)^2)/x^2]],x]*)
+
+
+(* ::Input:: *)
 (*postProcess[-(ArcTan[(-((-1-x^2)/x)+Sqrt[-3+(-1-x^2)^2/x^2])/Sqrt[3]]/(2 Sqrt[3]))+1/2 ArcTan[(2 (-((-1-x^2)/x)+Sqrt[-3+(-1-x^2)^2/x^2]))/(-3+(-((-1-x^2)/x)+Sqrt[-3+(-1-x^2)^2/x^2])^2)]+1/8 Log[1+(-1-x^2)/x-Sqrt[-3+(-1-x^2)^2/x^2]]-1/8 Log[3+(-1-x^2)/x-Sqrt[-3+(-1-x^2)^2/x^2]]-1/8 Log[1-(-1-x^2)/x+Sqrt[-3+(-1-x^2)^2/x^2]]+1/8 Log[3-(-1-x^2)/x+Sqrt[-3+(-1-x^2)^2/x^2]],x]*)
 
 
@@ -1111,6 +1119,11 @@ rational2dQ[e_, {x_, y_}] := With[{te = Together[e]},
 Denominator[te] =!= 1 && PolynomialQ[Numerator[te],{x,y}] && PolynomialQ[Denominator[te],{x,y}]]
 
 
+elementaryQ[expr_] := Complement[
+	Cases[Level[expr // TrigToExp, {-1}, Heads->True], s_Symbol/;Context[s]==="System`"] // Union,
+	{Log, Exp, Plus, Times, Power, RootSum, Root, List, Function, Slot, Pi, E}] === {}
+
+
 ClearAll[integrate];
 
 integrate[e_, x_] := Integrate[e, x]
@@ -1130,7 +1143,11 @@ integrate[e_, x_] /; ListQ[ linearRadicalToRational[e, x, $u] ] :=
 
 
 integrate[e_, x_] /; ListQ[ quadraticRadicalToRational[e, x, $u] ] := 
-	Module[{integrand, subst, integral, numerics},
+	Module[{mmaInt, integrand, subst, integral, numerics},
+
+	mmaInt = Integrate[e, x];
+	If[FreeQ[mmaInt, Integrate] && elementaryQ[mmaInt], 
+		Return[ mmaInt ]];
 
 	{integrand, subst} = quadraticRadicalToRational[e, x, $u];
 	integral = Integrate[integrand, $u] /. subst;
@@ -1144,6 +1161,10 @@ integrate[e_, x_] /; ListQ[ quadraticRadicalToRational[e, x, $u] ] :=
 
 	integral
 ]
+
+
+(* ::Input:: *)
+(*integrate[1/(u Sqrt[1-u+3 u^2]),u]*)
 
 
 (* ::Input:: *)
@@ -2225,7 +2246,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*AlgebraicIntegrateHeuristic`Private`$algebraicIntegrateDebug=.;*)
+(*int[(-1+7 x^8)/((1+x^8) Sqrt[3-x+x^2+6 x^8-x^9+3 x^16]),x]*)
 
 
 (* ::Input:: *)
