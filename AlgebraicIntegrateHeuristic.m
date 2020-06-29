@@ -424,7 +424,9 @@ Options[solveAlgebraicIntegral] = {
 }; 
 
 solveAlgebraicIntegral[integrand_, x_, opts : OptionsPattern[]] := Module[
-{rationalPart, unintegratedPart, integratedPart, linRat, result},
+{start, rationalPart, unintegratedPart, integratedPart, linRat, result},
+
+start = AbsoluteTime[];
 
 {rationalPart, unintegratedPart, integratedPart} = {0, integrand, 0};
 
@@ -478,6 +480,13 @@ unintegratedPart = result[[2]];
 integratedPart  += result[[3]];
 debugPrint1["expandIntegrate : ", {rationalPart, unintegratedPart, integratedPart}];
 
+	If[$Testing,
+		testSolveAlgebraicIntegral[integrand // Hash] = {
+			integrand, 
+			AbsoluteTime[] - start, 
+			None, 
+			{rationalPart, unintegratedPart, integratedPart}}
+	];
 
 {rationalPart, unintegratedPart, integratedPart}
 ]
@@ -650,14 +659,6 @@ rationalUndeterminedIntegrate[integrand_, x_, opts : OptionsPattern[]] := Module
 
 	debugPrint[k];
 
-	If[$Testing,
-		testSolveAlgebraicIntegral[integrand // Hash] = {
-			integrand, 
-			AbsoluteTime[] - start, 
-			None, 
-			{rationalPart, unintegratedPart, integratedPart}}
-	];
-
 	If[integratedPart === 0 && rationalPart === 0,
 		{0, integrand, 0},
 		{rationalPart, unintegratedPart, integratedPart}
@@ -672,7 +673,7 @@ rationalUndeterminedIntegrate[integrand_, x_, opts : OptionsPattern[]] := Module
 (*solveAlgebraicIntegral[%, x]*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*solveRational*)
 
 
@@ -733,22 +734,28 @@ solveRational[num_, den_, p_, r_, usubstitution_, radicandDenominator_, x_, u_, 
 
 	radrat = PowerExpand[radicandDenominator^(1/r)]; (* Radical contribution to the rational part of the integrand. *)
 
-	eqns = {Dt[y] == num/den radrat Dt[x], u == usubstitution, Dt[u == usubstitution] // Together // PowerExpand};
+	eqns = {Dt[y] == num/den radrat Dt[x], u == usubstitution, Dt[u == usubstitution] // Together // Cancel // PowerExpand};
 	eqns = eqns /. HoldPattern[Dt][Except[y|x|u]] -> 0;
 	debugPrint3[eqns];
-
+(*
 	eqns = TimeConstrained[
 		Eliminate[eqns, {Dt[x], x}] // Factor // PowerExpand,
 		$timeConstraint/2,
 		$TimedOut];
+*)
 
-	If[eqns === $TimedOut, 
+	eqns = TimeConstrained[
+		GroebnerBasis[eqns, {u, Dt[u]}, {Dt[x], x}, MonomialOrder -> EliminationOrder, Method -> "Buchberger"] // Factor // PowerExpand,
+		$timeConstraint/2,
+		$TimedOut];
+
+	If[MatchQ[eqns, {}| $TimedOut], 
 		Return[ {False, 0, 0} ]
 	];
 	debugPrint3[eqns];	
 
 	solns = TimeConstrained[
-		Solve[eqns, Dt[y]] // Factor // PowerExpand, 
+		Solve[eqns[[1]] == 0, Dt[y]] // Factor // PowerExpand, 
 		$timeConstraint/2,
 		$TimedOut];
 
@@ -758,7 +765,7 @@ solveRational[num_, den_, p_, r_, usubstitution_, radicandDenominator_, x_, u_, 
 	debugPrint3[solns];
 
 	If[! MatchQ[solns, {} | {{}} | _Solve], 
-		sol = (Dt[y] /. solns[[-1]])/Dt[u];
+		sol = Cancel[ (Dt[y] /. solns[[-1]])/Dt[u] ];
 		If[FreeQ[sol, Dt[u]] && rationalQ[sol, u], 
 			{True, sol, {}},
 			{False, 0, 0}
@@ -2117,7 +2124,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*$verboseLevel=3;*)
+(*$verboseLevel=0;*)
 (*int=solveAlgebraicIntegral;*)
 
 
@@ -2512,7 +2519,7 @@ EndPackage[];
 (*int[((-2+3 x^5) Sqrt[1+x^5])/(1+x^4+2 x^5+x^10),x]*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*regression testing*)
 
 
@@ -3438,10 +3445,6 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[((3 x^7+8) (x^14-x^11-x^8-4 x^7+2 x^4+4)^(3/2))/x^17,x]*)
-
-
-(* ::Input:: *)
 (*int[(Sqrt[1-2 x^4] (x^4-1))/(x^7 (x^8+2 x^4-1)),x]*)
 
 
@@ -3559,10 +3562,6 @@ EndPackage[];
 
 (* ::Input:: *)
 (*int[(Sqrt[1-x^2+x^6] (-1+2 x^6))/((1-2 x^2+x^6) (1-x^2+x^6)),x]*)
-
-
-(* ::Input:: *)
-(*int[((-1+x^7) (1+6 x^7))/((-1+x+x^7)^2 Sqrt[1+x^2-2 x^7+x^14]),x]*)
 
 
 (* ::Input:: *)
@@ -3719,3 +3718,6 @@ EndPackage[];
 
 (* ::Input:: *)
 (*int[(-1+x^2)/((2-x+2 x^2) Sqrt[x+x^3]),x]*)
+
+
+
