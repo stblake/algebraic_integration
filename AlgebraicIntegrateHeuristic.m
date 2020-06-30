@@ -41,18 +41,27 @@ $verboseLevel = 0;
 
 
 debugPrint1[e__] /; TrueQ[$verboseLevel > 0] := Block[{Internal`$ContextMarks = False},
+	If[$Profile // TrueQ, 
+		Print @ Style[Row @ {"Elapsed time: ", NumberForm[AbsoluteTime[] - $ProfileStartTime, {Infinity, 3}]}, Darker @ Blue]
+	];
 	Print @ Style[Row @ {e} /. 
 		{A[l_] :> Symbol["A"][l], V[l_] :> Symbol["V"][l], B[l_] :> Symbol["B"][l]}, Darker @ Green]
 ]
 
 
 debugPrint2[e__] /; TrueQ[$verboseLevel > 1] := Block[{Internal`$ContextMarks = False},
+	If[$Profile // TrueQ, 
+		Print @ Style[Row @ {"Elapsed time: ", NumberForm[AbsoluteTime[] - $ProfileStartTime, {Infinity, 3}]}, Darker @ Blue]
+	];
 	Print @ Style[Row @ {e} /. 
 		{A[l_] :> Symbol["A"][l], V[l_] :> Symbol["V"][l], B[l_] :> Symbol["B"][l]}, Brown]
 ]
 
 
 debugPrint3[e__] /; TrueQ[$verboseLevel > 2] := Block[{Internal`$ContextMarks = False},
+	If[$Profile // TrueQ, 
+		Print @ Style[Row @ {"Elapsed time: ", NumberForm[AbsoluteTime[] - $ProfileStartTime, {Infinity, 3}]}, Darker @ Blue]
+	];
 	Print @ Style[Row @ {e} /. 
 		{A[l_] :> Symbol["A"][l], V[l_] :> Symbol["V"][l], B[l_] :> Symbol["B"][l]}, Gray]
 ]
@@ -64,8 +73,12 @@ debugPrint3[e__] /; TrueQ[$verboseLevel > 2] := Block[{Internal`$ContextMarks = 
 
 rationalQ[e_, x_] := With[
     {te = Together[e]}, 
-    Denominator[te] =!=1 && PolynomialQ[Numerator[te], x] && PolynomialQ[Denominator[te], x]
+    Denominator[te] =!= 1 && PolynomialQ[Numerator[te], x] && PolynomialQ[Denominator[te], x]
 ]
+
+
+(* ::Input:: *)
+(*rationalQ[1,x]*)
 
 
 (* ::Subsection::Closed:: *)
@@ -407,13 +420,14 @@ polynomialsUndetermined3[x_Symbol, maxDegree_Integer] :=
 
 
 $Testing = False;
+$Profile = False;
 $timeConstraint = 0.25;
 
 
 ClearAll[solveAlgebraicIntegral];
 
 Options[solveAlgebraicIntegral] = {
-	VerifySolutions -> True, 
+	VerifySolutions -> False, 
 	"MaxRationalDegree" -> 8,
 	"MaxNumeratorDegree" -> 8,
 	"MaxDenominatorDegree" -> 4,
@@ -426,9 +440,17 @@ Options[solveAlgebraicIntegral] = {
 solveAlgebraicIntegral[integrand_, x_, opts : OptionsPattern[]] := Module[
 {start, rationalPart, unintegratedPart, integratedPart, linRat, result},
 
-start = AbsoluteTime[];
+start = $ProfileStartTime = AbsoluteTime[];
 
 {rationalPart, unintegratedPart, integratedPart} = {0, integrand, 0};
+
+(* Rational substitution with undetermined coefficients. *)
+
+result = rationalUndeterminedIntegrate[unintegratedPart, x, opts];
+rationalPart    += result[[1]]; 
+unintegratedPart = result[[2]];
+integratedPart  += result[[3]];
+debugPrint1["Rational undetermined : ", {rationalPart, unintegratedPart, integratedPart}];
 
 (* Linear rational substitution. *)
 
@@ -439,14 +461,6 @@ If[TrueQ[OptionValue["LinearRational"]],
 	integratedPart  += result[[3]];
 	debugPrint1["Linear rational : ", {rationalPart, unintegratedPart, integratedPart}];
 ];
-
-(* Rational substitution with undetermined coefficients. *)
-
-result = rationalUndeterminedIntegrate[unintegratedPart, x, opts];
-rationalPart    += result[[1]]; 
-unintegratedPart = result[[2]];
-integratedPart  += result[[3]];
-debugPrint1["Rational undetermined : ", {rationalPart, unintegratedPart, integratedPart}];
 
 (* Gunther substitution. *)
 
@@ -544,21 +558,21 @@ rationalUndeterminedIntegrate[integrand_, x_, opts : OptionsPattern[]] := Module
 
 	(* Possible radicands in u. *)
 	If[(Numerator[r] === 2 && Exponent[p, x] > 2) || ! OptionValue["Elementary"],
-		radicands = {A[1] # + A[0] &, (* A[2] #^2 + A[0] &, *) A[2] #^2 + A[1] # + A[0] &},
+		radicands = {A[1] # + A[0] &, A[2] #^2 + A[1] # + A[0] &},
 		radicands = {A[1] # + A[0] &}
 	];
 
-	(* Loop over substitution numerators. *)
 	Catch @ 
+	(* Loop over substitution numerators. *)
 	Do[
 		++k;
-		(* Radicands of the form uForm, uForm^2 + b, uForm^2 + b uForm + c. *)
+		(* Radicands of the form uForm, uForm^2 + b uForm + c. *)		
 		Do[
 			(* Loop over radicand denominators 1, x, x^2, ... *)
 			Do[
 				(* All further candidate substitutions will not match (as the 
 					substitution numerators are sorted by degree). *)
-				 If[Exponent[usubstitution, x] > Exponent[p, x],
+				If[Exponent[usubstitution, x] > Exponent[p, x],
 					Throw[{}]];
 
 				(* Check the degrees agree.  *)
@@ -574,15 +588,16 @@ rationalUndeterminedIntegrate[integrand_, x_, opts : OptionsPattern[]] := Module
 				(* Check the denominator can be removed from the radical. *)
 				If[Mod[Exponent[radicandDenominatorU, x], Numerator[r]] != 0, 
 					Continue[]];
-(*
-				If[Exponent[radicandNumeratorU, x] != Exponent[Numerator[r], x] || 
-					Exponent[radicandNumeratorU, x] != 2 Exponent[Numerator[r],x],
-					Continue[]];
-*)
+
+				(* Check the numerator degree matches the radicand degree. *)
+				If[Exponent[radicandNumeratorU, x] != Exponent[p, x],
+					Continue[]
+				];
+
 				(* Find solution to the numerator of the radical part. *)
 				{matched, radicandMatchRules} = solveRadicand[p, radicandNumeratorU, x];
 
-				If[matched,				
+				If[matched,
 					(* Loop over solutions to the radical part. *)
 					debugPrint3["radicand of the form ", radicand[u]];
 					debugPrint3["u substitution = ", uform];
@@ -610,7 +625,7 @@ rationalUndeterminedIntegrate[integrand_, x_, opts : OptionsPattern[]] := Module
 						debugPrint3["u substitution = ", usubstitution, ", ", Style[usubstitutionParam, Red]];
 
 						(* Solve for the rational part of the integral. *)
-						{matched, rationalFormU, rationalMatchRules} = solveRational[
+						{matched, rationalFormU, rationalMatchRules} = solveRationalUndetermined[
 							integrandNumerator, integrandDenominator, p, r, 
 							usubstitutionParam, radicandDenominatorUParam, x, u, 
 							"MaxRationalDegree" -> maxRationalDegree];
@@ -651,8 +666,8 @@ rationalUndeterminedIntegrate[integrand_, x_, opts : OptionsPattern[]] := Module
 						],
 					{radicandMatchRule, radicandMatchRules}]
 				],
-			{denP, 0, maxDenominatorDegree}], 
-		{radicand, radicands}],
+			{denP, 0, maxDenominatorDegree}],
+		{radicand, radicands}], 
 	{usubstitution, polynomialsUndetermined[x, 
 						"MaxNumeratorDegree" -> maxNumeratorDegree, 
 						"TableSize" -> OptionValue["TableSize"]]}];
@@ -673,7 +688,7 @@ rationalUndeterminedIntegrate[integrand_, x_, opts : OptionsPattern[]] := Module
 (*solveAlgebraicIntegral[%, x]*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*solveRational*)
 
 
@@ -734,9 +749,14 @@ solveRational[num_, den_, p_, r_, usubstitution_, radicandDenominator_, x_, u_, 
 
 	radrat = PowerExpand[radicandDenominator^(1/r)]; (* Radical contribution to the rational part of the integrand. *)
 
-	eqns = {Dt[y] == num/den radrat Dt[x], u == usubstitution, Dt[u == usubstitution] // Together // Cancel // PowerExpand};
+	eqns = {
+		Dt[y] == num/den radrat Dt[x], 
+		u == usubstitution, 
+		Dt[u == usubstitution] // Together // Cancel // PowerExpand
+	};
 	eqns = eqns /. HoldPattern[Dt][Except[y|x|u]] -> 0;
 	debugPrint3[eqns];
+
 (*
 	eqns = TimeConstrained[
 		Eliminate[eqns, {Dt[x], x}] // Factor // PowerExpand,
@@ -745,14 +765,15 @@ solveRational[num_, den_, p_, r_, usubstitution_, radicandDenominator_, x_, u_, 
 *)
 
 	eqns = TimeConstrained[
-		GroebnerBasis[eqns, {u, Dt[u]}, {Dt[x], x}, MonomialOrder -> EliminationOrder, Method -> "Buchberger"] // Factor // PowerExpand,
-		$timeConstraint/2,
+		GroebnerBasis[eqns, {u, Dt[u]}, {Dt[x], x}, 
+			MonomialOrder -> EliminationOrder, Method -> "Buchberger"] // Factor // PowerExpand,
+		4. $timeConstraint,
 		$TimedOut];
 
 	If[MatchQ[eqns, {}| $TimedOut], 
 		Return[ {False, 0, 0} ]
 	];
-	debugPrint3[eqns];	
+	debugPrint3[eqns];
 
 	solns = TimeConstrained[
 		Solve[eqns[[1]] == 0, Dt[y]] // Factor // PowerExpand, 
@@ -766,7 +787,7 @@ solveRational[num_, den_, p_, r_, usubstitution_, radicandDenominator_, x_, u_, 
 
 	If[! MatchQ[solns, {} | {{}} | _Solve], 
 		sol = Cancel[ (Dt[y] /. solns[[-1]])/Dt[u] ];
-		If[FreeQ[sol, Dt[u]] && rationalQ[sol, u], 
+		If[FreeQ[sol, Dt[u]] && (PolynomialQ[sol, u] || rationalQ[sol, u]), 
 			{True, sol, {}},
 			{False, 0, 0}
 		],
@@ -866,15 +887,18 @@ nicerQ[a_, b_, x_] := continuousQ[1/a, x] && ! continuousQ[1/b, x]
 nicerQ[a_, b_, x_] := !(! continuousQ[1/a, x] && continuousQ[1/b, x])
 
 
+zeroQ[e_] := TimeConstrained[PossibleZeroQ[e], $timeConstraint, False]
+
+
 (* A simplification based on
 	 D[(Log[a[x] + b[x]] - Log[-a[x] + b[x]]) - 2*ArcTanh[a[x]/b[x]], x] \[Equal] 0 *)
 ClearAll[log2ArcTanh];
 
 log2ArcTanh = c1_. Log[p_] + c2_. Log[q_] /;
-		! PossibleZeroQ[p - q] && 
-		PossibleZeroQ[c1 + c2] && 
-		PossibleZeroQ[(p + q)/2 + (p - q)/2 - p] && 
-		PossibleZeroQ[(p + q)/2 - (p - q)/2 - q] && 
+		! zeroQ[p - q] && 
+		zeroQ[c1 + c2] && 
+		zeroQ[(p + q)/2 + (p - q)/2 - p] && 
+		zeroQ[(p + q)/2 - (p - q)/2 - q] && 
 		LeafCount[collectnumden @ Cancel[(p + q)/(q - p)]] < LeafCount[p/q] :> 
 	(c2 - c1) ArcTanh[collectnumden @ Cancel[(p + q)/(q - p)]];
 
@@ -901,11 +925,11 @@ canonic[e_] := Module[{pf, simp},
 
 ClearAll[arcTanDiff, arcTanSum];
 
-arcTanDiff = a_. ArcTan[z1_] + b_. ArcTan[z2_] /; PossibleZeroQ[a + b] && 
+arcTanDiff = a_. ArcTan[z1_] + b_. ArcTan[z2_] /; zeroQ[a + b] && 
 	LeafCount[collectnumden @ canonic[(z1 - z2)/(1 + z1 z2)]] < LeafCount[z1/z2] :> 
 	(a - b)/2 ArcTan[collectnumden @ canonic[(z1 - z2)/(1 + z1 z2)]];
 
-arcTanSum = a_. ArcTan[z1_] + b_. ArcTan[z2_] /; PossibleZeroQ[a - b] && 
+arcTanSum = a_. ArcTan[z1_] + b_. ArcTan[z2_] /; zeroQ[a - b] && 
 	LeafCount[collectnumden @ canonic[(z1 + z2)/(1 - z1 z2)]] < LeafCount[z1/z2] :> 
 	a ArcTan[collectnumden @ canonic[(z1 + z2)/(1 - z1 z2)]];
 
@@ -916,11 +940,11 @@ arcTanSum = a_. ArcTan[z1_] + b_. ArcTan[z2_] /; PossibleZeroQ[a - b] &&
 
 ClearAll[arcTanhDiff, arcTanhSum];
 
-arcTanhDiff = a_. ArcTanh[z1_] + b_. ArcTanh[z2_] /; PossibleZeroQ[a + b]  && 
+arcTanhDiff = a_. ArcTanh[z1_] + b_. ArcTanh[z2_] /; zeroQ[a + b]  && 
 	LeafCount[collectnumden @ canonic[(z1 - z2)/(1 - z1 z2)]] < LeafCount[z1/z2] :> 
 	(a - b)/2 ArcTanh[collectnumden @ canonic[(z1 - z2)/(1 - z1 z2)]];
 
-arcTanhSum = a_. ArcTanh[z1_] + b_. ArcTanh[z2_] /; PossibleZeroQ[a - b]  && 
+arcTanhSum = a_. ArcTanh[z1_] + b_. ArcTanh[z2_] /; zeroQ[a - b]  && 
 	LeafCount[collectnumden @ canonic[(z1 + z2)/(1 + z1 z2)]] < LeafCount[z1/z2] :> 
 	a ArcTanh[collectnumden @ canonic[(z1 + z2)/(1 + z1 z2)]];
 
@@ -932,6 +956,10 @@ collect[e_] := Module[{permutations, simp},
 	simp = SortBy[Table[Fold[Collect[#1, #2, Together]&, e, permutations[[k]]], {k, Length @ permutations}], LeafCount][[1]];
 	simp
 ]
+
+ClearAll[collect];
+
+collect[e_] := Collect[e, Power[_, _Rational]|_Log|_ArcTan|_ArcTanh|_$rootSum, Together]
 
 
 ClearAll[collectnumden];
@@ -953,6 +981,8 @@ partialExpand[e_] := e
 
 Clear[postProcess];
 postProcess[e_, x_] := Module[{$function, simp, permutations, numerics, denomP},
+
+start = AbsoluteTime[];
 
 	(* Remove constants. *)
 	simp = partialExpand[simp];
@@ -996,7 +1026,6 @@ postProcess[e_, x_] := Module[{$function, simp, permutations, numerics, denomP},
 	simp = collect[simp];
 
 	simp = simp /. (h:Log|ArcTan|ArcTanh)[arg_] :> h[collectnumden @ canonic @ arg]; (* Yes, we have to do this twice. *)
-
 	simp = simp /. Log[ex_] :> Log[Collect[ex, Power[_, _Rational]]];
 
 	(* Pick the nicer of ArcTan[a/b] or -ArcTan[b/a] *)
@@ -1034,6 +1063,10 @@ postProcess[e_, x_] := Module[{$function, simp, permutations, numerics, denomP},
 	simp = partialExpand[simp];
 	simp /. {$rootSum -> RootSum, $function -> Function}
 ]
+
+
+(* ::Input:: *)
+(*postProcess[2 (-((x^2 Sqrt[-1+(1-x^3+x^6)/x^2])/(2 (1-x^3+x^6)))+3/2 ArcTan[Sqrt[-1+(1-x^3+x^6)/x^2]]-ArcTan[Sqrt[-1+(1-x^3+x^6)/x^2]/Sqrt[2]]/Sqrt[2]),x]//Timing*)
 
 
 (* ::Input:: *)
@@ -1480,7 +1513,15 @@ deg = Exponent[radicand, x];
 
 radU = Collect[radicand /. {x -> (d u - b)/(a - u)} // Together // Cancel, u];
 eqn = Numerator[radU](r + s u)^deg == Denominator[radU](p u^deg + q);
-solns = Solve[!Eliminate[!eqn, {u}] && a!=0 && b!=0 && p!=0 && q!=0, {a,b,d,p,q}];
+
+solns = TimeConstrained[
+		Solve[!Eliminate[!eqn, {u}] && a!=0 && b!=0 && p!=0 && q!=0, {a,b,d,p,q}],
+		$timeConstraint,
+		$TimedOut];
+
+If[solns === $TimedOut, 
+	Return[ False ]];
+
 solns = DeleteCases[solns, s_ /; !FreeQ[s, Power[_Integer, _Rational]]];
 
 If[MatchQ[solns, {}|{{}} | _Solve | {{(_ -> _?PossibleZeroQ) ..}..}], 
@@ -1509,6 +1550,11 @@ SortBy[goodsubs, LeafCount] // First
 
 
 (* ::Input:: *)
+(*$verboseLevel=3;$Profile;*)
+(*linearRationalSubstitution[(Sqrt[1-x^2-x^3+x^6] (-2-x^3+4 x^6) (1+x^2-2 x^3-x^4-x^5+3 x^6+x^8-2 x^9+x^12))/((1-x^3+x^6)^2 (1-2 x^3-x^4+3 x^6-2 x^9+x^12)),x, u]//Timing*)
+
+
+(* ::Input:: *)
 (*linearRationalSubstitution[(x-1)/((1+x) Sqrt[x+x^2+x^3]),x,u]*)
 
 
@@ -1517,7 +1563,7 @@ SortBy[goodsubs, LeafCount] // First
 
 
 (* ::Input:: *)
-(*linearRationalSubstitution[(1-x^2)^2/((x^2+1) (x^4+6 x^2+1)^(3/4)),x,u]*)
+(*linearRationalSubstitution[(1-x^2)^2/((x^2+1) (x^4+6 x^2+1)^(3/4)),x,u]//Timing*)
 
 
 (* ::Input:: *)
@@ -2157,7 +2203,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[(x^6-x^4)^(1/6),x]*)
+(*int[(x^6-x^4)^(1/6),x,"MaxDenominatorDegree"->6]*)
 
 
 (* ::Text:: *)
@@ -2519,12 +2565,12 @@ EndPackage[];
 (*int[((-2+3 x^5) Sqrt[1+x^5])/(1+x^4+2 x^5+x^10),x]*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*regression testing*)
 
 
 (* ::Input:: *)
-(*$verboseLevel = 0;*)
+(*$verboseLevel=0;*)
 
 
 (* ::Input:: *)
@@ -2555,7 +2601,7 @@ EndPackage[];
 (*16-Apr-2020 0.372 Seconds*)
 
 
-(* ::InheritFromParent:: *)
+(* ::Input:: *)
 (*int[(1+x^3-(1+x^4)^(1/4)+x^3 (1+x^4)^(1/4))/((-1+x^3) Sqrt[1+x^4]),x]*)
 
 
@@ -3718,6 +3764,3 @@ EndPackage[];
 
 (* ::Input:: *)
 (*int[(-1+x^2)/((2-x+2 x^2) Sqrt[x+x^3]),x]*)
-
-
-
