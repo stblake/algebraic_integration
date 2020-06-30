@@ -1860,6 +1860,11 @@ If[sol =!= False,
 	Return[ {0, 0, sol} ]
 ];
 
+sol = logPartSolve2[a, b/r^n, r, x, degreeBound];
+If[sol =!= False, 
+	Return[ {0, 0, sol} ]
+];
+
 (* Many more to come... *)
 
 
@@ -1876,7 +1881,7 @@ If[sol =!= False,
 
 
 (* ::Subsubsection::Closed:: *)
-(*logPartSolve1	\[LongDash]	Integrate[a[x]/(b[x] Sqrt[r[x]])] == c Log[p[x] + q[x] Sqrt[r[x]]]*)
+(*logPartSolve1	\[LongDash]	Integrate[a[x]/(b[x] Sqrt[r[x]]), x] == c Log[p[x] + q[x] Sqrt[r[x]]]*)
 
 
 (* ::Text:: *)
@@ -2043,6 +2048,101 @@ Do[
 (*Timing[logPartSolve1[a,b,r,x]]*)
 (*Simplify[\!\( *)
 (*\*SubscriptBox[\(\[PartialD]\), \(x\)]\(Last[%]\)\)-a/(b Sqrt[r])]*)
+(*Clear[a,b,r]*)
+
+
+(* ::Subsubsection::Closed:: *)
+(*logPartSolve2	\[LongDash]	Integrate[a[x]/(b[x] Sqrt[r[x]]), x] == c Log[(p[x] + q[x] Sqrt[r[x]])/(p[x] - q[x] Sqrt[r[x]])]*)
+
+
+(* ::Input:: *)
+(*Clear[a,b,c,p,q,r,R]*)
+(*D[c Log[(p[x]+q [x]Sqrt[r[x]])/(p[x]-q [x]Sqrt[r[x]])],x]//Together//Cancel//ExpandDenominator*)
+(*%==a[x]/(b[x]Sqrt[r[x]]) /. {r[x]^(1/2) -> R,r[x]^(-1/2) -> 1/R}*)
+(*Numerator[%[[1]]]Denominator[%[[2]]]==Denominator[%[[1]]]Numerator[%[[2]]] /. {r[x]^(1/2) -> R,r[x]^(3/2) -> R r[x],r[x]^(-1/2) -> 1/R}*)
+(*Expand[Subtract @@ %] /. R^2->r[x]*)
+(*Coefficient[Collect[%,R]/R,R,0]==0*)
+
+
+logPartSolve2[a_, b_, r_, x_, degreeBound_:12] := 
+	logPartSolve2[Function @@ {x,a}, Function @@ {x,b}, Function @@ {x,r}, x, degreeBound]
+
+
+logPartSolve2[a_Function, b_Function, r_Function, x_, degreeBound_:12] := Module[
+{c, p, q, eqns, vars, sol, logs},
+
+Do[
+	p = Function @@ {x,undetermined[x,bound,0]};
+	q = Function @@ {x,undetermined[x,bound,bound+1]};
+
+	eqns = a[x] p[x]^2 - a[x] q[x]^2 r[x] + 2 c b[x] q[x] r[x] Derivative[1][p][x] - 2 c b[x] p[x] r[x] Derivative[1][q][x] - c b[x] p[x] q[x] Derivative[1][r][x] == 0;
+
+	vars = Append[Union @ Cases[eqns, V[_], Infinity], c];
+	sol = Solve[! Eliminate[!eqns, {x}], vars];
+
+	sol = sol /. ConditionalExpression[e_,___] :> e /. C[1] -> 1;
+	sol = DeleteCases[sol, {(_ -> _?PossibleZeroQ) ..}];
+
+	If[! MatchQ[sol, {} | {{}} | _Solve | False], 
+		Break[]
+	],
+	{bound, degreeBound}];
+
+	If[MatchQ[sol, {} | {{}} | _Solve | False], 
+		Return[ False ]
+	];
+
+	logs = Table[
+		c Log[(p[x] + q [x]Sqrt[r[x]])/(p[x] - q [x]Sqrt[r[x]])] /. sol[[k]] /. V[_] -> Apply[LCM, Denominator /@ Most[sol[[k]][[All,-1]]]],
+		{k, Length[sol]}];
+	logs = logs /. LCM -> Times; (* Incase LCM doesn't simplify. eg. LCM[1, Sqrt[2]] *)
+
+	Select[logs, Cancel[Together[D[#,x]-a[x]/(b[x] Sqrt[r[x]])]] === 0&, 1] /. {{e_} :> e, {} -> False}
+]
+
+
+(* ::Input:: *)
+(*a=2+x-x^3;*)
+(*b=1+x-x^2+x^3;*)
+(*r=1+x+x^3;*)
+(*logPartSolve2[a,b,r,x]//Timing*)
+(*D[%//Last,x]-a/(b Sqrt[r])//Simplify*)
+(*Clear[a,b,r]*)
+
+
+(* ::Input:: *)
+(*a=1-2*x;*)
+(*b=1;*)
+(*r=5+5*x-4*x^2-2*x^3+x^4;*)
+(*logPartSolve2[a,b,r,x]//Timing*)
+(*D[%//Last,x]-a/(b Sqrt[r])//Simplify*)
+(*Clear[a,b,r]*)
+
+
+(* ::Input:: *)
+(*a=1-x;*)
+(*b=1;*)
+(*r=4 - 4*x^2 - 4*x^3 + x^4 + 2*x^5 + x^6;*)
+(*logPartSolve2[a,b,r,x]//Timing*)
+(*D[%//Last,x]-a/(b Sqrt[r])//Simplify*)
+(*Clear[a,b,r]*)
+
+
+(* ::Input:: *)
+(*a=1+2x;*)
+(*b=1;*)
+(*r=-4 - 3*x - 2*x^2 + 2*x^3 + x^4;*)
+(*logPartSolve2[a,b,r,x]//Timing*)
+(*D[%//Last,x]-a/(b Sqrt[r])//Simplify*)
+(*Clear[a,b,r]*)
+
+
+(* ::Input:: *)
+(*a=1;*)
+(*b=1;*)
+(*r=2+5*x+5*x^2+3*x^3+x^4;*)
+(*logPartSolve2[a,b,r,x]//Timing*)
+(*D[%//Last,x]-a/(b Sqrt[r])//Simplify*)
 (*Clear[a,b,r]*)
 
 
@@ -2599,6 +2699,30 @@ EndPackage[];
 (* ::Text:: *)
 (*15-Apr-2020 0.409 Seconds*)
 (*16-Apr-2020 0.372 Seconds*)
+
+
+(* ::Input:: *)
+(*int[(2+x-x^3)/(Sqrt[1+x+x^3] (1+x-x^2+x^3)),x]*)
+
+
+(* ::Input:: *)
+(*int[(1-2 x)/Sqrt[5+5 x-4 x^2-2 x^3+x^4],x]*)
+
+
+(* ::Input:: *)
+(*int[(1+2 x)/Sqrt[-4-3 x-2 x^2+2 x^3+x^4],x]*)
+
+
+(* ::Input:: *)
+(*int[1/Sqrt[3-5 x+x^2+x^3],x]*)
+
+
+(* ::Input:: *)
+(*int[(-1+2 x)/Sqrt[-4-4 x+5 x^2-2 x^3+x^4],x]*)
+
+
+(* ::Input:: *)
+(*int[1/Sqrt[3+4 x+x^4],x]*)
 
 
 (* ::Input:: *)
