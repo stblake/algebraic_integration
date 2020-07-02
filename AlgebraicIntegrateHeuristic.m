@@ -13,7 +13,7 @@
 
 
 (* ::Text:: *)
-(*This package implements a heuristic for solving some pseudo-elliptic integrals using a combination of integration by substitution and the method of undetermined coefficients.*)
+(*This package implements a heuristic for solving some pseudo-elliptic integrals using a combination of integration by substitution and the method of undetermined coefficients. *)
 
 
 (* ::Subsection::Closed:: *)
@@ -951,7 +951,7 @@ arcTanhSum = a_. ArcTanh[z1_] + b_. ArcTanh[z2_] /; zeroQ[a - b]  &&
 
 ClearAll[collect];
 
-collect[e_] := Module[{permutations, simp},
+collect[e_, x_] := Module[{permutations, simp},
 	permutations = Table[Select[Tuples[{Power[_, _Rational], _Log, _ArcTan, _ArcTanh, _$rootSum},{k}], Length[Union[#]] == k&], {k, 4}];
 	simp = SortBy[Table[Fold[Collect[#1, #2, Together]&, e, permutations[[k]]], {k, Length @ permutations}], LeafCount][[1]];
 	simp
@@ -959,7 +959,9 @@ collect[e_] := Module[{permutations, simp},
 
 ClearAll[collect];
 
-collect[e_] := Collect[e, Power[_, _Rational]|_Log|_ArcTan|_ArcTanh|_$rootSum, Together]
+collect[e_, x_] := Collect[e, 
+	(r_^_Rational /; !FreeQ[r,x])|_Log|_ArcTan|_ArcTanh|_$rootSum, 
+	Together[RootReduce[#] // ToRadicals]&]
 
 
 ClearAll[collectnumden];
@@ -981,8 +983,6 @@ partialExpand[e_] := e
 
 Clear[postProcess];
 postProcess[e_, x_] := Module[{$function, simp, permutations, numerics, denomP},
-
-start = AbsoluteTime[];
 
 	(* Remove constants. *)
 	simp = partialExpand[simp];
@@ -1013,7 +1013,7 @@ start = AbsoluteTime[];
 		m < 0 :> Expand[p x^(Ceiling[Abs[m], denomP] + m)]^n /x^(n (Ceiling[Abs[m], denomP]));
 
 	(* Collect and partially simplify terms. *)
-	simp = collect[simp];	
+	simp = collect[simp, x];	
 
 	(* This can often result in a simplification as denominators of sums of logs often cancel. *)
 	simp = simp /. (h:Log|ArcTan|ArcTanh)[arg_] :> h[Cancel @ Together @ arg];
@@ -1023,7 +1023,7 @@ start = AbsoluteTime[];
 
 	(* Another simplification to cancel logarithms. *)
 	simp = simp /. Log[ex_^n_Integer] :> n Log[ex];
-	simp = collect[simp];
+	simp = collect[simp, x];
 
 	simp = simp /. (h:Log|ArcTan|ArcTanh)[arg_] :> h[collectnumden @ canonic @ arg]; (* Yes, we have to do this twice. *)
 	simp = simp /. Log[ex_] :> Log[Collect[ex, Power[_, _Rational]]];
@@ -1036,7 +1036,7 @@ start = AbsoluteTime[];
 		Log[ Apply[Times, Power @@@ Rest[FactorSquareFreeList[logand]]] ];
 
 	simp = simp /. Log[ex_^n_Integer] :> n Log[ex]; (* Yes, using this one twice as well. *)
-	simp = collect[simp];
+	simp = collect[simp, x];
 
 	simp = simp //. log2ArcTanh;
 	simp = simp //. {arcTanDiff, arcTanSum, arcTanhDiff, arcTanhSum};
@@ -1056,7 +1056,7 @@ start = AbsoluteTime[];
 		simp -= Total[numerics];
 	];
 
-	simp = collect[simp] /. Power[p_, r_Rational] :> Expand[p]^r;
+	simp = collect[simp, x] /. Power[p_, r_Rational] :> Expand[p]^r;
 	simp = simp /. p_ /; PolynomialQ[p,x] :> Collect[p, x];
 	simp = simp /. Log[ex_] :> Log[Collect[ex, Power[_, _Rational]]];
 
@@ -2322,6 +2322,14 @@ EndPackage[];
 (*int[(1-x^2)^2/((x^2+1) (x^4+6 x^2+1)^(3/4)),x]*)
 
 
+(* ::Text:: *)
+(*This is a nice example where computing the partial fraction expansion of the integrand results in a rational part, unintegrated part and integrated part. The result is not ideal, but it illustrates how we split the integrand and integrate as much as possible. *)
+
+
+(* ::Input:: *)
+(*int[((2 x-1) (x^4-x^2)^(1/4))/((x-1) x),x]*)
+
+
 (* ::Subsection::Closed:: *)
 (*current bugs and deficiencies*)
 
@@ -2358,23 +2366,39 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*Kauers[x/((4-x^3) Sqrt[1-x^3]),x]*)
-
-
-(* ::Input:: *)
 (*int[1/((x+1) (x^3+2)^(1/3)),x]*)
 
 
-(* ::Text:: *)
-(*This isn't specifically a bug, but the resulting form is unfortunate.*)
+(* ::Subsection::Closed:: *)
+(*wish list*)
+
+
+(* ::Input:: *)
+(*$verboseLevel=0;*)
+
+
+(* ::Input:: *)
+(*int[(1+x^2)/((1-x^2) Sqrt[1-x^4-x^8]),x]*)
+
+
+(* ::Input:: *)
+(*int[(-2+x)/((-1+x^2) (x+x^3)^(1/4)),x]*)
+
+
+(* ::Input:: *)
+(*int[(-5+x^4)/((x+x^3)^(1/4) (-1+x^4)),x]*)
+
+
+(* ::Input:: *)
+(*int[((-2+x) (-x^2+x^4)^(1/4))/(-1+2 x^2),x]*)
+
+
+(* ::Subsection::Closed:: *)
+(*previously bugs, deficiencies or edge cases*)
 
 
 (* ::Input:: *)
 (*int[((-1+x^2) Sqrt[1+2 x^2+x^4])/((1+x^2) (1+x^4)),x]*)
-
-
-(* ::Text:: *)
-(*Investigate if these are bugs:*)
 
 
 (* ::Input:: *)
@@ -2389,84 +2413,48 @@ EndPackage[];
 (*int[((x^4+3) Sqrt[x-x^5])/(x^8-x^6-2 x^4+1),x]*)
 
 
-(* ::Subsection::Closed:: *)
-(*wish list*)
+(* ::Input:: *)
+(*int[((1+x) (x^3+x^5)^(1/4))/(x (-1+x^3)),x]*)
 
 
 (* ::Input:: *)
-(*AlgebraicIntegrateHeuristic`Private`$algebraicIntegrateDebug=.;*)
-
-
-(* ::Text:: *)
-(*Surely this one should be computable? *)
+(*int[((1+x^2) (-x^3+x^4)^(1/4))/(-1+x+2 x^2),x]*)
 
 
 (* ::Input:: *)
-(*int[(1+x^2)/((1-x^2) Sqrt[1-x^4-x^8]),x]*)
+(*int[((-1+x^2) (x^2+x^6)^(1/4))/(x^2 (1+x^2)),x]*)
+
+
+(* ::Input:: *)
+(*int[(-1+x^8)/((x^2+x^6)^(1/4) (1+x^8)),x]*)
+
+
+(* ::Input:: *)
+(*int[(-1+x^4)/((1+x^2+x^4) (x^2+x^6)^(1/4)),x]*)
+
+
+(* ::Input:: *)
+(*int[(-1+x^2)/((1+x^2) (x^2+x^6)^(1/4)),x]*)
+
+
+(* ::Input:: *)
+(*int[((-1+2 x+2 x^2) (-x^2+x^4)^(1/4))/(-1+2 x^2),x]*)
+
+
+(* ::Input:: *)
+(*int[1/((-1+x) (x+x^3)^(1/4)),x]*)
+
+
+(* ::Input:: *)
+(*int[((x+2 x^2) (x^2+x^4)^(1/4))/(1+2 x^2),x]*)
+
+
+(* ::Input:: *)
+(*int[((1+2 x+2 x^2) (x^2+x^4)^(1/4))/(1+2 x^2),x]*)
 
 
 (* ::Input:: *)
 (*int[1/((-2+x) (-x^2+x^3)^(1/4)),x]*)
-
-
-(* ::Input:: *)
-(*int[1/((-1+x) (x+x^3)^(1/4)),x,"MaxRationalDegree"->8,"MaxNumeratorDegree"->8,"MaxDenominatorDegree"->8,"TableSize"->"Medium"]*)
-
-
-(* ::Input:: *)
-(*int[(-2+x)/((-1+x^2) (x+x^3)^(1/4)),x,"MaxRationalDegree"->8,"MaxNumeratorDegree"->8,"MaxDenominatorDegree"->8,"TableSize"->"Medium"]*)
-
-
-(* ::Input:: *)
-(*int[(-5+x^4)/((x+x^3)^(1/4) (-1+x^4)),x,"MaxRationalDegree"->8,"MaxNumeratorDegree"->8,"MaxDenominatorDegree"->8,"TableSize"->"Medium"]*)
-
-
-(* ::Input:: *)
-(*int[((1+2 x+2 x^2) (x^2+x^4)^(1/4))/(1+2 x^2),x,"MaxRationalDegree"->8,"MaxNumeratorDegree"->8,"MaxDenominatorDegree"->8,"TableSize"->"Medium"]*)
-
-
-(* ::Input:: *)
-(*int[((x+2 x^2) (x^2+x^4)^(1/4))/(1+2 x^2),x,"MaxRationalDegree"->8,"MaxNumeratorDegree"->8,"MaxDenominatorDegree"->8,"TableSize"->"Medium"]*)
-
-
-(* ::Input:: *)
-(*int[((-1+2 x) (-x^2+x^4)^(1/4))/((-1+x) x),x,"MaxRationalDegree"->8,"MaxNumeratorDegree"->8,"MaxDenominatorDegree"->8,"TableSize"->"Medium"]*)
-
-
-(* ::Input:: *)
-(*int[((-1+2 x+2 x^2) (-x^2+x^4)^(1/4))/(-1+2 x^2),x,"MaxRationalDegree"->8,"MaxNumeratorDegree"->8,"MaxDenominatorDegree"->8,"TableSize"->"Medium"]*)
-
-
-(* ::Input:: *)
-(*int[((-2+x) (-x^2+x^4)^(1/4))/(-1+2 x^2),x,"MaxRationalDegree"->8,"MaxNumeratorDegree"->8,"MaxDenominatorDegree"->8,"TableSize"->"Medium"]*)
-
-
-(* ::Input:: *)
-(*int[(-1+x^2)/((1+x^2) (x^2+x^6)^(1/4)),x,"MaxRationalDegree"->8,"MaxNumeratorDegree"->8,"MaxDenominatorDegree"->24,"TableSize"->"Medium"]*)
-
-
-(* ::Input:: *)
-(*int[(-1+x^4)/((1+x^2+x^4) (x^2+x^6)^(1/4)),x,"MaxRationalDegree"->8,"MaxNumeratorDegree"->8,"MaxDenominatorDegree"->24,"TableSize"->"Medium"]*)
-
-
-(* ::Input:: *)
-(*int[(-1+x^8)/((x^2+x^6)^(1/4) (1+x^8)),x,"MaxRationalDegree"->8,"MaxNumeratorDegree"->8,"MaxDenominatorDegree"->8,"TableSize"->"Medium"]*)
-
-
-(* ::Input:: *)
-(*int[((-1+x^2) (x^2+x^6)^(1/4))/(x^2 (1+x^2)),x,"MaxRationalDegree"->8,"MaxNumeratorDegree"->8,"MaxDenominatorDegree"->24,"TableSize"->"Medium"]*)
-
-
-(* ::Input:: *)
-(*int[((1+x^2) (-x^3+x^4)^(1/4))/(-1+x+2 x^2),x,"MaxRationalDegree"->8,"MaxNumeratorDegree"->8,"MaxDenominatorDegree"->24,"TableSize"->"Medium"]*)
-
-
-(* ::Input:: *)
-(*int[((1+x) (x^3+x^5)^(1/4))/(x (-1+x^3)),x,"MaxRationalDegree"->8,"MaxNumeratorDegree"->8,"MaxDenominatorDegree"->24,"TableSize"->"Medium"]*)
-
-
-(* ::Subsection::Closed:: *)
-(*previously bugs or edge cases*)
 
 
 (* ::Input:: *)
@@ -2678,27 +2666,15 @@ EndPackage[];
 (*AlgebraicIntegrateHeuristic`Private`$Testing=True;*)
 
 
-(* ::Text:: *)
-(*The missing integrals here are computed with the option: "TableSize" -> "Medium":*)
-
-
-(* ::Input:: *)
-(*int[((3+x) Sqrt[-2 x-x^2+x^4])/(2+x+x^3)^2,x,"TableSize"->"Medium"]*)
-(*int[((3+x) Sqrt[-2 x-x^2+x^4])/(2+x+x^3)^2,x,"TableSize"->"Medium"]*)
-(*int[((-3+2 x+2 x^5) Sqrt[x-x^2+x^6])/(1-2 x+x^2-x^3+x^4+2 x^5-3 x^6-x^8+x^10),x,"TableSize"->"Medium"]*)
-(*int[((-3+2 x+2 x^5) Sqrt[x-x^2+x^6])/(1-2 x+x^2-x^3+x^4+2 x^5-3 x^6-x^8+x^10),x,"TableSize"->"Medium"]*)
-(*int[((-3+x^4+3 x^6) Sqrt[-x-x^5-x^7])/((1+x^4+x^6) (1-x^3+x^4+x^6)),x,"TableSize"->"Medium"]*)
-(*int[((-3+x^4+3 x^6) Sqrt[-x-x^5-x^7])/((1+x^4+x^6) (1-x^3+x^4+x^6)),x,"TableSize"->"Medium"]*)
-
-
 (* ::Input:: *)
 (*Cases[DownValues[AlgebraicIntegrateHeuristic`Private`testSolveAlgebraicIntegral][[All,-1]],{_,_,_,Except[{0,0,_}]}]*)
 (*Median[DownValues[AlgebraicIntegrateHeuristic`Private`testSolveAlgebraicIntegral][[All,-1,2]]]*)
 
 
 (* ::Text:: *)
-(*15-Apr-2020 0.409 Seconds*)
-(*16-Apr-2020 0.372 Seconds*)
+(*15-Apr-2020	0.409 Seconds*)
+(*16-Apr-2020	0.372 Seconds*)
+(*02-Jul-2020	0.178 Seconds*)
 
 
 (* ::Input:: *)
