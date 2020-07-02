@@ -1239,12 +1239,13 @@ integrate[e_, x_] /; ListQ[ linearRadicalToRational[e, x, $u] ] :=
 
 integrate[e_, x_] /; ListQ[ quadraticRadicalToRational[e, x, $u] ] := 
 	Module[{mmaInt, integrand, subst, integral, numerics},
-(*
+
 	mmaInt = Integrate[e, x];
 	If[FreeQ[mmaInt, Integrate] && elementaryQ[mmaInt], 
 		Return[ mmaInt ]];
-*)
+
 	{integrand, subst} = quadraticRadicalToRational[e, x, $u];
+	Print[{integrand, subst}];
 	integral = Integrate[integrand, $u] /. subst;
 	integral = integral // Apart // Expand // Together;
 
@@ -1256,6 +1257,10 @@ integrate[e_, x_] /; ListQ[ quadraticRadicalToRational[e, x, $u] ] :=
 
 	integral
 ]
+
+
+(* ::Input:: *)
+(*integrate[(u Sqrt[-2+u^2])/(2-4 u^2+u^4),u]*)
 
 
 (* ::Input:: *)
@@ -2275,11 +2280,15 @@ EndPackage[];
 
 
 (* ::Text:: *)
-(*Example from paper: *)
+(*Examples from the paper (https://arxiv.org/abs/2004.04910): *)
 
 
 (* ::Input:: *)
 (*int[((-2+x^3) Sqrt[1-x^2+x^3])/(1+x^3)^2,x]*)
+
+
+(* ::Input:: *)
+(*int[((x^4-1)Sqrt[x^4+1])/(x^8+1),x]*)
 
 
 (* ::Text:: *)
@@ -2291,7 +2300,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[((x^4-1) Sqrt[1+x^2+x^4])/((1+x^4) (1-x^2+x^4)),x]*)
+(*int[((x^4-1)Sqrt[1+x^4])/(1+3 x^2+x^4)^2,x]*)
 
 
 (* ::Input:: *)
