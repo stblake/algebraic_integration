@@ -1583,7 +1583,7 @@ SortBy[goodsubs, LeafCount] // First
 (*D[% // Last, x]-(1+15 x^2+15 x^4+x^6)^(1/6)/((-1+x) (1+x)^2)//Together//Cancel*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Generalised Gunther Substitutions*)
 
 
@@ -1614,25 +1614,47 @@ PolynomialQ[Numerator[e], x] && PolynomialQ[Denominator[e]/r^n, x],
 	p = Numerator[e];
 	q = Denominator[e]/r^FractionalPart[n];
 	r = r^Max[1,IntegerPart[n]];
+
 	result = guntherSolve1[p, q, r, 1/FractionalPart[n], x, t];
-	If[result === $Failed, 
-		{0, e, 0},
+
+	If[result =!= $Failed, 
 		debugPrint2["guntherSolve1 returned ", result];
 		ratIntegral = Integrate[result // First, t];
-		{0, 0, postProcess[ratIntegral /. t -> Last[result], x]}
-	],
+		Return[ {0, 0, postProcess[ratIntegral /. t -> Last[result], x]} ]
+	];
+
+	result = guntherSolve3[p, q, r, 1/FractionalPart[n], x, t];
+
+	If[result =!= $Failed, 
+		debugPrint2["guntherSolve3 returned ", result];
+		ratIntegral = Integrate[result // First, t];
+		Return[ {0, 0, postProcess[ratIntegral /. t -> Last[result], x]} ]
+	];
+
+	{0, e, 0},
 PolynomialQ[Denominator[e], x] && PolynomialQ[Numerator[e]/r^n, x],
 	(* Radical is in the numerator. *)
 	p = Numerator[e]/r^FractionalPart[n];
 	q = Denominator[e];
 	r = r^Max[1,IntegerPart[n]];
+
 	result = guntherSolve2[p, q, r, 1/FractionalPart[n], x, t];
-	If[result === $Failed, 
-		{0, e, 0},
+
+	If[result =!= $Failed, 
 		debugPrint2["guntherSolve2 returned ", result];
 		ratIntegral = Integrate[result // First, t];
-		{0, 0, postProcess[ratIntegral /. t -> Last[result], x]}
-	], 
+		Return[ {0, 0, postProcess[ratIntegral /. t -> Last[result], x]} ]
+	];
+
+	result = guntherSolve4[p, q, r, 1/FractionalPart[n], x, t];
+
+	If[result =!= $Failed, 
+		debugPrint2["guntherSolve4 returned ", result];
+		ratIntegral = Integrate[result // First, t];
+		Return[ {0, 0, postProcess[ratIntegral /. t -> Last[result], x]} ]
+	];
+
+	{0, e, 0}, 
 True, 
 	{0, e, 0}
 ]
@@ -1822,6 +1844,132 @@ $Failed
 (*Integrate[%//First,u] /. u-> Last[%]*)
 (*postProcess[%, x]*)
 (*D[%,x] - ((x+x^3) Sqrt[1+x^4])/(1-2 x^2+4 x^4-2 x^6+x^8)//Simplify*)
+
+
+(* ::Subsubsection::Closed:: *)
+(*guntherSolve3	(u == 1/(p[x]*(q[x])^(1/m))*)
+
+
+ClearAll[guntherSolve3];
+
+guntherSolve3[p_, q_, r_, m_, x_, u_] := Catch @ Module[
+{degp, degq, degMax, y, form, yform, unparameterised, eqn, vars, soln, solnre},
+
+debugPrint2["Trying guntherSolve3"];
+
+degp = Exponent[p,x];
+degq = Exponent[q,x];
+
+degMax = Max[3, Exponent[p,x] - Exponent[q,x] + Exponent[r,x] - 1];
+debugPrint2["Degree bound = ", degMax];
+
+Do[
+	If[ndeg == 0 && ddeg == 0 || ndeg > ddeg, 
+		Continue[]];
+
+	debugPrint2["numerator/denominator degree = ", ndeg, ", ", ddeg];
+
+	y = 1/(Sum[C[k] x^k, {k, 0, deg}] r^(1/m));
+	debugPrint2["Substitution form is ", y];
+
+	form = Sum[V[k] u^(m k), {k, 0, ndeg}]/Sum[V[ndeg + 1 + k] u^(m k), {k, 0, ddeg}];
+	form = form /. V[ndeg|ndeg + 1 + ddeg] -> 1;
+	yform = form /. u -> y;
+
+	unparameterised = Cancel[r^(1/m) Together[yform D[y,x]]];
+
+	If[degp > Exponent[Numerator @ unparameterised, x] || 
+		degq > Exponent[Denominator @ unparameterised, x],
+		Continue[]];
+
+	eqn = Numerator[unparameterised] q - Denominator[unparameterised] p == 0;
+	vars = Union @ Cases[eqn, (C|V)[_], Infinity];
+
+	soln = TimeConstrained[
+		Solve[!Eliminate[!eqn, {x}], vars],
+		$timeConstraint, 
+		{}
+	];
+
+	soln = DeleteCases[soln, {Rule[_,0]..}];
+	solnre = Cases[soln, s_ /; FreeQ[N[s], _Complex]];
+	If[solnre =!= {}, 
+		soln = solnre];
+
+	If[soln =!= {},
+		{form, y} = {form, y} /. soln[[1]] /. {V[0] -> 1, V[1] -> 0, C[_] -> 1};
+		RationalSubstitution = y;
+		If[!MatchQ[form, Indeterminate|0],
+			Throw @ Cancel[ {form, y} ]
+		]
+	],
+{ndeg, 0, 2}, {ddeg, 1, 2}, {deg, 1, degMax}];
+
+$Failed
+]
+
+
+(* ::Subsubsection::Closed:: *)
+(*guntherSolve4	(u == p[x]*(q[x])^(1/m)*)
+
+
+ClearAll[guntherSolve4];
+
+guntherSolve4[p_, q_, r_, m_, x_, u_] := Catch @ Module[
+{degp, degq, degMax, y, form, yform, unparameterised, eqn, vars, soln, solnre},
+
+debugPrint2["Trying guntherSolve4"];
+
+degp = Exponent[p,x];
+degq = Exponent[q,x];
+
+degMax = Max[3, Exponent[p,x] - Exponent[q,x] + Exponent[r,x] - 1];
+debugPrint2["Degree bound = ", degMax];
+
+Do[
+	If[ndeg == 0 && ddeg == 0 || ndeg > ddeg, 
+		Continue[]];
+
+	debugPrint2["numerator/denominator degree = ", ndeg, ", ", ddeg];
+
+	y = Sum[C[k] x^k, {k, 0, deg}] r^(1/m);
+	debugPrint2["Substitution form is ", y];
+
+	form = Sum[V[k] u^(m k), {k, 0, ndeg}]/Sum[V[ndeg + 1 + k] u^(m k), {k, 0, ddeg}];
+	form = form /. V[ndeg|ndeg + 1 + ddeg] -> 1;
+	yform = form /. u -> y;
+
+	unparameterised = Cancel[r^(-1/m) Together[yform D[y,x]]];
+
+	If[degp > Exponent[Numerator @ unparameterised, x] || 
+		degq > Exponent[Denominator @ unparameterised, x],
+		Continue[]];
+
+	eqn = Numerator[unparameterised] q - Denominator[unparameterised] p == 0;
+	vars = Union @ Cases[eqn, (C|V)[_], Infinity];
+
+	soln = TimeConstrained[
+		Solve[!Eliminate[!eqn, {x}], vars],
+		$timeConstraint, 
+		{}
+	];
+
+	soln = DeleteCases[soln, {Rule[_,0]..}];
+	solnre = Cases[soln, s_ /; FreeQ[N[s], _Complex]];
+	If[solnre =!= {}, 
+		soln = solnre];
+
+	If[soln =!= {},
+		{form, y} = {form, y} /. soln[[1]] /. {V[0] -> 1, V[1] -> 0, C[_] -> 1};
+		RationalSubstitution = y;
+		If[!MatchQ[form, Indeterminate|0],
+			Throw @ Cancel[ {form, y} ]
+		]
+	],
+{ndeg, 0, 2}, {ddeg, 1, 2}, {deg, 1, degMax}];
+
+$Failed
+]
 
 
 (* ::Subsection::Closed:: *)
