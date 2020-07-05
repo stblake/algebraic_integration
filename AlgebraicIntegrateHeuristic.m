@@ -766,7 +766,8 @@ solveRational[num_, den_, p_, r_, usubstitution_, radicandDenominator_, x_, u_, 
 
 	eqns = TimeConstrained[
 		GroebnerBasis[eqns, {u, Dt[u]}, {Dt[x], x}, 
-			MonomialOrder -> EliminationOrder, Method -> "Buchberger"] // Factor // PowerExpand,
+			MonomialOrder -> EliminationOrder, 
+			Method -> "Buchberger"] // Factor // PowerExpand,
 		4. $timeConstraint,
 		$TimedOut];
 
@@ -1238,15 +1239,28 @@ integrate[e_, x_] /; ListQ[ linearRadicalToRational[e, x, $u] ] :=
 
 
 integrate[e_, x_] /; ListQ[ quadraticRadicalToRational[e, x, $u] ] := 
-	Module[{mmaInt, integrand, subst, integral, numerics},
-
+	Module[{t, u, mmaInt, intt, integrand, substitution, integral, numerics},
+	
+	t = Unique["t"];
+	u = Unique["u"];
+	
+(*
 	mmaInt = Integrate[e, x];
 	If[FreeQ[mmaInt, Integrate] && elementaryQ[mmaInt], 
 		Return[ mmaInt ]];
+*)
 
-	{integrand, subst} = quadraticRadicalToRational[e, x, $u];
-	Print[{integrand, subst}];
-	integral = Integrate[integrand, $u] /. subst;
+	(* Can we substitute u \[Equal] (x^2)? eg. (x*Sqrt[-2 + x^2])/(2 - 4*x^2 + x^4) *)
+
+	intt = subst[e, t -> x^2, x];
+	If[intt =!= {} && ListQ[linearRadicalToRational[intt // First, t, u]],
+		Return[ integrate[intt // First, t] /. Last[intt] ]
+	];
+
+	(* Euler's substitution for Sqrt[quadratic]. *)
+	
+	{integrand, substitution} = quadraticRadicalToRational[e, x, u];
+	integral = Integrate[integrand, u] /. substitution;
 	integral = integral // Apart // Expand // Together;
 
 	(* Remove constants. *)
@@ -1583,7 +1597,7 @@ SortBy[goodsubs, LeafCount] // First
 (*D[% // Last, x]-(1+15 x^2+15 x^4+x^6)^(1/6)/((-1+x) (1+x)^2)//Together//Cancel*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Generalised Gunther Substitutions*)
 
 
@@ -1910,7 +1924,7 @@ $Failed
 
 
 (* ::Subsubsection::Closed:: *)
-(*guntherSolve4	(u == p[x]*(q[x])^(1/m)*)
+(*guntherSolve4	(u == p[x]*(q[x])^(1/m))*)
 
 
 ClearAll[guntherSolve4];
@@ -2411,6 +2425,107 @@ If[Length[pf] > 1,
 
 
 (* ::Subsection::Closed:: *)
+(*Integration by substitution*)
+
+
+(* ::Input::Initialization:: *)
+ClearAll[subst];
+
+subst[integrand_, u_-> sub_, x_] := Module[
+{y, eqns, usub, uintegrand},
+
+y=Unique[Symbol["y"]];
+
+eqns = {
+Dt[y]==integrand Dt[x],
+u==sub//PowerExpand,
+Dt[u==sub]//Together//Cancel//PowerExpand
+};
+
+debugPrint2[eqns];
+
+eqns = TimeConstrained[
+	Eliminate[eqns,{Dt[x],x}],(* Express Dt[y] in terms of Dt[u] and u. *)
+	$timeConstraint, 
+	$TimedOut];
+
+If[eqns=== $TimedOut, 
+Return[ {} ]];
+
+debugPrint2[eqns];
+
+eqns = Factor[eqns];
+
+debugPrint2[eqns];
+
+uintegrand=Solve[eqns,{Dt[y]}];
+
+If[MatchQ[uintegrand, {}|{{}}|_Solve],
+	Return[ {} ]];
+
+uintegrand = Join[uintegrand, Cases[uintegrand, s_/;FreeQ[s // N, _Complex]]]; (* Pick the real solution, where possible. *)
+debugPrint2[uintegrand];
+
+If[usub === {},
+{},
+uintegrand = Dt[y]/.uintegrand[[-1]] //FactorSquareFree//PowerExpand;
+uintegrand = Cancel[uintegrand/Dt[u] ];
+If[FreeQ[uintegrand, Dt[u]],
+{uintegrand,u->sub}, 
+{}]
+]
+]
+
+
+(* ::Input:: *)
+(*subst[x^5 Sqrt[x^6+1],u->x^6+1,x]*)
+
+
+(* ::Input:: *)
+(*subst[Sqrt[1+Sqrt[x]],u->Sqrt[x],x]*)
+
+
+(* ::Input:: *)
+(*subst[x Sqrt[1+Sqrt[x]],u->Sqrt[x],x]*)
+
+
+(* ::Input:: *)
+(*subst[Sqrt[Tan[x]],u->Sqrt[Tan[x]],x]*)
+
+
+(* ::Input:: *)
+(*subst[Sqrt[Tan[x]^2-2Tan[x]+2],u->Tan[x],x]*)
+
+
+(* ::Input:: *)
+(*subst[(x^2-1)/((1+x^2)Sqrt[1+x^4]),u->x+1/x,x]*)
+
+
+(* ::Input:: *)
+(*subst[1/((x^4+1) (x^4-1)^(1/4)),u->(x^4-1)/x^4,x]*)
+
+
+(* ::Input:: *)
+(*subst[1/((x^4+1) (x^4-1)^(1/4)),u->((x^4-1)/x^4)^(1/4),x]*)
+
+
+(* ::Input:: *)
+(*subst[1/((x^8+1) (x^8-1)^(1/8)),u->((x^8-1)/x^8)^(1/8),x]//Timing*)
+
+
+(* ::Input:: *)
+(*subst[((-1+x^2)^2 (x+x^3))/(Sqrt[1+x^4] (1-2 x^2+4 x^4-2 x^6+x^8)),u->(1-x^2)/Sqrt[1+x^4],x]*)
+
+
+(* ::Input:: *)
+(*subst[Sec[x]Tan[x]Sqrt[Sec[x]^2+1],u->Sec[x],x]//Timing*)
+
+
+(* ::Input:: *)
+(*subst[(x^3 Exp[ArcSin[x]])/Sqrt[1-x^2],u->ArcSin[x],x]//Timing*)
+
+
+(* ::Subsection::Closed:: *)
 (*End Package*)
 
 
@@ -2436,7 +2551,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[((x^4-1)Sqrt[x^4+1])/(x^8+1),x]*)
+(*int[((x^4-1) Sqrt[x^4+1])/(x^8+1),x]*)
 
 
 (* ::Text:: *)
@@ -2448,7 +2563,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[((x^4-1)Sqrt[1+x^4])/(1+3 x^2+x^4)^2,x]*)
+(*int[((x^4-1) Sqrt[1+x^4])/(1+3 x^2+x^4)^2,x]*)
 
 
 (* ::Input:: *)
@@ -3127,7 +3242,6 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*$verboseLevel=0;*)
 (*int[((-1+x^4) (1+x^4))/(1+x^2+x^4)^(5/2),x]*)
 
 
