@@ -13,7 +13,7 @@
 
 
 (* ::Text:: *)
-(*This package implements a heuristic for solving some pseudo-elliptic integrals using a combination of integration by substitution and the method of undetermined coefficients. *)
+(*This package implements a heuristic for solving some pseudo-elliptic integrals using a combination of integration by substitution and the method of undetermined coefficients. We also try generalised Gunther substitutions, and attempt to set up systems of equations to solve some Abelian integrals. *)
 
 
 (* ::Subsection::Closed:: *)
@@ -21,6 +21,9 @@
 
 
 BeginPackage["AlgebraicIntegrateHeuristic`"];
+
+IntegrateAlgebraic::usage = "IntegrateAlgebraic[f, x] is a heuristic for computing an elementary solution to a \
+pseudo-elliptic integral.";
 
 solveAlgebraicIntegral::usage = "solveAlgebraicIntegral[f, x] is a heuristic for computing an elementary solution to a \
 pseudo-elliptic integral. solveAlgebraicIntegral returns {rp, up, ip}, where rp is the (unintegrated) rational part, \
@@ -416,17 +419,12 @@ polynomialsUndetermined3[x_Symbol, maxDegree_Integer] :=
 
 
 (* ::Subsection::Closed:: *)
-(*solveAlgebraicIntegral*)
+(*IntegrateAlgebraic*)
 
 
-$Testing = False;
-$Profile = False;
-$timeConstraint = 0.25;
+ClearAll[IntegrateAlgebraic];
 
-
-ClearAll[solveAlgebraicIntegral];
-
-Options[solveAlgebraicIntegral] = {
+Options[IntegrateAlgebraic] = {
 	VerifySolutions -> False, 
 	"MaxRationalDegree" -> 8,
 	"MaxNumeratorDegree" -> 8,
@@ -437,12 +435,90 @@ Options[solveAlgebraicIntegral] = {
 	"Elementary" -> True
 }; 
 
-solveAlgebraicIntegral[integrand_, x_, opts : OptionsPattern[]] := Module[
-{start, rationalPart, unintegratedPart, integratedPart, linRat, result},
+IntegrateAlgebraic[e_, x_, opts:OptionsPattern[]] := Module[
+	{rationalPart, unintegratedPart, integratedPart},
 
-start = $ProfileStartTime = AbsoluteTime[];
+	$ProfileStartTime = AbsoluteTime[];
+
+	{rationalPart, unintegratedPart, integratedPart} = solveAlgebraicIntegral[e, x, opts];
+	
+	If[unintegratedPart === 0, 
+			integratedPart + Integrate[rationalPart, x],
+			integratedPart + Integrate[rationalPart, x] + Defer[IntegrateAlgebraic][unintegratedPart, x]
+	]
+]
+
+
+(* ::Subsection::Closed:: *)
+(*solveAlgebraicIntegral*)
+
+
+$Testing = False;
+$Profile = True;
+$timeConstraint = 0.25;
+
+
+ClearAll[solveAlgebraicIntegral];
+
+Options[solveAlgebraicIntegral] = Options[IntegrateAlgebraic];
+
+solveAlgebraicIntegral[integrand_, x_, opts : OptionsPattern[]] := Module[
+{start, u, rationalPart, unintegratedPart, integratedPart, 
+rationalIntegrand, substitution, integral, linRat, result},
+
+start = AbsoluteTime[];
 
 {rationalPart, unintegratedPart, integratedPart} = {0, integrand, 0};
+
+(* Integrand is a rational function of x (needed for recursive integration). *)
+
+If[rationalQ[unintegratedPart, x], 
+	debugPrint1["Integrand is in Q(x): ", unintegratedPart];
+	integral = Integrate[unintegratedPart, x];
+	Return[ {0, 0, integral} ]
+];
+
+(* Integrand is in Q(x, (a*x + b)^(m[1]/n[1]), (a*x + b)^(m[2]/n[2]), \[Ellipsis]) *)
+
+If[ListQ @ linearRadicalToRational[unintegratedPart, x, u],
+	debugPrint1["Integrand is in Q(x, (a*x + b)^(m[1]/n[1]), (a*x + b)^(m[2]/n[2]), \[Ellipsis]): ", unintegratedPart];
+	integral = integrateLinearRadical[unintegratedPart, x];
+	Return[ {0, 0, integral} ]
+];
+
+(* Integrand is in Q(x, (a x + b x + c)^(n[1]/2), (a x + b x + c)^(n[2]/2), \[Ellipsis]) *)
+
+If[ListQ @ quadraticRadicalToRational[unintegratedPart, x, u],
+	debugPrint1["Integrand is in Q(x, (a x + b x + c)^(n[1]/2), (a x + b x + c)^(n[2]/2), \[Ellipsis]): ", unintegratedPart];
+	integral = integrateQuadraticRadical[unintegratedPart, x];
+	Return[ {0, 0, integral} ]
+];
+
+(* Integrand is in Q(x, (a*x + b)^(1/2), (c*x + d)^(1/2)) *)
+
+If[ListQ @ multipleLinearRadicalToRational[unintegratedPart, x, u],
+	debugPrint1["Integrand is in Q(x, (a*x + b)^(1/2), (c*x + d)^(1/2)): ", unintegratedPart];
+	integral = integrateMultipleLinearRadical[unintegratedPart, x];
+	Return[ {0, 0, integral} ]
+];
+
+(* Integrand is in Q(x,((a x + b)/(c x + d))^(m[1]/n[1]), ((a x + b)/(c x + d))^(m[2]/n[2]), \[Ellipsis]) *)
+
+If[ListQ @ linearRatioRadicalToRational[unintegratedPart, x, u],
+	debugPrint1["Integrand is in Q(x,((a x + b)/(c x + d))^(m[1]/n[1]), ((a x + b)/(c x + d))^(m[2]/n[2]), \[Ellipsis]): ", unintegratedPart];
+	integral = integrateLinearRatioRadical[unintegratedPart, x];
+	Return[ {0, 0, integral} ]
+];
+
+(* Nested radicals. *)
+
+If[ListQ @ decreaseNestedRadicals[unintegratedPart, x, u],
+	debugPrint1["Integrand contains nested radicals: ", unintegratedPart];
+	result = integrateNestedRadicals[unintegratedPart, x];
+	rationalPart    += result[[1]]; 
+	unintegratedPart = result[[2]];
+	integratedPart  += result[[3]];
+];
 
 (* Rational substitution with undetermined coefficients. *)
 
@@ -462,7 +538,7 @@ If[TrueQ[OptionValue["LinearRational"]],
 	debugPrint1["Linear rational : ", {rationalPart, unintegratedPart, integratedPart}];
 ];
 
-(* Gunther substitution. *)
+(* Generalised Gunther substitution. *)
 
 result = guntherIntegrate[unintegratedPart, x, opts];
 rationalPart    += result[[1]]; 
@@ -625,7 +701,7 @@ rationalUndeterminedIntegrate[integrand_, x_, opts : OptionsPattern[]] := Module
 						debugPrint3["u substitution = ", usubstitution, ", ", Style[usubstitutionParam, Red]];
 
 						(* Solve for the rational part of the integral. *)
-						{matched, rationalFormU, rationalMatchRules} = solveRationalUndetermined[
+						{matched, rationalFormU, rationalMatchRules} = solveRationalUndetermined[(* solveRational *)
 							integrandNumerator, integrandDenominator, p, r, 
 							usubstitutionParam, radicandDenominatorUParam, x, u, 
 							"MaxRationalDegree" -> maxRationalDegree];
@@ -1204,7 +1280,7 @@ elementaryQ[expr_] := Complement[
 
 
 (* ::Text:: *)
-(*Mathematica has trouble with some linear and quadratic radical rationals which have elementary forms. eg. ((1 + x)^(1/3)/x^3).*)
+(*Mathematica 9 has trouble with some linear and quadratic radical rationals which have elementary forms. eg. ((1 + x)^(1/3)/x^3).*)
 
 
 (* ::Input:: *)
@@ -1226,7 +1302,10 @@ integrate[e_, x_] := Integrate[e, x]
 
 
 integrate[e_, x_] /; ListQ[ linearRadicalToRational[e, x, $u] ] := 
-	Module[{integrand, subst, integral},
+	integrateLinearRadical[e, x]
+
+
+integrateLinearRadical[e_, x_] := Module[{integrand, subst, integral},
 
 	{integrand, subst} = linearRadicalToRational[e, x, $u];
 	integral = Integrate[integrand, $u] /. subst;
@@ -1239,19 +1318,16 @@ integrate[e_, x_] /; ListQ[ linearRadicalToRational[e, x, $u] ] :=
 
 
 integrate[e_, x_] /; ListQ[ quadraticRadicalToRational[e, x, $u] ] := 
-	Module[{t, u, mmaInt, intt, integrand, substitution, integral, numerics},
-	
-	t = Unique["t"];
-	u = Unique["u"];
-	
-(*
-	mmaInt = Integrate[e, x];
-	If[FreeQ[mmaInt, Integrate] && elementaryQ[mmaInt], 
-		Return[ mmaInt ]];
-*)
+	integrateQuadraticRadical[e,x]
+
+
+ClearAll[integrateQuadraticRadical];
+
+integrateQuadraticRadical[e_, x_] := Module[
+{t, u, mmaInt, intt, integrand, substitution, integral, numerics},
 
 	(* Can we substitute u \[Equal] (x^2)? eg. (x*Sqrt[-2 + x^2])/(2 - 4*x^2 + x^4) *)
-
+	
 	intt = subst[e, t -> x^2, x];
 	If[intt =!= {} && ListQ[linearRadicalToRational[intt // First, t, u]],
 		Return[ integrate[intt // First, t] /. Last[intt] ]
@@ -1271,6 +1347,10 @@ integrate[e_, x_] /; ListQ[ quadraticRadicalToRational[e, x, $u] ] :=
 
 	integral
 ]
+
+
+(* ::Input:: *)
+(*integrateQuadraticRadical[(x+Sqrt[1-4 x+x^2])/(x-(1-4 x+x^2)^(3/2)),x]*)
 
 
 (* ::Input:: *)
@@ -1355,22 +1435,21 @@ exy = n/a u^(n-1) exy /. {x -> (u^n - b)/a, y -> u};
 ClearAll[quadraticRadicalToRational];
 
 quadraticRadicalToRational[e_, x_, u_] := quadraticRadicalToRational[e, x, u] = Module[
-{y, radicals, a, b, c, m, exy, dx, U, X, \[Alpha], \[Beta], euler1, euler2, euler3, transformed},
-(* Find radicals of the form ((a x + b)/(c x + d))^(n/m) *)
+{y, radicals, radicalRules, a, b, c, exy, dx, U, X, \[Alpha], \[Beta], euler1, euler2, euler3, transformed},
+
+(* Find radicals of the form (a x + b x + c)^(n/m) *)
 radicals = Cases[e, y:r_^n_/;
 PolynomialQ[r,x] && Exponent[r,x] == 2 && Head[n] == Rational :>
 	{Expand[r]^Abs[n], Collect[Expand[r],x], Numerator[n // Abs], Denominator[n // Abs]},
 {0, Infinity}];
 
 (* Check we have some radicals with a common radicand. *)
-If[radicals === {} || Length[Union[ radicals[[All,2]] ]] > 1, 
+If[radicals === {} || Length[Union[ radicals[[All,2]] ]] > 1 || Union[ radicals[[All,-1]] ] =!= {2}, 
 	Return[ False ]];
 
-(* Numerator of the radical. *)
-m = radicals[[1,3]];
-
 (* Convert to R(x,y), where y^n = a x^2 + b x + c. *)
-exy = Cancel @ Together[e /. {radicals[[1,1]] -> y, radicals[[1,1]]^-1 -> y^-1}];
+radicalRules = Flatten[ {#[[1]] -> y^#[[3]], #[[1]]^-1 -> y^-#[[3]]}& /@ radicals ];
+exy = Cancel @ Together[e /. radicalRules];
 
 (* We should now have a rational function of x and y. *)
 If[!(PolynomialQ[exy, {x, y}] || rational2dQ[exy, {x, y}]), 
@@ -1394,7 +1473,7 @@ If[a > 0,
 	X = (u^2 - c)/(b - 2 Sqrt[a] u);
 	U = Sqrt[radicals[[1,2]]] - Sqrt[a] x;
 	dx = 2(-Sqrt[a] u^2 + b u - Sqrt[a]c)/(-2Sqrt[a]u + b)^2;
-	euler1 = {Cancel[exy dx /. {y -> (Sqrt[a]X + u)^m, x -> X}], u -> U};
+	euler1 = {Cancel[exy dx /. {y -> Sqrt[a]X + u, x -> X}], u -> U};
 	AppendTo[transformed, euler1]
 ];
 
@@ -1403,7 +1482,7 @@ If[a < 0 && c > 0,
 	X = Cancel @ Together[(2 Sqrt[c] u - b)/(a - u^2)];
 	U = (Sqrt[radicals[[1,2]]] - Sqrt[c])/x;	
 	dx = 2(Sqrt[c] u^2 - b u + a Sqrt[c])/(u^2 - a)^2;
-	euler2 = {Cancel[exy dx /. {y -> (X u + Sqrt[c])^m, x -> X}], u -> U};
+	euler2 = {Cancel[exy dx /. {y -> X u + Sqrt[c], x -> X}], u -> U};
 	AppendTo[transformed, euler2]
 ];
 
@@ -1414,7 +1493,7 @@ If[b^2 - 4 a c > 0,
 	X = Cancel @ Together[(a \[Beta] - \[Alpha] u^2)/(a - u^2)];
 	U = Sqrt[radicals[[1,2]]]/(x - \[Alpha]);
 	dx = 2 u a (\[Beta] - \[Alpha])/(u^2 - a)^2;
-	euler3 = {Cancel[exy dx /. {y -> ((X - \[Alpha])u)^m, x -> X}], u -> U};
+	euler3 = {Cancel[exy dx /. {y -> (X - \[Alpha])u, x -> X}], u -> U};
 	AppendTo[transformed, euler3]
 ];
 
@@ -1439,6 +1518,228 @@ SortBy[transformed, LeafCount] // First
 
 (* ::Input:: *)
 (*Integrate[((-1-4 x-x^2) Sqrt[-1+x^2])/(1+2 x^3+x^4),x]*)
+
+
+(* ::Subsection::Closed:: *)
+(*Integrating multiple linear radicals*)
+
+
+ClearAll[integrateMultipleLinearRadical];
+
+integrateMultipleLinearRadical[e_, x_] := Module[{u, integrand, subst, integral},
+
+	{integrand, subst} = multipleLinearRadicalToRational[e, x, u];
+	integral = postProcess[Integrate[integrand, u] /. subst // Apart // Together, x];
+	integral
+]
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[Sqrt[1-x]/(8 (1+x)^(7/2)),x]*)
+
+
+(* ::Text:: *)
+(*\[Integral]R(x,Sqrt[a x+b],Sqrt[c x+d])\[DifferentialD]x=\[Integral]R(\[Alpha]-(4 \[Beta] \[Gamma] u)/(c u^2-a)+(4 (2\[Alpha] a c+a d+b c)u^2-8\[Beta] \[Gamma] a u)/(c u^2-a)^2, (-\[Beta] c u^2+2\[Gamma] a u-\[Beta] a)/(c u^2-a), (\[Gamma] c u^2-2\[Beta] c u+\[Gamma] a)/(c u^2-a))((4\[Beta] \[Gamma] c^2 u^4-8(2\[Alpha] a c+a d+b c)c u^3+24\[Beta] \[Gamma] a c u^2-8(2 \[Alpha] a c+a d+b c) a u+4 \[Beta] \[Gamma] a^2)/(c u^2-a)^3)\[DifferentialD]u,*)
+
+
+(* ::Text:: *)
+(*where u=((Sqrt[a x+b]-Sqrt[a \[Alpha]+b])/(Sqrt[c x+d]-Sqrt[c \[Alpha]+d])).*)
+
+
+(* ::Text:: *)
+(*Ref: equation 221.1, pp. 32		Gr\[ODoubleDot]bner, W. Hofreiter, N. (1949). "Integraltafel Erster Teil: Unbestimmte Integrale", Springer-Verlag Wien. *)
+
+
+(* ::Input::Initialization:: *)
+ClearAll[multipleLinearRadicalToRational];
+
+multipleLinearRadicalToRational[e_, x_, u_] := Module[
+{radicals, ys, exy,y1, y2, dx, a, b, c, d, \[Alpha], \[Beta], \[Gamma], rat},
+
+(* Find radicals of the form (a x + b)^(1/2). *)radicals = Cases[e, y:(a_. x + b_.)^m_ /; 
+	Denominator[m]==2 && FreeQ[{a,b},x] :> {y, a, b}, {0, Infinity}];
+
+radicals = Union[radicals];
+
+(* This transform is for two Sqrt terms only. *)
+If[Length[radicals] != 2, 
+	Return[ False ]];
+
+ys = Thread[radicals[[All,1]]->{y1,y2}];
+exy=e /. ys;
+
+(* We should now have a rational function of x and y. *)
+If[!(PolynomialQ[exy, {x, y1, y2}] || rationalQ[exy, {x, y1, y2}]), 
+	Return[ False ]];
+
+{{a,b},{c,d}}=radicals[[All,{2,3}]];
+
+\[Alpha] = pickAlpha[a,b,c,d];
+
+\[Beta]=Sqrt[a \[Alpha]+b];
+\[Gamma]=Sqrt[c \[Alpha]+d];
+
+rat=e dx/. {(a x+b)^m_/;Denominator[m]==2 :> ((-\[Beta] c u^2+2\[Gamma] a u-\[Beta] a)/(c u^2-a))^(2m),(c x+d)^m_/;Denominator[m]==2:> ((\[Gamma] c u^2-2\[Beta] c u+\[Gamma] a)/(c u^2-a))^(2m),x->\[Alpha]-(4 \[Beta] \[Gamma] u)/(c u^2-a)+(4 (2\[Alpha] a c+a d+b c)u^2-8\[Beta] \[Gamma] a u)/(c u^2-a)^2, 
+dx-> (4\[Beta] \[Gamma] c^2 u^4-8(2\[Alpha] a c+a d+b c)c u^3+24\[Beta] \[Gamma] a c u^2-8(2 \[Alpha] a c+a d+b c) a u+4 \[Beta] \[Gamma] a^2)/(c u^2-a)^3};
+
+{rat//Together//Cancel, u -> (Sqrt[a x+b]-\[Beta])/(Sqrt[c x+d]-\[Gamma])}
+]
+
+
+(* ::Input:: *)
+(*integrand=1/((1+x)Sqrt[4x-3]+(4+7x)Sqrt[2x-1]);*)
+(*multipleLinearRadicalToRational[integrand,x,u]*)
+(*Integrate[%//First, u] /. Last[%]//Apart//Together//Cancel*)
+(*D[%,x]-integrand // Simplify*)
+(*Clear[integrand];*)
+
+
+(* ::Input:: *)
+(*integrand=(Sqrt[4x+1]+Sqrt[5x+1])/((1-x^2)Sqrt[4x+1]+(x^2+1)Sqrt[5x+1]);*)
+(*multipleLinearRadicalToRational[integrand,x,u]*)
+(*Integrate[%//First, u] /. Last[%]//Apart//Together//Simplify*)
+(*D[%,x]-integrand // Simplify*)
+(*Clear[integrand]*)
+
+
+(* ::Text:: *)
+(*Ideally \[Alpha] should be chosen such that Sqrt[a \[Alpha] + b] and Sqrt[c \[Alpha] + d] are both integers or rationals. *)
+
+
+(* ::Input::Initialization:: *)
+ClearAll[pickAlpha];
+
+pickAlpha[a_,b_,c_,d_] := Module[
+{inst, \[Alpha], p, q, n, m},
+
+inst=TimeConstrained[
+FindInstance[a \[Alpha]+b==(p/q)^2&&c \[Alpha]+d==(n/m)^2,{\[Alpha],n,m,p,q},Integers],
+$timeConstraint, 
+{}];
+
+If[!MatchQ[inst,{}|_FindInstance],
+Return[ \[Alpha] /. inst /. {e_} :> e ]
+];
+
+inst=TimeConstrained[
+FindInstance[a \[Alpha]+b==(p/q)^2&&c \[Alpha]+d==(n/m)^2,{\[Alpha],n,m,p,q},Rationals],
+$timeConstraint, 
+{}];
+
+If[!MatchQ[inst,{}|_FindInstance],
+Return[ \[Alpha] /. inst /. {e_} :> e ]
+];
+
+inst=TimeConstrained[
+FindInstance[a \[Alpha]+b==(p/q)^2&&c \[Alpha]+d==n/m && n m>0,{\[Alpha],n,m,p,q},Integers],$timeConstraint, 
+{}];
+
+If[!MatchQ[inst,{}|_FindInstance],
+Return[ \[Alpha] /. inst /. {e_} :> e ]
+];
+
+inst=TimeConstrained[
+FindInstance[a \[Alpha]+b==p/q&&c \[Alpha]+d==(n/m)^2 && p q>0,{\[Alpha],n,m,p,q},Rationals],$timeConstraint, 
+{}];
+
+If[!MatchQ[inst,{}|_FindInstance],
+Return[ \[Alpha] /. inst /. {e_} :> e ]
+];
+
+(* Perhaps do something clever? *)
+1
+]
+
+
+(* ::Subsection::Closed:: *)
+(*Integrating multiple ratios of linear radicals*)
+
+
+ClearAll[integrateLinearRatioRadical];
+
+integrateLinearRatioRadical[e_, x_] := Module[{u, integrand, subst, integral},
+
+	{integrand, subst} = linearRatioRadicalToRational[e, x, u];
+	integral = Integrate[integrand, u] /. subst;
+	integral
+]
+
+
+ClearAll[linearRatioRadicalToRational];
+
+linearRatioRadicalToRational[e_,x_,u_] := Module[
+{y, radicals,a, b, c, d, n, reps, exy},
+
+(* Find radicals of the form ((a x + b)/(c x + d))^(n/m) *)
+radicals = Cases[e, y:r_^n_ /; linearRatioQ[r,x] && Head[n] == Rational :> 
+	{y, r // Together // Cancel, Numerator[n], Denominator[n]}, {0, Infinity}];
+
+If[radicals === {} || Length[Union[ radicals[[All,2]] ]] > 1, 
+Return[ False ]];
+
+a = Coefficient[Numerator[radicals[[1,2]]],x,1];
+b = Coefficient[Numerator[radicals[[1,2]]],x,0];
+c = Coefficient[Denominator[radicals[[1,2]]],x,1];
+d = Coefficient[Denominator[radicals[[1,2]]],x,0];
+
+(* Common denominator. *)
+n = LCM @@ radicals[[All,4]];
+radicals[[All,3]] *= n/radicals[[All,4]];
+radicals[[All,4]] = n;
+
+(* Convert to R[x,y], where y^n = ((a x + b)/(c x + d)). *)
+reps = Table[radicals[[k,1]] -> y^radicals[[k,3]],{k, Length[radicals]}];
+exy=Cancel @ Together[e /. reps];
+
+(* We should now have a rational function of x and y. *)
+If[!(PolynomialQ[exy, {x, y}] || rationalQ[exy, {x, y}]), 
+Return[ False ]];
+
+(* Substitute. *)
+exy = ((n(a d - b c) u^(n - 1))/(a - c u^n)^2) exy /. {x -> (d u^n - b)/(a - c u^n), y -> u};
+{exy // Cancel, u -> ((a x + b)/(c x + d))^(1/n)}
+]
+
+
+(* ::Input:: *)
+(*f=(((x-1)/(2 x+1))^(1/4)-3 ((x-1)/(2 x+1))^(3/4))/((x-1) (2 x+1));*)
+(*linearRatioRadicalToRational[f,x,u]*)
+(*Integrate[%[[1]],u]*)
+(*% /. %%[[2]]*)
+(*D[%,x]-f//Simplify*)
+(*Clear[f];*)
+
+
+(* ::Input:: *)
+(*f=D[(((x-1)/(2x+3))^(1/4)+((x-1)/(2x+3))^(3/2))/(1+((x-1)/(2x+3))^(1/6)),x]//Together*)
+(*linearRatioRadicalToRational[f,x,u]*)
+(*Integrate[%[[1]],u]*)
+(*% /. %%[[2]] // Simplify*)
+(*D[%,x]-f//Simplify*)
+(*Clear[f];*)
+
+
+(* ::Code::Initialization::Plain:: *)
+ClearAll[linearRatioQ];
+
+linearRatioQ[e_,x_] := Module[{te,num,den,nex,dex},
+(* (a x + b)/(c x + d) ? *)
+te=Cancel[Together[e]];
+num = Numerator[te];
+den=Denominator[te];
+nex=Exponent[num,x];
+dex=Exponent[den,x];
+PolynomialQ[num,x] && PolynomialQ[den,x] && nex<2 && dex<2 && nex+dex>0
+]
+
+
+(* ::Input:: *)
+(*linearRatioQ[(x-1)/(2x+3),x]*)
+(*linearRatioQ[(3x-7)/4,x]*)
+(*linearRatioQ[1/(2x+3),x]*)
+(*linearRatioQ[1/(2x^2+3),x]*)
+(*linearRatioQ[(2x^2+3)/7,x]*)
+(*linearRatioQ[4/5,x]*)
 
 
 (* ::Subsection::Closed:: *)
@@ -1598,7 +1899,7 @@ SortBy[goodsubs, LeafCount] // First
 
 
 (* ::Subsection::Closed:: *)
-(*Generalised Gunther Substitutions*)
+(*Generalised Gunther substitutions*)
 
 
 (* ::Text:: *)
@@ -1611,16 +1912,19 @@ Options[guntherIntegrate] = Options[solveAlgebraicIntegral];
 
 guntherIntegrate[0|0., OptionsPattern[]] := {0, 0, 0}
 
+GuntherMaxRational = 2;
+
 guntherIntegrate[e_, x_, OptionsPattern[]] := Module[
-{t, p, q, r, n, result, ratIntegral},
+{t, p, q, r, re, n, result, ratIntegral},
 
 t = Unique[Symbol["u"]];
 
-If[Not[algebraicQ[e, x] && singleEllipticRadicalQ[e, x]], 
+If[Not[algebraicQ[e, x] && singleRadicalQ[e, x]], 
 	Return[ {0, e, 0} ]
 ];
 
 {{r,n}} = Cases[e, Power[p_, n_Rational] /; (! FreeQ[p, x] && PolynomialQ[p, x]) :> {p,Abs[n]}, {0, Infinity}];
+re = Exponent[r, x];
 
 Which[
 PolynomialQ[Numerator[e], x] && PolynomialQ[Denominator[e]/r^n, x],
@@ -1629,7 +1933,10 @@ PolynomialQ[Numerator[e], x] && PolynomialQ[Denominator[e]/r^n, x],
 	q = Denominator[e]/r^FractionalPart[n];
 	r = r^Max[1,IntegerPart[n]];
 
-	result = guntherSolve1[p, q, r, 1/FractionalPart[n], x, t];
+	result = TimeConstrained[
+		guntherSolve1[p, q, r, 1/FractionalPart[n], x, t],
+		2 re $timeConstraint,
+		$Failed];
 
 	If[result =!= $Failed, 
 		debugPrint2["guntherSolve1 returned ", result];
@@ -1637,7 +1944,10 @@ PolynomialQ[Numerator[e], x] && PolynomialQ[Denominator[e]/r^n, x],
 		Return[ {0, 0, postProcess[ratIntegral /. t -> Last[result], x]} ]
 	];
 
-	result = guntherSolve3[p, q, r, 1/FractionalPart[n], x, t];
+	result = TimeConstrained[
+		guntherSolve3[p, q, r, 1/FractionalPart[n], x, t],
+		2 re $timeConstraint,
+		$Failed];
 
 	If[result =!= $Failed, 
 		debugPrint2["guntherSolve3 returned ", result];
@@ -1652,7 +1962,10 @@ PolynomialQ[Denominator[e], x] && PolynomialQ[Numerator[e]/r^n, x],
 	q = Denominator[e];
 	r = r^Max[1,IntegerPart[n]];
 
-	result = guntherSolve2[p, q, r, 1/FractionalPart[n], x, t];
+	result = TimeConstrained[
+		guntherSolve2[p, q, r, 1/FractionalPart[n], x, t],
+		2 re $timeConstraint,
+		$Failed];
 
 	If[result =!= $Failed, 
 		debugPrint2["guntherSolve2 returned ", result];
@@ -1660,8 +1973,11 @@ PolynomialQ[Denominator[e], x] && PolynomialQ[Numerator[e]/r^n, x],
 		Return[ {0, 0, postProcess[ratIntegral /. t -> Last[result], x]} ]
 	];
 
-	result = guntherSolve4[p, q, r, 1/FractionalPart[n], x, t];
-
+	result = TimeConstrained[
+		guntherSolve4[p, q, r, 1/FractionalPart[n], x, t],
+		2 re $timeConstraint,
+		$Failed];
+		
 	If[result =!= $Failed, 
 		debugPrint2["guntherSolve4 returned ", result];
 		ratIntegral = Integrate[result // First, t];
@@ -1771,7 +2087,7 @@ Do[
 			Throw @ Cancel[ {form, y} ]
 		]
 	],
-{ndeg, 0, 2}, {ddeg, 1, 2}, {deg, 1, degMax}];
+{ndeg, 0, GuntherMaxRational}, {ddeg, 1, GuntherMaxRational}, {deg, 1, degMax}];
 
 $Failed
 ]
@@ -1846,7 +2162,7 @@ Do[
 			Throw @ Cancel[ {form, y} ]
 		]
 	],
-{ndeg, 0, 2}, {ddeg, 1, 2}, {deg, 1, degMax}];
+{ndeg, 0, GuntherMaxRational}, {ddeg, 1, GuntherMaxRational}, {deg, 1, degMax}];
 
 $Failed
 ]
@@ -1917,7 +2233,7 @@ Do[
 			Throw @ Cancel[ {form, y} ]
 		]
 	],
-{ndeg, 0, 2}, {ddeg, 1, 2}, {deg, 1, degMax}];
+{ndeg, 0, GuntherMaxRational}, {ddeg, 1, GuntherMaxRational}, {deg, 1, degMax}];
 
 $Failed
 ]
@@ -1980,7 +2296,7 @@ Do[
 			Throw @ Cancel[ {form, y} ]
 		]
 	],
-{ndeg, 0, 2}, {ddeg, 1, 2}, {deg, 1, degMax}];
+{ndeg, 0, GuntherMaxRational}, {ddeg, 1, GuntherMaxRational}, {deg, 1, degMax}];
 
 $Failed
 ]
@@ -2005,18 +2321,19 @@ Options[logPartIntegrate] = Options[solveAlgebraicIntegral];
 logPartIntegrate[0|0., _, OptionsPattern[]] := {0, 0, 0}
 
 logPartIntegrate[e_, x_, opts:OptionsPattern[]] := Module[
-{degreeBound, a, b, r, n, sol},
+{degreeBound, te, a, b, r, n, sol},
 
 degreeBound = OptionValue["DegreeBound"];
 
-a = Numerator[e];
-b = Denominator[e];
+te = Together[e];
+a = Numerator[te];
+b = Denominator[te];
 
-If[Not[algebraicQ[e, x] && singleEllipticRadicalQ[e, x] && PolynomialQ[a, x]], 
+If[Not[algebraicQ[te, x] && singleEllipticRadicalQ[te, x] && PolynomialQ[a, x]], 
 	Return[ {0, e, 0} ]
 ];
 
-{{r,n}} = Cases[e, Power[p_, n_Rational] /; (! FreeQ[p, x] && PolynomialQ[p, x]) :> {p, Abs[n]}, {0, Infinity}];
+{{r,n}} = Union @ Cases[te, Power[p_, n_Rational] /; (! FreeQ[p, x] && PolynomialQ[p, x]) :> {p, Abs[n]}, {0, Infinity}];
 
 If[! PolynomialQ[b/r^n, x] || TrueQ[n != 1/2],
 	Return[ {0, e, 0} ]
@@ -2033,8 +2350,6 @@ If[sol =!= False,
 ];
 
 (* Many more to come... *)
-
-
 
 {0, e, 0}]
 
@@ -2098,7 +2413,11 @@ Do[
 	};
 
 	vars = Append[Union @ Cases[eqns, V[_], Infinity], c];
-	sol = Solve[! Eliminate[!eqns, {x}], vars];
+	
+	sol = TimeConstrained[
+		Solve[! Eliminate[!eqns, {x}], vars],
+		$timeConstraint bound^2,
+		{}];
 
 	sol = sol /. ConditionalExpression[e_,___] :> e /. C[1] -> 1;
 	sol = DeleteCases[sol, {(_ -> _?PossibleZeroQ) ..}];
@@ -2239,13 +2558,17 @@ logPartSolve2[a_Function, b_Function, r_Function, x_, degreeBound_:12] := Module
 {c, p, q, eqns, vars, sol, logs},
 
 Do[
-	p = Function @@ {x,undetermined[x,bound,0]};
-	q = Function @@ {x,undetermined[x,bound,bound+1]};
+	p = Function @@ {x,undetermined[bound, x, 0]};
+	q = Function @@ {x,undetermined[bound, x, bound+1]};
 
 	eqns = a[x] p[x]^2 - a[x] q[x]^2 r[x] + 2 c b[x] q[x] r[x] Derivative[1][p][x] - 2 c b[x] p[x] r[x] Derivative[1][q][x] - c b[x] p[x] q[x] Derivative[1][r][x] == 0;
 
 	vars = Append[Union @ Cases[eqns, V[_], Infinity], c];
-	sol = Solve[! Eliminate[!eqns, {x}], vars];
+
+	sol = TimeConstrained[
+		Solve[! Eliminate[!eqns, {x}], vars],
+		$timeConstraint bound^2,
+		{}];
 
 	sol = sol /. ConditionalExpression[e_,___] :> e /. C[1] -> 1;
 	sol = DeleteCases[sol, {(_ -> _?PossibleZeroQ) ..}];
@@ -2314,7 +2637,7 @@ Do[
 
 
 (* ::Subsection::Closed:: *)
-(*Expand Integrate*)
+(*Expand integrate*)
 
 
 ClearAll[expandIntegrate];
@@ -2365,19 +2688,32 @@ If[Head[exnum] === Plus,
 
 
 (* ::Subsection::Closed:: *)
-(*Partial Fraction Integrate*)
+(*Partial fraction integrate*)
 
 
 ClearAll[apartList];
 
 apartList[e_, x_] := Module[{pf},
 
-pf = List @@ Apart[e, x];
+pf = Apart[e, x];
+
+If[Head[pf] === Plus,
+	pf = List @@ Apart[e, x],
+	Return[{e}]	
+];
 
 pf = GatherBy[pf, Union[Cases[#, Power[p_, n_Rational] /; (! FreeQ[p, x] && PolynomialQ[p, x]) :> p^Abs[n],{0,Infinity}]]&];
 
 Simplify[ Cancel[Together[Total[#]]]& /@ pf ]
 ]
+
+
+(* ::Input:: *)
+(*apartList[Sqrt[1-x]/(8 (1+x)^(7/2)),x]*)
+
+
+(* ::Input:: *)
+(*apartList[(2 x^(5/2))/((-1+x)^4 (1+x)^(7/2)),x]*)
 
 
 ClearAll[partialFractionIntegrate];
@@ -2389,6 +2725,9 @@ partialFractionIntegrate[0|0., x_, opts:OptionsPattern[]] := {0, 0, 0}
 
 partialFractionIntegrate[e_, x_, opts:OptionsPattern[]] := Module[
 {exy, pf, unintegratedPart, integratedPart, integrated, rationalPart},
+
+If[MatchQ[e, 0|0.], 
+	Return[ {0, 0, 0} ]];
 
 If[! algebraicQ[e, x], 
 	Return[ {0, e, 0} ]
@@ -2425,16 +2764,100 @@ If[Length[pf] > 1,
 
 
 (* ::Subsection::Closed:: *)
+(*Integrating nested radicals*)
+
+
+ClearAll[integrateNestedRadicals];
+
+integrateNestedRadicals[e_, x_] := Module[{u, integrand, subst, result},
+
+	{integrand, subst} = decreaseNestedRadicals[e, x, u];
+	result = solveAlgebraicIntegral[integrand, u];
+	result /. subst
+]
+
+
+ClearAll[decreaseNestedRadicals];
+
+decreaseNestedRadicals[e_, x_, u_] := decreaseNestedRadicals[e, x, u] = Module[
+{terms, substitutions, candidate},
+
+If[nestedCount[e, x] == 0, 
+	Return[False]];
+
+terms = Union @ DeleteCases[
+   Flatten[Level[e, {0, \[Infinity]}]], _Symbol | _?NumericQ | _?NumericQ _Symbol];
+
+debugPrint2[terms];
+
+substitutions = TimeConstrained[
+    subst[e, u -> #, x], 
+    0.2 $timeConstraint, 
+    $TimedOut] & /@ terms;
+
+substitutions = DeleteCases[substitutions, {} | $TimedOut];
+
+debugPrint2[substitutions];
+
+If[substitutions === {},
+	False,
+	candidate = SortBy[substitutions, 
+		10^6 nestedCount[First @ #, u] + 10^3 radicalCount[First @ #, u] + Count[N @ First @ #, _Complex, {0, \[Infinity]}] &] // First;
+	If[nestedCount[candidate // First, u] < nestedCount[e, x], 
+		candidate,
+		False
+	]
+]
+]
+
+
+(* ::Input:: *)
+(*decreaseNestedRadicals[x Sqrt[x^2+1] Sqrt[1+Sqrt[x^2+1]],x,u]//Timing*)
+
+
+(* ::Input:: *)
+(*decreaseNestedRadicals[Sqrt[x+Sqrt[2+x^2]]/((1+x^2) Sqrt[2+x^2]),x,u]//Timing*)
+
+
+(* ::Code::Initialization::Plain:: *)
+ClearAll[nestedCount];
+
+nestedCount[e_, x_] := Total[ Cases[e, Power[r_, _Rational] /; 
+				! FreeQ[r, x] && ! FreeQ[r, Power[_, _Rational]] :> 1, {0, \[Infinity]}] /. {} -> {0} ]
+
+
+(* ::Code::Initialization::Plain:: *)
+ClearAll[radicalCount];
+
+radicalCount[e_, x_] := Total[ Cases[e, Power[r_, _Rational] /; 
+				! FreeQ[r, x] :> 1, {0, \[Infinity]}] /. {} -> {0} ]
+
+
+(* ::Input:: *)
+(*nestedCount[x Sqrt[x^2+1] Sqrt[1+Sqrt[x^2+1]],x]*)
+
+
+(* ::Input:: *)
+(*nestedCount[Sqrt[1+Sqrt[1-Sqrt[x]]],x]*)
+
+
+(* ::Input:: *)
+(*nestedCount[Sqrt[1-Sqrt[x]],x]*)
+
+
+(* ::Input:: *)
+(*nestedCount[u^2 Sqrt[1+u],u]*)
+
+
+(* ::Subsection::Closed:: *)
 (*Integration by substitution*)
 
 
-(* ::Input::Initialization:: *)
+(* ::Input::Initialization::Plain:: *)
 ClearAll[subst];
 
 subst[integrand_, u_-> sub_, x_] := Module[
 {y, eqns, usub, uintegrand},
-
-y=Unique[Symbol["y"]];
 
 eqns = {
 Dt[y]==integrand Dt[x],
@@ -2467,12 +2890,13 @@ uintegrand = Join[uintegrand, Cases[uintegrand, s_/;FreeQ[s // N, _Complex]]]; (
 debugPrint2[uintegrand];
 
 If[usub === {},
-{},
-uintegrand = Dt[y]/.uintegrand[[-1]] //FactorSquareFree//PowerExpand;
-uintegrand = Cancel[uintegrand/Dt[u] ];
-If[FreeQ[uintegrand, Dt[u]],
-{uintegrand,u->sub}, 
-{}]
+	{},
+	uintegrand = Dt[y]/.uintegrand[[-1]] //FactorSquareFree//PowerExpand;
+	uintegrand = Cancel[uintegrand/Dt[u] ];
+	If[FreeQ[uintegrand, Dt[u]],
+		{uintegrand,u->sub}, 
+		{}
+]
 ]
 ]
 
@@ -2592,14 +3016,6 @@ EndPackage[];
 
 (* ::Input:: *)
 (*int[(1-x^2)^2/((x^2+1) (x^4+6 x^2+1)^(3/4)),x]*)
-
-
-(* ::Text:: *)
-(*This is a nice example where computing the partial fraction expansion of the integrand results in a rational part, unintegrated part and integrated part. The result is not ideal, but it illustrates how we split the integrand and integrate as much as possible. *)
-
-
-(* ::Input:: *)
-(*int[((2 x-1) (x^4-x^2)^(1/4))/((x-1) x),x]*)
 
 
 (* ::Subsection::Closed:: *)
@@ -2925,6 +3341,10 @@ EndPackage[];
 (*int[((-2+3 x^5) Sqrt[1+x^5])/(1+x^4+2 x^5+x^10),x]*)
 
 
+(* ::Subsection:: *)
+(*Examples from documentation*)
+
+
 (* ::Subsection::Closed:: *)
 (*regression testing*)
 
@@ -2947,6 +3367,14 @@ EndPackage[];
 (*15-Apr-2020	0.409 Seconds*)
 (*16-Apr-2020	0.372 Seconds*)
 (*02-Jul-2020	0.178 Seconds*)
+
+
+(* ::Input:: *)
+(*int[Sqrt[1-x]/(8 (1+x)^(7/2)),x]*)
+
+
+(* ::Input:: *)
+(*int[(3 x+2)/((9 x^2+52 x-12) (3 x^2+4)^(1/3)),x]*)
 
 
 (* ::Input:: *)
