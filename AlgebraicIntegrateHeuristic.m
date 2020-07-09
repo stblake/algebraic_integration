@@ -582,7 +582,7 @@ debugPrint1["expandIntegrate : ", {rationalPart, unintegratedPart, integratedPar
 ]
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*rationalUndeterminedIntegrate*)
 
 
@@ -698,10 +698,14 @@ rationalUndeterminedIntegrate[integrand_, x_, opts : OptionsPattern[]] := Module
 							! FreeQ[radicandNumeratorUParam, B[_]|A[_]], 
 								Continue[]];
 
+						(* Exclude linear substitutions. *)
+						If[Denominator[usubstitutionParam] == 1 && Exponent[Numerator[usubstitutionParam],x] == 1, 
+							Continue[]];
+
 						debugPrint3["u substitution = ", usubstitution, ", ", Style[usubstitutionParam, Red]];
 
 						(* Solve for the rational part of the integral. *)
-						{matched, rationalFormU, rationalMatchRules} = solveRationalUndetermined[(* solveRational *)
+						{matched, rationalFormU, rationalMatchRules} = solveRational[(* solveRationalUndetermined *)
 							integrandNumerator, integrandDenominator, p, r, 
 							usubstitutionParam, radicandDenominatorUParam, x, u, 
 							"MaxRationalDegree" -> maxRationalDegree];
@@ -719,7 +723,7 @@ rationalUndeterminedIntegrate[integrand_, x_, opts : OptionsPattern[]] := Module
 							If[FreeQ[intU, Integrate(* | RootSum | Root *)] && (! OptionValue["Elementary"] || elementaryQ[intU]),
 								intX = intU /. u -> usubstitutionParam;
 								debugPrint3["integral is ", intX];
-								intX = postProcess[intX, x];
+								intX = postProcess[intX, x, "Integrand" -> integrand];
 								debugPrint3["post processed integral is ", intX];
 								(* Sanity check. *)
 								If[TrueQ[! OptionValue[VerifySolutions]] || TrueQ[(
@@ -931,7 +935,7 @@ rationalUndetermined[x_Symbol, max_Integer] :=
 (Sum[V[k] x^k, {k, 0, max}]/Sum[V[max + k + 1] x^k, {k, 0, max}])
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*postProcess*)
 
 
@@ -1052,6 +1056,37 @@ partialExpand[e_] /; MatchQ[e, c_?NumericQ p_Plus] := e /. c_?NumericQ (p_Plus) 
 partialExpand[e_] := e
 
 
+ClearAll[matchRadicals];
+
+matchRadicals[e_, None, x_] := e
+
+matchRadicals[e_, integrand_, x_] := Module[{intrad, erad, reps, rem, quot},
+
+erad = Cases[e, Power[p_,r_Rational] /; PolynomialQ[p, x] :> {p,r//Abs}, {0,\[Infinity]}];
+intrad = Cases[integrand, Power[p_,r_Rational] /; PolynomialQ[p, x] :> {p,r//Abs}, {0,\[Infinity]}];
+
+reps = {};
+Do[
+	Do[
+		If[Last[rad] == Last[match],
+			rem = PolynomialRemainder[First[match],First[rad],x];
+			If[rem//zeroQ,
+				quot = PolynomialQuotient[First[match],First[rad],x];
+				If[MatchQ[quot, x^n_ /; Mod[n,1/Last[match]] == 0],
+					AppendTo[reps, {
+						Apply[Power,rad] -> Expand[quot First[rad]]^Last[rad]/x^(Exponent[quot,x]Last[match]),
+						Apply[Power,{1,-1}rad] -> Expand[quot First[rad]]^-Last[rad] x^(Exponent[quot,x]Last[match])}]
+				]
+			]
+	],
+	{match, intrad}],
+{rad, erad}];
+
+reps = Flatten[reps];
+e /. reps
+]
+
+
 (* ::Text:: *)
 (*postProcess is not only for asthetic reasons. We also attempt to correct for the substitution taking a branch of the radical. *)
 (**)
@@ -1059,7 +1094,10 @@ partialExpand[e_] := e
 
 
 Clear[postProcess];
-postProcess[e_, x_] := Module[{$function, simp, permutations, numerics, denomP},
+
+Options[postProcess] = {"Integrand" -> None};
+
+postProcess[e_, x_, OptionsPattern[]] := Module[{$function, simp, permutations, numerics, denomP},
 
 	(* Remove constants. *)
 	simp = partialExpand[simp];
@@ -1088,6 +1126,11 @@ postProcess[e_, x_] := Module[{$function, simp, permutations, numerics, denomP},
 	denomP = LCM @@ denomP;
 	simp = simp /. (p_ x^m_Integer)^n_Rational /; PolynomialQ[p, x] && 
 		m < 0 :> Expand[p x^(Ceiling[Abs[m], denomP] + m)]^n /x^(n (Ceiling[Abs[m], denomP]));
+
+	(* Match radicals to those in the integrand. eg. int[x/Sqrt[x^3 + x^4], x] *)
+	Print[simp];
+	simp = matchRadicals[simp, OptionValue["Integrand"], x];
+	Print[simp];
 
 	(* Collect and partially simplify terms. *)
 	simp = collect[simp, x];	
@@ -2963,7 +3006,7 @@ EndPackage[];
 
 (* ::Input:: *)
 (*$verboseLevel=0;*)
-(*int=solveAlgebraicIntegral;*)
+(*int=IntegrateAlgebraic;*)
 
 
 (* ::Text:: *)
@@ -3020,6 +3063,14 @@ EndPackage[];
 
 (* ::Subsection::Closed:: *)
 (*current bugs and deficiencies*)
+
+
+(* ::Text:: *)
+(*This is a major bug:*)
+
+
+(* ::Input:: *)
+(*int[x/Sqrt[x^3+x^4],x]*)
 
 
 (* ::Text:: *)
