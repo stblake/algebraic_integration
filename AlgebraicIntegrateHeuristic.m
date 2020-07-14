@@ -494,7 +494,7 @@ If[ListQ @ linearRadicalToRational[unintegratedPart, x, u],
 (* Integrand is in Q(x, (a x + b x + c)^(n[1]/2), (a x + b x + c)^(n[2]/2), \[Ellipsis]) *)
 
 If[ListQ @ quadraticRadicalToRational[unintegratedPart, x, u],
-	debugPrint1["Integrand is in Q(x, (a x + b x + c)^(n[1]/2), (a x + b x + c)^(n[2]/2), \[Ellipsis]): ", unintegratedPart];
+	debugPrint1["Integrand is in Q(x, (a x^2 + b x + c)^(n[1]/2), (a x^2 + b x + c)^(n[2]/2), \[Ellipsis]): ", unintegratedPart];
 	integral = integrateQuadraticRadical[unintegratedPart, x];
 	If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[integral, unintegratedPart],
 		Return[ {0, 0, integral}, Module ],
@@ -542,65 +542,71 @@ If[nestedCount[unintegratedPart, x] > 0,
 
 (* Rational substitution with undetermined coefficients. *)
 
+debugPrint1["Trying rational undetermined on ", unintegratedPart];
 result = rationalUndeterminedIntegrate[unintegratedPart, x, opts];
 If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[result[[3]], unintegratedPart - result[[1]] - result[[2]]],
 	rationalPart    += result[[1]]; 
 	unintegratedPart = result[[2]];
 	integratedPart  += result[[3]]
 ];
-debugPrint1["Rational undetermined : ", {rationalPart, unintegratedPart, integratedPart}];
+debugPrint1["Rational undetermined returned : ", {rationalPart, unintegratedPart, integratedPart}];
 
 (* Linear rational substitution. *)
 
 If[TrueQ[OptionValue["LinearRational"]],
+	debugPrint1["Trying linear rational on ", unintegratedPart];
 	result = linearRationalIntegrate[unintegratedPart, x, opts];
 	If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[result[[3]], unintegratedPart - result[[1]] - result[[2]]],
 		rationalPart    += result[[1]]; 
 		unintegratedPart = result[[2]];
 		integratedPart  += result[[3]]
 	];
-	debugPrint1["Linear rational : ", {rationalPart, unintegratedPart, integratedPart}];
+	debugPrint1["LinearRational returned : ", {rationalPart, unintegratedPart, integratedPart}];
 ];
 
 (* Generalised Gunther substitution. *)
 
+debugPrint1["Trying gunther undetermined on ", unintegratedPart];
 result = guntherIntegrate[unintegratedPart, x, opts];
 If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[result[[3]], unintegratedPart - result[[1]] - result[[2]]],
 	rationalPart    += result[[1]]; 
 	unintegratedPart = result[[2]];
 	integratedPart  += result[[3]]
 ];
-debugPrint1["Gunther : ", {rationalPart, unintegratedPart, integratedPart}];
+debugPrint1["Gunther returned : ", {rationalPart, unintegratedPart, integratedPart}];
 
 (* Solving for the logarithmic part with undetermined coefficients. *)
 
+debugPrint1["Trying log part undetermined on ", unintegratedPart];
 result = logPartIntegrate[unintegratedPart, x, opts];
 If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[result[[3]], unintegratedPart - result[[1]] - result[[2]]],
 	rationalPart    += result[[1]]; 
 	unintegratedPart = result[[2]];
 	integratedPart  += result[[3]]
 ];
-debugPrint1["logPart : ", {rationalPart, unintegratedPart, integratedPart}];
+debugPrint1["logPart returned : ", {rationalPart, unintegratedPart, integratedPart}];
 
 (* Partial fraction expansion and integrate term-by-term. *)
 
+debugPrint1["Trying partial fractions on ", unintegratedPart];
 result = partialFractionIntegrate[unintegratedPart, x, opts];
 If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[result[[3]], unintegratedPart - result[[1]] - result[[2]]],
 	rationalPart    += result[[1]]; 
 	unintegratedPart = result[[2]];
 	integratedPart  += result[[3]]
 ];
-debugPrint1["partialFractionIntegrate : ", {rationalPart, unintegratedPart, integratedPart}];
+debugPrint1["partialFractionIntegrate returned : ", {rationalPart, unintegratedPart, integratedPart}];
 
 (* Expand and integrate term-by-term. *)
 
+debugPrint1["Trying expansion into sum of terms on ", unintegratedPart];
 result = expandIntegrate[unintegratedPart, x, opts];
 If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[result[[3]], unintegratedPart - result[[1]] - result[[2]]],
 	rationalPart    += result[[1]]; 
 	unintegratedPart = result[[2]];
 	integratedPart  += result[[3]]
 ];
-debugPrint1["expandIntegrate : ", {rationalPart, unintegratedPart, integratedPart}];
+debugPrint1["expandIntegrate returned : ", {rationalPart, unintegratedPart, integratedPart}];
 
 	If[$Testing,
 		testSolveAlgebraicIntegral[integrand // Hash] = {
@@ -737,7 +743,7 @@ rationalUndeterminedIntegrate[integrand_, x_, opts : OptionsPattern[]] := Module
 						debugPrint3["u substitution = ", usubstitution, ", ", Style[usubstitutionParam, Red]];
 
 						(* Solve for the rational part of the integral. *)
-						{matched, rationalFormU, rationalMatchRules} = solveRational[(* solveRationalUndetermined *)
+						{matched, rationalFormU, rationalMatchRules} = solveRationalUndetermined[(* solveRational *)
 							integrandNumerator, integrandDenominator, p, r, 
 							usubstitutionParam, radicandDenominatorUParam, x, u, 
 							"MaxRationalDegree" -> maxRationalDegree];
@@ -1834,6 +1840,158 @@ PolynomialQ[num,x] && PolynomialQ[den,x] && nex<2 && dex<2 && nex+dex>0
 (*linearRatioQ[4/5,x]*)
 
 
+(* ::Subsection:: *)
+(*Goursat pseudo-elliptic rationalisations*)
+
+
+goursatCubic[integrand_, x_, u_] := Module[
+{intrat, num, den, rad, a, b, c, ksq, intu, numu, denu, radu, sub, y, v, gb, ratv, int},
+
+(* The integrand is R(x)/Sqrt[a x^3 + b x^2 + c x + d]. Where a x^3 + b x^2 + c x + d \[Equal] (x - A)(x - B)(x - C). We substitute x \[Equal] (B - A) u + A (or u = (A - x)/(A - B)), then 
+a x^3 + b x^2 + c x + d \[Rule] (A - B)^2 u (1 - u) (1 - k^2 u), where k^2 \[Equal] (a - b)/(a - c).
+*)
+
+(* Check integrand is R(x)/Sqrt[a x^3 + b x^2 + c x + d]. *)
+intrat = Together[integrand];
+{num,den} = NumeratorDenominator[intrat];
+
+If[Not[algebraicQ[intrat, x] && singleEllipticRadicalQ[intrat, x] && PolynomialQ[num, x]], 
+	Return[ False ]
+];
+
+rad = Cases[den, Power[p_, 1/2] /; (! FreeQ[p, x] && PolynomialQ[p, x]) :> p, {0, Infinity}, 1][[1]];
+den = Cancel[den/Sqrt[rad]];
+If[!PolynomialQ[den, x],
+	Return[ False ]
+];
+
+(* Substitute x \[Rule] (b - a) u + a *)
+{a,b,c} = Sort[x /. Solve[rad == 0, x]];(* TODO: conditions on the roots? real? repeated?? SB *)
+
+If[Length[Complement[{a,b,c}, {0,1}]] <= 1,
+	c = Complement[{a,b,c}, {0, 1}] /. {{e_} :> e, {} -> 1}; 
+	a = 0; b = 1; 
+	ksq = 1/c;
+	{numu,denu,radu} = {num,den,rad} /. x -> u,
+	ksq = (a - b)/(a - c);
+	intu = subst[num/(den Sqrt[rad]), u -> (x - a)/(b - a),x];
+	If[ListQ[intu],
+		{numu,denu} = NumeratorDenominator[intu//First];
+		radu = Times @@ Cases[denu, Power[p_,1/2] /; (! FreeQ[p, u] && PolynomialQ[p, u]) :> p, {0, Infinity}];
+		denu = denu/Sqrt[radu] // PowerExpand // Cancel,
+		Return[ False , Module]]
+];
+
+(* The three cases which yield pseudo-elliptic integrals for cubics. *)
+Which[
+(* F(u) \[Equal] F(1/(k^2 u)) *)
+PossibleZeroQ[ numu/denu + (numu/denu /. u -> 1/(ksq u)) ],
+	debugPrint1["Goursat F(u) \[Equal] F(1/(k^2 u))"];
+	sub = Sqrt[radu]/u,
+(* F(u) \[Equal] F((1 - k^2 u)/(k^2 (1 - u))) *)
+PossibleZeroQ[ numu/denu + (numu/denu /. u -> (1 - ksq u)/(ksq (1 - u))) ],
+	debugPrint1["Goursat F(u) \[Equal] F((1 - k^2 u)/(k^2 (1 - u)))"];
+	sub = Sqrt[radu]/(1 - u),
+(* F(u) \[Equal] F((1 - x)/(1 - k^2 x)) *)
+PossibleZeroQ[ numu/denu + (numu/denu /. u -> (1 - u)/(1 - ksq u)) ],
+	debugPrint1["Goursat F(u) \[Equal] F((1 - u)/(1 - k^2 u))"];
+	sub = Sqrt[radu]/(1 - ksq u),
+True, 
+	debugPrint2["Integral is not a Goursat cubic pseudo-elliptic."];
+	Return[ False ]
+];
+
+(* Rationalise. (Eliminate u) *)
+gb = GroebnerBasis[{Dt[y] == numu/(denu Sqrt[radu]) Dt[u], v == sub, Dt[v == sub]//Together//Factor}, {Dt[v], v}, {Dt[u],u}, 
+			MonomialOrder -> EliminationOrder, Method -> "Buchberger"] // Factor // PowerExpand;
+ratv = Solve[gb[[1]] == 0, Dt[y]] // Factor // PowerExpand;
+
+If[MatchQ[ratv, {}|{{}} | _Solve], 
+Return[ False ]]; (* Something went wrong! *)
+
+ratv = Cancel[(Dt[y] /. ratv)/Dt[v]];
+(* Catch the correct branch from multiple solutions. *)
+If[Length[ratv] > 1,
+	ratv = Cases[ratv, intv_ /; (PossibleZeroQ[numu/(denu Sqrt[radu]) - Cancel @ Together[intv D[sub, u] /. v -> sub]])]
+];
+If[ratv === {}, 
+Return[ False ]];
+
+ratv = ratv[[1]];
+If[!(rationalQ[ratv, v] || NumberQ[ratv]), 
+Return[ False ]]; (* Something else went wrong! *)
+
+sub = sub /. u -> (x - a)/(b - a);
+{ratv /. v -> u, u -> sub}
+]
+
+
+(* ::Input:: *)
+(*goursatCubic[(-5+160 x-80 x^2)/((1-2 x+16 x^2) Sqrt[x-17 x^2+16 x^3]),x,u]*)
+(*Integrate[%//First,u] /. Last[%]*)
+(*D[%,x]-(-5+160 x-80 x^2)/((1-2 x+16 x^2) Sqrt[x-17 x^2+16 x^3])//Together//Cancel//Simplify//RootReduce*)
+
+
+(* ::Input:: *)
+(*goursatCubic[(-5+18 x+2 x^2)/((1-2 x+4 x^2) Sqrt[x-5 x^2+4 x^3]),x,u]*)
+(*Integrate[%//First,u] /. Last[%]*)
+(*D[%,x]-(-5+18 x+2 x^2)/((1-2 x+4 x^2) Sqrt[x-5 x^2+4 x^3])//Together//Cancel//Simplify//RootReduce*)
+
+
+(* ::Input:: *)
+(*goursatCubic[(-576+579 x-432 x^2)/((1-288 x+144 x^2) Sqrt[x-145 x^2+144 x^3]),x,u]*)
+(*Integrate[%//First,u] /. Last[%]*)
+(*D[%,x]-(-576+579 x-432 x^2)/((1-288 x+144 x^2) Sqrt[x-145 x^2+144 x^3])//Together//Cancel*)
+
+
+(* ::Input:: *)
+(*goursatCubic[(-4+72 x-36 x^2)/((99-97 x-18 x^2) Sqrt[x-10 x^2+9 x^3]),x,u]*)
+(*Integrate[%//First,u] /. Last[%]*)
+(*D[%,x]-(-4+72 x-36 x^2)/((99-97 x-18 x^2) Sqrt[x-10 x^2+9 x^3])//Together//Cancel*)
+
+
+(* ::Input:: *)
+(*goursatCubic[(-16+19 x-12 x^2)/((1-8 x+4 x^2) Sqrt[x-5 x^2+4 x^3]),x,u]*)
+(*Integrate[%//First,u] /. Last[%]*)
+(*D[%,x]-(-16+19 x-12 x^2)/((1-8 x+4 x^2) Sqrt[x-5 x^2+4 x^3])//Together//Cancel*)
+
+
+(* ::Input:: *)
+(*goursatCubic[(4-72 x+36 x^2)/((-1+x) Sqrt[x-10 x^2+9 x^3]),x,u]*)
+(*Integrate[%//First,u] /. Last[%]*)
+(*D[%,x]-(4-72 x+36 x^2)/((-1+x) Sqrt[x-10 x^2+9 x^3])//Together//Cancel*)
+
+
+(* ::Input:: *)
+(*goursatCubic[(2-4 x)/((1+2 x) Sqrt[x-5 x^2+4 x^3]),x,u]*)
+(*Integrate[%//First,u] /. Last[%]*)
+(*D[%,x]-(2-4 x)/((1+2 x) Sqrt[x-5 x^2+4 x^3])//Simplify*)
+
+
+(* ::Input:: *)
+(*goursatCubic[(7+6 x)/((3+2 x) Sqrt[20+51 x+43 x^2+12 x^3]),x,u]*)
+(*Integrate[%//First,u] /. Last[%]*)
+(*D[%,x]-(7+6 x)/((3+2 x) Sqrt[20+51 x+43 x^2+12 x^3])//Together//Cancel*)
+
+
+(* ::Input:: *)
+(*goursatCubic[(-1-8 x-4 x^2)/((-1+4 x^2) Sqrt[x-5 x^2+4 x^3]),x,u]*)
+(*Integrate[%//First,u] /. Last[%]*)
+(*D[%,x]-(-1-8 x-4 x^2)/((-1+4 x^2) Sqrt[x-5 x^2+4 x^3])//Together//Cancel*)
+
+
+(* ::Input:: *)
+(*goursatCubic[(-16+15 x+4 x^2)/((1-8 x+4 x^2) Sqrt[x-5 x^2+4 x^3]),x,u]*)
+(*Integrate[%//First,u] /. Last[%]*)
+(*D[%,x]-(-16+15 x+4 x^2)/((1-8 x+4 x^2) Sqrt[x-5 x^2+4 x^3])//Together//Cancel*)
+
+
+(* ::Input:: *)
+(*goursatCubic[(-4+32 x-16 x^2)/((-x+4 x^2) Sqrt[x-5 x^2+4 x^3]),x,u]*)
+(*Integrate[%//First,u] /. Last[%]*)
+(*D[%,x]-(-4+32 x-16 x^2)/((-x+4 x^2) Sqrt[x-5 x^2+4 x^3])//Together//Cancel*)
+
+
 (* ::Subsection::Closed:: *)
 (*Linear rational substitutions*)
 
@@ -2505,7 +2663,7 @@ Do[
 	};
 
 	vars = Append[Union @ Cases[eqns, V[_], Infinity], c];
-	
+
 	sol = TimeConstrained[
 		Solve[! Eliminate[!eqns, {x}], vars],
 		$timeConstraint bound^2,
@@ -2971,10 +3129,13 @@ ClearAll[subst];
 subst[integrand_, u_-> sub_, x_] := Module[
 {y, eqns, usub, uintegrands, gooduintegrands},
 
+If[sub==x // TrueQ, 
+Return[ {integrand /. u -> x, u -> x} ]];
+
 eqns = {
 Dt[y]==integrand Dt[x],
 u==sub//PowerExpand,
-Dt[u==sub]//Together//Cancel(* //PowerExpand *)
+Dt[u==sub]//Together//Cancel(* // PowerExpand *)
 };
 
 debugPrint2[eqns];
@@ -2999,9 +3160,10 @@ If[MatchQ[uintegrands, {}|{{}}|_Solve],
 	Return[ {} ]];
 
 uintegrands = uintegrands /. Dt[u] -> 1;
+uintegrands = PowerExpand[Factor[uintegrands]] //. Power[a_,n_Rational]Power[b_,n_Rational] :> a^IntegerPart[n] b^IntegerPart[n] Power[a b, FractionalPart[n]];
 
 (* Pick the correct substitution. *)
-gooduintegrands = Cases[uintegrands, {_ -> intU_} /; ((*PossibleZeroQ[integrand - PowerExpand @ Cancel @ Together[PowerExpand[intU] D[sub, x] /. u -> sub]] || *)PossibleZeroQ[integrand - Cancel @ Together[intU D[sub, x] /. u -> sub]])];
+gooduintegrands = Cases[uintegrands, {_ -> intU_} /; (PossibleZeroQ[integrand - Cancel @ Together[intU D[sub, x] /. u -> sub]])];
 
 gooduintegrands = Join[gooduintegrands,Cases[uintegrands, {dd_ -> intU_} /; PossibleZeroQ[integrand - PowerExpand @ Cancel @ Together[PowerExpand[intU] D[sub, x] /. u -> sub]] :> {dd -> intU // PowerExpand}]
 ];
@@ -3011,19 +3173,20 @@ If[gooduintegrands === {},
 ];
 
 (* Pick the real solution, where possible. *)
-gooduintegrands = Join[gooduintegrands, Cases[gooduintegrands, s_/;FreeQ[s // N, _Complex]]]; 
+gooduintegrands = Join[gooduintegrands, Cases[gooduintegrands, s_ /;FreeQ[s // N, _Complex]]]; 
 debugPrint2[gooduintegrands];
 
 If[usub === {},
 	{},
-	gooduintegrands = Dt[y]/.gooduintegrands[[-1]] //FactorSquareFree // PowerExpand;
+	gooduintegrands = Dt[y]/.gooduintegrands[[-1]] //FactorSquareFree;
 {gooduintegrands, u -> sub}
 ]
 ]
 
 
 (* ::Input:: *)
-(*subst[Sqrt[1-Sqrt[1-x^2]]/(1-x),u->Sqrt[1-Sqrt[1-x^2]],x]*)
+(*debugPrint2=Print;*)
+(*subst[-((2 (2+x))/(x Sqrt[(-1+x)^2 x])),u->x,x]*)
 
 
 (* ::Input:: *)
@@ -3494,11 +3657,119 @@ EndPackage[];
 (*int[((-2+3 x^5) Sqrt[1+x^5])/(1+x^4+2 x^5+x^10),x]*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Examples from documentation*)
 
 
-(* ::Subsection:: *)
+(* ::Input:: *)
+(*IntegrateAlgebraic[(x^2-1)/((x^2+1)Sqrt[x^4+1]),x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[((x^3-1)(x^3+x^2)^(2/3))/(x^6 (x^3+x^2)),x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[Power[x^3-x^2, (3)^-1]/x,x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(3 x+1)/Sqrt[x^4-2 x^3-5 x^2-4 x-1],x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(1-x^3 (4x+5)^(2/3)-x^3 (4x+5)^(1/3))/(1-x (4x+5)^(1/2)),x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[1/((1+x) Sqrt[4 x-3]+(4+3 x) Sqrt[2 x-1]),x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(((x-1)/(2 x+1))^(1/4)-3 ((x-1)/(2 x+1))^(3/4))/((x-1)(x+1)^2 (2x-1)),x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(x^4-Sqrt[x^2-4x+1]+(x^2-4x+1)^(7/2))/(1-Sqrt[x^2-4x+1]-(x^2-4x+1)^(5/2)+(x^2-4x+1)^(3/2)),x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[((x^3-2) Sqrt[1-x^2+x^3])/(x^3+1)^2,x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(3 x+2)/((9 x^2+52 x-12) (3 x^2+4)^(1/3)),x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[((-3+2 x+2 x^5) Sqrt[x-x^2+x^6])/(1-2 x+x^2-x^3+x^4+2 x^5-3 x^6-x^8+x^10),x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(x^3-x^2)^(1/3),x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[((-1+x^8) (-1+x^4)^(1/4))/(x^6 (1+x^8)),x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[((2 c-a x^3) Sqrt[a x^3+b x^2+c])/((a x^3+(b-3) x^2+c) (a x^3+(b-2) x^2+c)),x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[Sqrt[x-Sqrt[x^2-1]]/x^2,x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(6x^8+1)/((2x^8-1)Power[4x^16+2x^10-4x^8-x^4-x^2+1, (4)^-1]),x,"Elementary"->False]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[x/Sqrt[-71-96 x+10 x^2+x^4],x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(29 x^2+18 x-3)/Sqrt[x^6+4 x^5+6 x^4-12 x^3+33 x^2-16 x],x,"DegreeBound"->30]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(39 x^2+9 x-1)/Sqrt[x^6+4 x^4+10 x^3+4 x^2-4 x+1],x,"DegreeBound"->40]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[((x^4-1) Sqrt[1+x^4])/(1+3 x^2+x^4)^2,x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(x^2-x+1)/((x^2-1) Sqrt[x^3+x]),x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(2 x^2+x+2)/((2 x-1) Sqrt[x^4+x]),x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(1-x^2)^2/((x^2+1) (x^4+6 x^2+1)^(3/4)),x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[1/((x+1) (x^4+6 x^2+1)^(1/4)),x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(x^6-x^3+1)/((x^6-1) (x^4+x^2)^(1/3)),x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(30 x^3-24 x^2-16)/((9 x^10-18 x^9+9 x^8-24 x^7+24 x^6+16 x^4+24) Sqrt[3 x^3-3 x^2-4]),x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(x^4-1)/((x^4+1)Power[x^9-x^7, (8)^-1]),x, "MaxNumeratorDegree"->9,"MaxDenominatorDegree"->9]*)
+
+
+(* ::Subsection::Closed:: *)
 (*regression testing*)
 
 
