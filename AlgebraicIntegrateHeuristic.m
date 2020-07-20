@@ -546,7 +546,6 @@ If[nestedCount[unintegratedPart, x] > 0,
 debugPrint1["Trying Goursat method on ", unintegratedPart];
 goursat = goursatIntegrate[unintegratedPart, x, u];
 If[ListQ @ goursat,
-	debugPrint1["Goursat pseudo-elliptic integral.", unintegratedPart];
 	integral = goursat // First;
 	If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[integral, unintegratedPart],
 		unintegratedPart = 0;
@@ -1882,7 +1881,7 @@ False
 ]
 
 
-(* ::Subsubsection:: *)
+(* ::Subsubsection::Closed:: *)
 (*goursatQuartic*)
 
 
@@ -1890,12 +1889,14 @@ False
 (*\[Integral](k x^2-1)/((a k x+b) (b x+a) Sqrt[(1-x^2) (1-k^2 x^2)]) \[DifferentialD]x==(2 ArcTanh[(Sqrt[(a+b) (a k+b)] Sqrt[(1-x^2) (1-k^2 x^2)])/(Sqrt[(a-b) (a k-b)] (1-x) (1-k x))])/(Sqrt[(a+b) (a k+b)] Sqrt[(a-b) (a k-b)])*)
 
 
-(* ::Subsubsection:: *)
+goursatQuartic[integrand_, x_, u_] := Module[{},
+
+
+]
+
+
+(* ::Subsubsection::Closed:: *)
 (*goursatCubic*)
-
-
-(* ::Input:: *)
-(*\[Integral](k x^2-1)/((a k x+b) (b x+a) Sqrt[x (1-x) (1-k x)]) \[DifferentialD]x==(2 ArcTan[(Sqrt[a] Sqrt[b] Sqrt[x+(-1-k) x^2+k x^3])/(Sqrt[a+b] Sqrt[b+a k] x)])/(Sqrt[a] Sqrt[b] Sqrt[a+b] Sqrt[b+a k])*)
 
 
 goursatCubic[integrand_, x_, u_] := Module[
@@ -1984,6 +1985,42 @@ If[!(rationalQ[ratv, v] || NumberQ[ratv]),
 sub = Together[sub /. u -> (x - a)/(b - a)] /. p_ /; PolynomialQ[p, x] :> Expand[p];
 {ratv /. v -> u, u -> sub}
 ]
+
+
+(* ::Input:: *)
+(*integrand=(x (2 a-1)-a)/((x-a) Sqrt[x^3 (2 a-1)-x^2 (a^2+2 a-1)+a^2 x]);*)
+(*goursatCubic[integrand,x,u]*)
+(*Integrate[%//First,u] /. Last[%];*)
+(*postProcess[%,x]*)
+(*D[%,x]-integrand//Together//Cancel//Simplify//RootReduce*)
+(*integrand//Clear*)
+
+
+(* ::Input:: *)
+(*integrand=(x+a-2)/((x-a) Sqrt[x^3+x^2 (a^2-2 a-1)+a x (2-a)]);*)
+(*goursatCubic[integrand,x,u]*)
+(*Integrate[%//First,u] /. Last[%];*)
+(*postProcess[%,x]*)
+(*D[%,x]-integrand//Together//Cancel//Simplify//RootReduce*)
+(*integrand//Clear*)
+
+
+(* ::Input:: *)
+(*integrand=(x-a)/((x+a) Sqrt[x^3-x^2 (a^2+1)+a^2 x]);*)
+(*goursatCubic[integrand,x,u]*)
+(*Integrate[%//First,u] /. Last[%];*)
+(*postProcess[%,x]*)
+(*D[%,x]-integrand//Together//Cancel//Simplify//RootReduce*)
+(*integrand//Clear*)
+
+
+(* ::Input:: *)
+(*integrand=(x+a)/((x-a) Sqrt[x^3-x^2 (a^2+1)+a^2 x]);*)
+(*goursatCubic[integrand,x,u]*)
+(*Integrate[%//First,u] /. Last[%];*)
+(*postProcess[%,x]*)
+(*D[%,x]-integrand//Together//Cancel//Simplify//RootReduce*)
+(*integrand//Clear*)
 
 
 (* ::Input:: *)
@@ -2144,13 +2181,7 @@ sub = Together[sub /. u -> (x - a)/(b - a)] /. p_ /; PolynomialQ[p, x] :> Expand
 
 
 (* ::Text:: *)
-(*This routine tries a substitution of the form u == (a x + b)/(x + d) to transform an integral of the form *)
-(**)
-(*Integrate[R(x, p(x)^(n/m)), x]*)
-(**)
-(*to *)
-(**)
-(*Integrate[R((d u - b)/(a - u), (p u^D + q)^(n/m)/(s u + r)^D)]*)
+(*This routine tries a substitution of the form u == (x + a)/(x + b).*)
 
 
 ClearAll[linearRationalIntegrate];
@@ -2159,38 +2190,47 @@ Options[linearRationalIntegrate] = Options[solveAlgebraicIntegral];
 
 linearRationalIntegrate[0|0., _, OptionsPattern[]] := {0, 0, 0}
 
-linearRationalIntegrate[e_, x_, opts : OptionsPattern[]] := Module[{t, linRat, options, result},
+linearRationalIntegrate[e_, x_, opts : OptionsPattern[]] := Module[{u, linRat, options, result},
 
-	t = Unique[Symbol["u"]];
+	linRat = linearRationalSubstitution1[e, x, u];
+	debugPrint3["linearRationalSubstitution1 returned ", linRat];
 
-	linRat = TimeConstrained[
-		linearRationalSubstitution[e, x, t], 
-		$timeConstraint, 
-		False];
+	If[!ListQ[linRat] || LeafCount[linRat // First] > 2 LeafCount[e], 
+		linRat = linearRationalSubstitution2[e, x, u];
+		debugPrint3["linearRationalSubstitution2 returned ", linRat];
+	];
 
-	If[!ListQ[linRat] || LeafCount[linRat // First] > LeafCount[e], 
+	If[!ListQ[linRat] || LeafCount[linRat // First] > 2 LeafCount[e], 
+		linRat = linearRationalSubstitution3[e, x, u];
+		debugPrint3["linearRationalSubstitution3 returned ", linRat];	
+	];
+
+	If[!ListQ[linRat] || LeafCount[linRat // First] > 2 LeafCount[e], 
 		Return[ {0, e, 0} ]
 	];
 
 	debugPrint2["Linear rational substitution is ", linRat];
 
-	options = Append[DeleteCases[{opts}, HoldPattern["LinearRational" -> True]], "LinearRational" -> False];
-	result = solveAlgebraicIntegral[linRat // First, t, Sequence @@ options];
+	(* Disable linear rational substitutions for the recursive 
+	call to prevent infinite loops. SB *)
+	options = Append[
+		DeleteCases[{opts}, HoldPattern["LinearRational" -> True]], 
+		"LinearRational" -> False];
 	
-	debugPrint2["Integral of ", linRat // First, " is ", result];
-
-	postProcess[result /. Last[linRat], x]
+	result = solveAlgebraicIntegral[linRat // First, u, Sequence @@ options];
+	
+	If[MatchQ[result, {_, 0, _}],
+		debugPrint2["Integral of ", linRat // First, " is ", result];
+		postProcess[powerReduce1[MapAll[Together,result /. Last[linRat]], x], x],
+		debugPrint2["Recursive call could not find an antiderivative of ", linRat // First];
+		{0, e, 0}
+	]
 ]
 
 
 (* ::Input:: *)
 (*$verboseLevel=2;*)
 (*linearRationalIntegrate[1/((x+1) (x^4+6 x^2+1)^(1/4)),x]*)
-
-
-(* ::Input:: *)
-(*$verboseLevel=2;*)
-(*linearRationalIntegrate[(x^2+1)/((x^2-1) (2 x^2+1)^(3/2)),x]*)
 
 
 ClearAll[semiRationalise];
@@ -2213,26 +2253,56 @@ If[conj === 1,
 (*semiRationalise[(-2 2^(3/4) u^2)/((1+u) (1+u^2) (1+u^4)^(3/4)),u]*)
 
 
-ClearAll[linearRationalSubstitution];
+linearFactorQ[p_,x_] := If[PolynomialQ[p,x],
+	!FreeQ[Exponent[#,x]& /@ FactorList[p][[All,1]],1],
+	False
+]
 
-linearRationalSubstitution[e_, x_, u_] := linearRationalSubstitution[e, x, u] = Module[
+
+(* ::Input:: *)
+(*linearFactorQ[-27+82 x-68 x^2+24 x^3,x]*)
+
+
+powerReduce1[e_, x_] := e //. (p_ q_^n_Integer)^m_Rational /; 
+	PolynomialQ[p,x] && PolynomialQ[q,x] && n < 0 && -n <= Denominator[m] :> (p q^(Denominator[m]+n))^m/q^Numerator[m]
+
+
+powerReduce2[e_, x_] := e //. (p_ q_^n_Integer)^m_Rational /;
+	PolynomialQ[p,x] && PolynomialQ[q,x] && n < 0 && -n <= Denominator[m] :> -(-p q^(Denominator[m]+n))^m/q^Numerator[m]
+
+
+(* ::Input:: *)
+(*powerReduce1[((p x^2 \[ScriptCapitalA]^2+2 p x \[ScriptCapitalA] \[ScriptCapitalB]+p \[ScriptCapitalB]^2+q x^2 \[ScriptCapitalC]^2+2 q x \[ScriptCapitalC] \[ScriptCapitalD]+q \[ScriptCapitalD]^2)/(x \[ScriptCapitalC]+\[ScriptCapitalD])^2)^(7/3),x]*)
+
+
+(* ::Input:: *)
+(*powerReduce1[((-27+28 x-12 x^2)/(-1+2 x)^2)^(1/3),x]*)
+
+
+(* ::Subsubsection::Closed:: *)
+(*linearRationalSubstitution1*)
+
+
+ClearAll[linearRationalSubstitution1];
+
+linearRationalSubstitution1[e_, x_, u_] := Module[
 {radicals, radicand, deg, a, b, d, p, q, r, s, radU,
  eqn, soln, solns, subX, subU, intU, dx, subs, goodsubs},
 
 radicals = Cases[e, Power[p_ /; PolynomialQ[p,x], r_Rational] :> {p, r}, {0,Infinity}];
 
-If[radicals === {} || Length[Union[radicals[[All,1]]]] > 1,
+If[radicals === {} || Length[Union[radicals]] > 1,
 	Return[False]
 ];
 
 radicand = radicals[[1,1]];
 deg = Exponent[radicand, x];
 
-radU = Collect[radicand /. {x -> (d u - b)/(a - u)} // Together // Cancel, u];
-eqn = Numerator[radU](r + s u)^deg == Denominator[radU](p u^deg + q);
+radU = Collect[radicand /. {x -> (a - b u)/(u - 1)} // Together // Cancel, u];
+eqn = Numerator[radU] == (p u^deg + q);
 
 solns = TimeConstrained[
-		Solve[!Eliminate[!eqn, {u}] && a!=0 && b!=0 && p!=0 && q!=0, {a,b,d,p,q}],
+		Solve[!Eliminate[!eqn, {u}], {a,b,p,q}],
 		$timeConstraint,
 		$TimedOut];
 
@@ -2245,11 +2315,11 @@ If[MatchQ[solns, {}|{{}} | _Solve | {{(_ -> _?PossibleZeroQ) ..}..}],
 	Return[ False ]];
 
 subs = Table[
-	subX = (d u - b)/(a - u) /. soln // Cancel;
-	subX = subX /. a|b|d|p|q|r|s -> 1 // Cancel;
-	intU = e dx /. {x -> subX, dx -> D[subX, u]} // Together // Cancel // PowerExpand // Cancel;
-	subU = (a x + b)/(x + d) /. soln // Cancel;
-	subU = subU /. a|b|d|p|q|r|s -> 1 // Cancel;
+	subX = (a - b u)/(u - 1) /. soln // Cancel;
+	subX = subX /. a|b|p|q -> 1 // Cancel;
+	intU = MapAll[Together, e dx /. {x -> subX, dx -> D[subX, u]}] // Cancel // PowerExpand // Cancel;
+	subU = (x + a)/(x + b) /. soln // Cancel;
+	subU = subU /. a|b|p|q -> 1 // Cancel;
 
 	{semiRationalise[intU, u], u -> subU},
 {soln, solns}];
@@ -2267,32 +2337,136 @@ SortBy[goodsubs, LeafCount] // First
 
 
 (* ::Input:: *)
-(*$verboseLevel=3;$Profile;*)
-(*linearRationalSubstitution[(Sqrt[1-x^2-x^3+x^6] (-2-x^3+4 x^6) (1+x^2-2 x^3-x^4-x^5+3 x^6+x^8-2 x^9+x^12))/((1-x^3+x^6)^2 (1-2 x^3-x^4+3 x^6-2 x^9+x^12)),x, u]//Timing*)
+(*Timing[linearRationalSubstitution[(1-x^2)^2/((x^2+1) (x^4+6 x^2+1)^(3/4)),x,u]]*)
 
 
 (* ::Input:: *)
-(*linearRationalSubstitution[(x-1)/((1+x) Sqrt[x+x^2+x^3]),x,u]*)
+(*linearRationalSubstitution[1/((x+1) (x^4+6 x^2+1)^(1/4)),x,u]//Timing*)
 
 
 (* ::Input:: *)
-(*linearRationalSubstitution[(3 x^2+1)/Sqrt[x^3+x-1],x,u]*)
+(*linearRationalSubstitution[(1+15 x^2+15 x^4+x^6)^(1/6)/((-1+x) (1+x)^2),x,u]//Timing*)
+
+
+(* ::Subsubsection::Closed:: *)
+(*linearRationalSubstitution2*)
+
+
+ClearAll[linearRationalSubstitution2];
+
+linearRationalSubstitution2[e_, x_, u_] := Module[
+{radicals, radicand, deg, a, b, c, d, p, q, r, s, t, radU,
+ eqn, soln, solns, subX, subU, intU, dx, subs, goodsubs},
+
+radicals = Cases[e, Power[p_ /; PolynomialQ[p,x], r_Rational] :> {p, r}, {0,Infinity}];
+
+If[radicals === {} || Length[Union[radicals[[All,1]]]] > 1,
+	Return[False]
+];
+
+radicand = radicals[[1,1]];
+deg = Exponent[radicand, x];
+If[OddQ[deg] || deg < 2, Return[False]];
+
+radU = Collect[radicand /. {x -> (a - b u)/(u - 1)} // Together // Cancel, u];
+eqn = Numerator[radU] == (p u^(deg) + q u^(deg/2) + r);
+
+solns = TimeConstrained[
+		Solve[!Eliminate[!eqn, {u}], {a,b,p,q,r}],
+		$timeConstraint,
+		$TimedOut];
+		
+If[solns === $TimedOut, 
+	Return[ False ]];
+
+solns = DeleteCases[solns, s_ /; !FreeQ[s, Power[_Integer, _Rational]]];
+
+If[MatchQ[solns, {}|{{}} | _Solve | {{(_ -> _?PossibleZeroQ) ..}..}], 
+	Return[ False ]];
+
+subs = Table[
+	subX = (a - b u)/(u - 1) /. soln // Cancel;
+	subX = subX /. a|b|p|q|r -> 1 // Cancel;
+	intU = MapAll[Together, e dx /. {x -> subX, dx -> D[subX, u]}] // Cancel // PowerExpand // Cancel;
+	subU = (x + a)/(x + b) /. soln // Cancel;
+	subU = subU /. a|b|p|q|r -> 1 // Cancel;
+	{semiRationalise[intU, u], u -> subU},
+{soln, solns}];
+
+goodsubs = Cases[subs, 
+	{integrand_, u -> usub_} /; 
+	PossibleZeroQ[e - PowerExpand @ Cancel @ Together[integrand D[usub, x] /. u -> usub]]];
+
+If[goodsubs === {}, 
+	Return[ False ]
+];
+
+SortBy[goodsubs, LeafCount] // First
+]
 
 
 (* ::Input:: *)
-(*linearRationalSubstitution[(1-x^2)^2/((x^2+1) (x^4+6 x^2+1)^(3/4)),x,u]//Timing*)
+(*linearRationalSubstitution2[(-7+x)/((-11+5 x)Sqrt[-60+83 x-21 x^2-3 x^3+x^4]), x,u]//Timing*)
 
 
-(* ::Input:: *)
-(*linearRationalSubstitution[1/((x+1) (x^4+6 x^2+1)^(1/4)),x,u]*)
-(*postProcess[int[%//First,u] /. Last[%], x]*)
-(*D[% // Last, x] - 1/((x+1) (x^4+6 x^2+1)^(1/4)) // Together // Cancel*)
+(* ::Subsubsection::Closed:: *)
+(*linearRationalSubstitution3*)
 
 
-(* ::Input:: *)
-(*linearRationalSubstitution[(1+15 x^2+15 x^4+x^6)^(1/6)/((-1+x) (1+x)^2),x,u]*)
-(*postProcess[int[%//First,u] /. Last[%], x]*)
-(*D[% // Last, x]-(1+15 x^2+15 x^4+x^6)^(1/6)/((-1+x) (1+x)^2)//Together//Cancel*)
+ClearAll[linearRationalSubstitution3];
+
+linearRationalSubstitution3[e_, x_, u_] := Module[
+{radicals, radicand, deg, a, b, p, q, r, n, radU,
+ eqn, soln, solns, subX, subU, intU, dx, subs, goodsubs, expt},
+
+radicals = Cases[e, Power[p_ /; PolynomialQ[p,x], r_Rational] :> {p, r}, {0,Infinity}];
+
+If[radicals === {} || Length[Union[radicals[[All,1]]]] > 1,
+	Return[False]
+];
+
+radicand = radicals[[1,1]];
+n = Denominator[radicals[[1,2]]];
+deg = Exponent[radicand, x];
+If[! linearFactorQ[radicand, x], Return[ False ]];
+
+radU = radicand /. {x -> (a - b u)/(u - 1)} // Together // Cancel;
+eqn = Numerator[radU] == p u^(deg-1) + q;
+
+solns = TimeConstrained[
+		Solve[!Eliminate[!eqn, {u}], {a,b,p,q}],
+		$timeConstraint,
+		$TimedOut];
+
+solns = DeleteCases[solns, s_ /; ! FreeQ[s, Complex]];
+
+If[solns === $TimedOut, 
+	Return[ False ]];
+
+If[MatchQ[solns, {}|{{}} | _Solve | {{(_ -> _?PossibleZeroQ) ..}..}], 
+	Return[ False ]];
+
+subs = Table[
+	subX = (a - b u)/(u - 1) /. soln;
+	subX = subX /. a|b|p|q|r -> 1 // Cancel;
+	intU = MapAll[Together, e dx /. {x -> subX, dx -> D[subX, u]}] // Cancel;
+	subU = (x + a)/(x + b) /. soln;
+	subU = subU /. a|b|p|q|r -> 1 // Cancel;
+	Sequence @@ {
+		{semiRationalise[powerReduce1[intU, u], u], u -> subU}, 
+		{semiRationalise[powerReduce2[intU, u], u], u -> subU}},
+{soln, solns}];
+
+goodsubs = Cases[subs, 
+	{integrand_, u -> usub_} /; 
+	PossibleZeroQ[e - powerReduce1[MapAll[Together, integrand D[usub, x] /. u -> usub],x]]];
+
+If[goodsubs === {}, 
+	Return[ False ]
+];
+
+SortBy[goodsubs, LeafCount] // First
+]
 
 
 (* ::Subsection::Closed:: *)
@@ -2813,7 +2987,7 @@ Do[
 
 	sol = TimeConstrained[
 		Solve[! Eliminate[!eqns, {x}], vars],
-		$timeConstraint bound^2,
+		$timeConstraint bound,
 		{}];
 
 	sol = sol /. ConditionalExpression[e_,___] :> e /. C[1] -> 1;
@@ -2964,7 +3138,7 @@ Do[
 
 	sol = TimeConstrained[
 		Solve[! Eliminate[!eqns, {x}], vars],
-		$timeConstraint bound^2,
+		$timeConstraint bound,
 		{}];
 
 	sol = sol /. ConditionalExpression[e_,___] :> e /. C[1] -> 1;
@@ -3305,22 +3479,17 @@ If[MatchQ[uintegrands, {}|{{}}|_Solve],
 	Return[ False ]];
 
 uintegrands = uintegrands /. Dt[u] -> 1;
-(*
-uintegrands = PowerExpand[Factor[uintegrands]] //. Power[a_,n_Rational]Power[b_,n_Rational] \[RuleDelayed] a^IntegerPart[n] b^IntegerPart[n] Power[a b, FractionalPart[n]];
-*)
 
-(* The following line takes care of, for example subst[1/Sqrt[(-12 + 7*x)^2*(-11 + 7*x)], u -> 7*(-(11/7) + x), x]
-or
-subst[(13 - 64*x + 64*x^2)/((5 - 36*x + 64*x^2)*Sqrt[-5 + 46*x - 136*x^2 + 128*x^3]), u -> 16*(-(1/4) + x), x] *)
-facuintegrands = Factor[uintegrands] //.(e1_ e2_^n_Integer)^m_Rational/;n >= Denominator[m]:>(e1 e2^(n - Numerator[m] IntegerPart[n m]))^m e2^(Sign[m]Numerator[m] IntegerPart[n m]/Denominator[m]);
+uintegrands = PowerExpand[Factor[uintegrands]] //. Power[a_,n_Rational]Power[b_,n_Rational] :> a^IntegerPart[n] b^IntegerPart[n] Power[a b, FractionalPart[n]];
 
 (* Pick the correct substitution. *)
-gooduintegrands = Cases[Join[uintegrands, facuintegrands], {_ -> intU_} /; (PossibleZeroQ[integrand - Cancel @ Together[intU D[sub, x] /. u -> sub]]), 1, 1];
+gooduintegrands = Cases[uintegrands, {_ -> intU_} /; (PossibleZeroQ[integrand - Cancel @ Together[intU D[sub, x] /. u -> sub]]), 1, 1];
 
 If[gooduintegrands==={},
 gooduintegrands = Join[gooduintegrands,
-Cases[Join[uintegrands, facuintegrands], {dd_ -> intU_} /; PossibleZeroQ[integrand - PowerExpand @ Cancel @ Together[PowerExpand[intU] D[sub, x] /. u -> sub]] :> {dd -> intU // PowerExpand}, 1, 1]
-]];
+Cases[uintegrands, {dd_ -> intU_} /; PossibleZeroQ[integrand - PowerExpand @ Cancel @ Together[PowerExpand[intU] D[sub, x] /. u -> sub]] :> {dd -> intU // PowerExpand}, 1, 1]
+	]
+];
 
 If[gooduintegrands === {}, 
 	Return[ False ]
@@ -3568,6 +3737,14 @@ EndPackage[];
 
 (* ::Subsection::Closed:: *)
 (*previously bugs, deficiencies or edge cases*)
+
+
+(* ::Input:: *)
+(*int[1/((1+x) (1-x^3)^(1/3)),x]*)
+
+
+(* ::Input:: *)
+(*int[(1+x)/((1+4x+x^2) (1-x^3)^(1/3)),x]*)
 
 
 (* ::Input:: *)
@@ -3962,7 +4139,7 @@ EndPackage[];
 (*IntegrateAlgebraic[(x^4-1)/((x^4+1)Power[x^9-x^7, (8)^-1]),x, "MaxNumeratorDegree"->9,"MaxDenominatorDegree"->9]*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*regression testing*)
 
 
