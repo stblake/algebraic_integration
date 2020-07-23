@@ -98,54 +98,65 @@ Out[2018]= (2 + x - x^4)/x^3
 We now have some additional specific methods for integrals of the form ```Integrate[a[x]/(b[x] Sqrt[r[x]])] == c Log[p[x] + q[x] Sqrt[r[x]]]```. For example, the following integral was posted on sci.math.symbolic by Henri Cohen in 1993 and was solved by Manuel Bronstein using AXIOM: 
 
 ```
-In[561]:= solveAlgebraicIntegral[x/Sqrt[-71 - 96 x + 10 x^2 + x^4], x]
+In[1244]:= IntegrateAlgebraic[x/Sqrt[-71 - 96 x + 10 x^2 + x^4], x]
 
-Out[561]= {0, 0, -(1/8)
-    Log[-10001 - 3124 x^2 + 1408 x^3 - 54 x^4 + 128 x^5 - 20 x^6 - x^8 + Sqrt[-71 - 96 x + 10 x^2 + x^4] (781 - 528 x + 27 x^2 - 80 x^3 + 15 x^4 + x^6)]}
+Out[1244]= -(1/8) Log[-10001 - 3124 x^2 + 1408 x^3 - 54 x^4 + 128 x^5 - 20 x^6 - x^8 + Sqrt[-71 - 96 x + 10 x^2 + x^4] (781 - 528 x + 27 x^2 - 80 x^3 + 15 x^4 + x^6)]
 ```
 
 Here are a number of similar integrals I came up with
 
 ```
-In[652]:= solveAlgebraicIntegral[x/Sqrt[1 + 4 x + 3 x^2 - 2 x^3 + x^4], x]
+In[1243]:= IntegrateAlgebraic[x/Sqrt[1 + 4 x + 3 x^2 - 2 x^3 + x^4], x]
 
-Out[652]= {0, 0, -(1/6) Log[13 - 42 x^2 + 56 x^3 - 36 x^4 + 12 x^5 - 2 x^6 + Sqrt[1 + 4 x + 3 x^2 - 2 x^3 + x^4] (14 - 28 x + 24 x^2 - 10 x^3 + 2 x^4)]}
+Out[1243]= 1/3 ArcTanh[x^3/((1 + x) Sqrt[1 + 4 x + 3 x^2 - 2 x^3 + x^4])] + ArcTanh[x^2/(-1 - 2 x + Sqrt[1 + 4 x + 3 x^2 - 2 x^3 + x^4])]
 ```
 
 ```
-In[653]:= solveAlgebraicIntegral[(1 + 3 x)/Sqrt[-1 - 4 x - 5 x^2 - 2 x^3 + x^4], x]
+In[1242]:= IntegrateAlgebraic[(1 + 3 x)/Sqrt[-1 - 4 x - 5 x^2 - 2 x^3 + x^4], x]
 
-Out[653]= {0, 0, -(1/2) Log[11 - 4 x - 24 x^2 - 16 x^3 + 38 x^4 - 16 x^5 + 2 x^6 + (2 + 18 x - 30 x^2 + 14 x^3 - 2 x^4) Sqrt[-1 - 4 x - 5 x^2 - 2 x^3 + x^4]]}
+Out[1242]= -(1/2) Log[11 - 4 x - 24 x^2 - 16 x^3 + 38 x^4 - 16 x^5 + 2 x^6 + (2 + 18 x - 30 x^2 + 14 x^3 - 2 x^4) Sqrt[-1 - 4 x - 5 x^2 - 2 x^3 + x^4]]
 ```
 
 ```
-In[654]:= solveAlgebraicIntegral[(x^2 - x)/Sqrt[-2 x + 4 x^2 - 2 x^3 + x^4 - 2 x^5 + x^6], x]
+In[1241]:= IntegrateAlgebraic[(x^2 - x)/Sqrt[-2 x + 4 x^2 - 2 x^3 + x^4 - 2 x^5 + x^6], x]
 
-Out[654]= {0, 0, -(1/6)Log[-1 + 4 x^3 - 2 x^6 + (2 x + 2 x^2 + 2 x^3) Sqrt[-2 x + 4 x^2 - 2 x^3 + x^4 - 2 x^5 + x^6]]}
+Out[1241]= 2/3 ArcTanh[((-1 + x) x^2)/Sqrt[-2 x + 4 x^2 - 2 x^3 + x^4 - 2 x^5 + x^6]]
 ```
 
 ```
-In[90]:= solveAlgebraicIntegral[(-1 - 2 x + 3 x^2)/Sqrt[-3 - 2 x - x^2 + 4 x^3 - x^4 - 2 x^5 + x^6], x]
+In[1240]:= IntegrateAlgebraic[(-1 - 2 x + 3 x^2)/Sqrt[-3 - 2 x - x^2 + 4 x^3 - x^4 - 2 x^5 + x^6], x]
 
-Out[90]= {0, 0, -Log[-1 + x + x^2 - x^3 + Sqrt[-3 - 2 x - x^2 + 4 x^3 - x^4 - 2 x^5 + x^6]]}
+Out[1240]= 2 ArcTanh[Sqrt[-3 - 2 x - x^2 + 4 x^3 - x^4 - 2 x^5 + x^6]/(-1 - x - x^2 + x^3)]
 ```
 
 We can now solve some integrals which require a linear rational substitution to simplify the radicand prior to the usual call to solveAlgebraicIntegral. For example 
 
 ```
-In[967]:= solveAlgebraicIntegral[1/((x + 1) (x^4 + 6 x^2 + 1)^(1/4)), x]
+In[1239]:= IntegrateAlgebraic[1/((x + 1) (x^4 + 6 x^2 + 1)^(1/4)), x]
 
-Out[967]= {0, 0, ArcTan[(-1 + x)/(2^(1/4) (1 + 6 x^2 + x^4)^(1/4))]/(2 2^(3/4)) + ArcTanh[(-1 + x)/(2^(1/4) (1 + 6 x^2 + x^4)^(1/4))]/(2 2^(3/4))}
+Out[1239]= ArcTan[(-1 + x)/(2^(1/4) (1 + 6 x^2 + x^4)^(1/4))]/(2 2^(3/4)) + ArcTanh[(-1 + x)/(2^(1/4) (1 + 6 x^2 + x^4)^(1/4))]/(2 2^(3/4))
 ```
 
 ```
-In[1157]:= solveAlgebraicIntegral[Sqrt[x^4 + 6 x^2 + 1]/((x - 1) (x + 1)^3), x]
+In[1238]:= IntegrateAlgebraic[Sqrt[x^4 + 6 x^2 + 1]/((x - 1) (x + 1)^3), x]
 
-Out[1157]= {0, 0, Sqrt[1 + 6 x^2 + x^4]/(4 (1 + x)^2) + Log[-1 + x]/(2 Sqrt[2]) - Log[1 + 2 x + x^2 + Sqrt[2] Sqrt[1 + 6 x^2 + x^4]]/(4 Sqrt[2])}
+Out[1238]= Sqrt[1 + 6 x^2 + x^4]/(4 (1 + x)^2) - ArcTanh[(2 Sqrt[2] x)/(1 - 2 x + x^2 + Sqrt[1 + 6 x^2 + x^4])]/(2 Sqrt[2])
 ```
 
 ```
-In[1158]:= solveAlgebraicIntegral[Sqrt[x^4 + 6 x^2 + 1]/(x (x^2 + 1)), x]
+In[1237]:= IntegrateAlgebraic[Sqrt[x^4 + 6 x^2 + 1]/(x (x^2 + 1)), x]
 
-Out[1158]= {0, 0, -2 ArcTan[Sqrt[1 + 6 x^2 + x^4]/(-1 + Sqrt[2] + (1 + Sqrt[2]) x^2)] + ArcTanh[((-1 + x) (1 + x))/Sqrt[1 + 6 x^2 + x^4]]}
+Out[1237]= 2 ArcTan[1/2 (-1 - x^2 + Sqrt[1 + 6 x^2 + x^4])] - ArcTanh[2 + x^2 - Sqrt[1 + 6 x^2 + x^4]] - 1/2 Log[1 - x^2 + Sqrt[1 + 6 x^2 + x^4]]
 ```
+
+We can now solve some integrals containing nested radicals. For example 
+
+```
+In[780]:= IntegrateAlgebraic[((1 + x^2) Sqrt[x^2 + Sqrt[1 + x^4]])/((-1 + x^2) Sqrt[1 + x^4]), x]
+
+Out[780]= 
+Sqrt[2 (-1 + Sqrt[2])]ArcTan[(Sqrt[2/(1 + Sqrt[2])] x Sqrt[x^2 + Sqrt[1 + x^4]])/(1 + x^2 + Sqrt[1 + x^4])] + 
+ Sqrt[2] ArcTanh[(Sqrt[2] x Sqrt[x^2 + Sqrt[1 + x^4]])/(1 + x^2 + Sqrt[1 + x^4])] - 
+ Sqrt[2 (1 + Sqrt[2])] ArcTanh[(Sqrt[2/(-1 + Sqrt[2])] x Sqrt[x^2 + Sqrt[1 + x^4]])/(1 + x^2 + Sqrt[1 + x^4])]
+```
+
