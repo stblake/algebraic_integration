@@ -222,7 +222,7 @@ normalise[e_, {x_, y_}] := Module[
 	If[FreeQ[denY, y], 
 		nonalgNum = Coefficient[numY, y, 0];
 		algNum = Coefficient[numY, y, 1] y;
-		Return[ {algNum, denY, {p, r}, y -> radical, nonalgNum/denY} ]
+		Return[ {algNum, denY, {p, r}, y -> radical, nonalgNum/denY // Cancel} ]
 	];
 
 	y0 = Coefficient[denY, y, 0];
@@ -242,7 +242,7 @@ normalise[e_, {x_, y_}] := Module[
 
 	nonAlgPart += nonalgNum/denY;
 
-	{algNum, denY, {p, r}, y -> radical, nonAlgPart}
+	{algNum, denY, {p, r}, y -> radical, nonAlgPart // Cancel}
 ]
 
 
@@ -535,10 +535,10 @@ If[nestedCount[unintegratedPart, x] > 0,
 			rationalPart    += result[[1]]; 
 			unintegratedPart = result[[2]];
 			integratedPart  += result[[3]],
-			Return[{0, integrand, 0}, Module] (* As no further methods deal with nested radicals. *)
+			Return[{0, integrand, 0}, Module]
 		],
 		Return[{0, integrand, 0}, Module] (* As no further methods deal with nested radicals. *)
-	]
+	] 
 ];
 
 (* Goursat pseudo-elliptic integral. *)
@@ -1234,7 +1234,13 @@ postProcess[e_, x_, OptionsPattern[]] := Module[{$function, simp, permutations, 
 	simp = simp /. p_ /; PolynomialQ[p,x] :> Collect[p, x];
 	simp = simp /. Log[ex_] :> Log[Collect[ex, Power[_, _Rational]]];
 
+	(* Remove constants. *)
 	simp = partialExpand[simp];
+	If[Head[simp] === Plus, 
+		numerics = Cases[simp, n_ /; FreeQ[n, x], {1}];
+		simp -= Total[numerics];
+	];
+	
 	simp /. {$rootSum -> RootSum, $function -> Function}
 ]
 
@@ -2428,7 +2434,7 @@ If[radicals === {} || Length[Union[radicals[[All,1]]]] > 1,
 radicand = radicals[[1,1]];
 n = Denominator[radicals[[1,2]]];
 deg = Exponent[radicand, x];
-If[! linearFactorQ[radicand, x], Return[ False ]];
+If[n != deg || ! linearFactorQ[radicand, x], Return[ False ]];
 
 radU = radicand /. {x -> (a - b u)/(u - 1)} // Together // Cancel;
 eqn = Numerator[radU] == p u^(deg-1) + q;
@@ -3343,8 +3349,15 @@ ClearAll[integrateNestedRadicals];
 integrateNestedRadicals[e_, x_, u_] := Module[{integrand, subst, result},
 
 	{integrand, subst} = decreaseNestedRadicals[e, x, u];
+	debug2["Recursive call for the integrand ", integrand];
 	result = solveAlgebraicIntegral[integrand, u];
-	result /. subst
+	
+	result = {0, result[[2]], Integrate[result[[1]], u] + result[[3]]} /. subst;
+	result = MapAll[Factor, ExpandAll[result]] /. {RootSum -> $rootSum, Function -> $function};
+	result = result /. Factor -> Identity;
+	result = result /. {$rootSum -> RootSum, $function -> Function};
+	
+	postProcess[result // PowerExpand, x]
 ]
 
 
@@ -3421,6 +3434,10 @@ radicalCount[e_, x_] := Total[ Cases[e, Power[r_, _Rational] /;
 
 
 (* ::Input:: *)
+(*nestedCount[Sqrt[x^2+1],x]*)
+
+
+(* ::Input:: *)
 (*nestedCount[x Sqrt[x^2+1] Sqrt[1+Sqrt[x^2+1]],x]*)
 
 
@@ -3460,19 +3477,25 @@ Dt[u==sub]//Together//Cancel(* // PowerExpand *)
 };
 debugPrint2[eqns];
 
+(*
 eqns = TimeConstrained[
 	Eliminate[eqns,{Dt[x],x}],(* Express Dt[y] in terms of Dt[u] and u. *)
 	$timeConstraint, 
 	$TimedOut];
+*)
 
-If[eqns=== $TimedOut, 
-	Return[ False ]];
+(* Using GroebnerBasis with the "Buchberger" method appears to be much 
+faster for algebraic functions than Eliminate. *)
+eqns = GroebnerBasis[eqns, {Dt[u],u}, {Dt[x],x}, 
+	MonomialOrder -> EliminationOrder, Method -> "Buchberger"] // Factor;
+
 debugPrint2[eqns];
 
-eqns = Factor[eqns];
+eqns = PowerExpand[Factor[eqns]] //. Power[a_,n_Rational]Power[b_,n_Rational] :> a^IntegerPart[n] b^IntegerPart[n] Power[a b, FractionalPart[n]];
+
 debugPrint2[eqns];
 
-uintegrands=Solve[eqns,{Dt[y]}];
+uintegrands=Solve[eqns[[1]] == 0,{Dt[y]}];
 debugPrint2[uintegrands];
 
 If[MatchQ[uintegrands, {}|{{}}|_Solve],
@@ -3505,14 +3528,6 @@ If[usub === {},
 {gooduintegrands, u -> sub}
 ]
 ]
-
-
-(* ::Input:: *)
-(*subst[(199956770-643950237 x+777677922 x^2-417411792 x^3+84015792 x^4)/(Sqrt[(-157+126 x)^2 (-313+252 x)] (4798962481-15454805688 x+18664270128 x^2-10017883008 x^3+2016379008 x^4)),u->252 (-(313/252)+x),x]*)
-
-
-(* ::Input:: *)
-(*subst[(13-64 x+64 x^2)/((5-36 x+64 x^2) Sqrt[-5+46 x-136 x^2+128 x^3]),u->16 (-(1/4)+x),x]*)
 
 
 (* ::Input:: *)
@@ -3640,6 +3655,10 @@ EndPackage[];
 (*current bugs and deficiencies*)
 
 
+(* ::Input:: *)
+(*int[Sqrt[x]/(-2+x^2)^(3/4),x]*)
+
+
 (* ::Text:: *)
 (*This solution to this integral is terrible. *)
 
@@ -3740,11 +3759,15 @@ EndPackage[];
 
 
 (* ::Input:: *)
+(*$verboseLevel=3;*)
+
+
+(* ::Input:: *)
 (*int[1/((1+x) (1-x^3)^(1/3)),x]*)
 
 
 (* ::Input:: *)
-(*int[(1+x)/((1+4x+x^2) (1-x^3)^(1/3)),x]*)
+(*int[(1+x)/((1+4 x+x^2) (1-x^3)^(1/3)),x]*)
 
 
 (* ::Input:: *)
@@ -4032,15 +4055,15 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[(x^2-1)/((x^2+1)Sqrt[x^4+1]),x]*)
+(*IntegrateAlgebraic[(x^2-1)/((x^2+1) Sqrt[x^4+1]),x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[((x^3-1)(x^3+x^2)^(2/3))/(x^6 (x^3+x^2)),x]*)
+(*IntegrateAlgebraic[((x^3-1) (x^3+x^2)^(2/3))/(x^6 (x^3+x^2)),x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[Power[x^3-x^2, (3)^-1]/x,x]*)
+(*IntegrateAlgebraic[(x^3-x^2)^(1/3)/x,x]*)
 
 
 (* ::Input:: *)
@@ -4048,7 +4071,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[(1-x^3 (4x+5)^(2/3)-x^3 (4x+5)^(1/3))/(1-x (4x+5)^(1/2)),x]*)
+(*IntegrateAlgebraic[(1-x^3 (4 x+5)^(2/3)-x^3 (4 x+5)^(1/3))/(1-x Sqrt[4 x+5]),x]*)
 
 
 (* ::Input:: *)
@@ -4056,11 +4079,11 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[(((x-1)/(2 x+1))^(1/4)-3 ((x-1)/(2 x+1))^(3/4))/((x-1)(x+1)^2 (2x-1)),x]*)
+(*IntegrateAlgebraic[(((x-1)/(2 x+1))^(1/4)-3 ((x-1)/(2 x+1))^(3/4))/((x-1) (x+1)^2 (2 x-1)),x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[(x^4-Sqrt[x^2-4x+1]+(x^2-4x+1)^(7/2))/(1-Sqrt[x^2-4x+1]-(x^2-4x+1)^(5/2)+(x^2-4x+1)^(3/2)),x]*)
+(*IntegrateAlgebraic[(Sqrt[x^2-4 x+1]+(x^2-4 x+1)^(3/2))/(Sqrt[x^2-4 x+1]-(x^2-4 x+1)^(5/2)+(x^2-4 x+1)^(3/2)),x]*)
 
 
 (* ::Input:: *)
@@ -4092,7 +4115,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[(6x^8+1)/((2x^8-1)Power[4x^16+2x^10-4x^8-x^4-x^2+1, (4)^-1]),x,"Elementary"->False]*)
+(*IntegrateAlgebraic[(6 x^8+1)/((2 x^8-1) (4 x^16+2 x^10-4 x^8-x^4-x^2+1)^(1/4)),x,"Elementary"->False,VerifySolutions->False]*)
 
 
 (* ::Input:: *)
@@ -4136,7 +4159,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[(x^4-1)/((x^4+1)Power[x^9-x^7, (8)^-1]),x, "MaxNumeratorDegree"->9,"MaxDenominatorDegree"->9]*)
+(*IntegrateAlgebraic[(x^4-1)/((x^4+1) (x^9-x^7)^(1/8)),x,"MaxNumeratorDegree"->9,"MaxDenominatorDegree"->9]*)
 
 
 (* ::Subsection::Closed:: *)
