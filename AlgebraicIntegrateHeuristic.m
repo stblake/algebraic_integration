@@ -447,11 +447,12 @@ IntegrateAlgebraic[e_, x_, opts:OptionsPattern[]] := Module[
 			integral = integratedPart + Integrate[rationalPart, x] + Defer[IntegrateAlgebraic][unintegratedPart, x]
 	];
 	
-	Collect[integral, (Power[p_,_Rational] /; !FreeQ[p,x]) | _Log | _ArcTan | _ArcTanh | _RootSum, Simplify]
+	integral = Collect[integral, (Power[p_,_Rational] /; !FreeQ[p,x]) | _Log | _ArcTan | _ArcTanh | _RootSum, Simplify];
+	stripConst[integral, x]
 ]
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*solveAlgebraicIntegral*)
 
 
@@ -539,6 +540,10 @@ If[nestedCount[unintegratedPart, x] > 0,
 		],
 		Return[{0, integrand, 0}, Module] (* As no further methods deal with nested radicals. *)
 	] 
+];
+
+If[nestedCount[unintegratedPart, x] > 0, 
+	Return[{0, integrand, 0}, Module](* As no further methods deal with nested radicals. *)
 ];
 
 (* Goursat pseudo-elliptic integral. *)
@@ -987,7 +992,7 @@ rationalUndetermined[x_Symbol, max_Integer] :=
 (Sum[V[k] x^k, {k, 0, max}]/Sum[V[max + k + 1] x^k, {k, 0, max}])
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*postProcess*)
 
 
@@ -1142,6 +1147,8 @@ e /. reps
 (* ::Input:: *)
 (*matchRadicals[ArcTanh[Sqrt[x+x^2]/(1+x)], x/Sqrt[x^3+x^4],x]*)
 
+
+ClearAll[stripConst];
 
 stripConst[e_, x_] := Module[{simp, const},
 
