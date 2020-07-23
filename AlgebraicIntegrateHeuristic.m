@@ -452,7 +452,7 @@ IntegrateAlgebraic[e_, x_, opts:OptionsPattern[]] := Module[
 ]
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*solveAlgebraicIntegral*)
 
 
@@ -4168,6 +4168,87 @@ EndPackage[];
 
 (* ::Input:: *)
 (*IntegrateAlgebraic[(x^4-1)/((x^4+1) (x^9-x^7)^(1/8)),x,"MaxNumeratorDegree"->9,"MaxDenominatorDegree"->9]*)
+
+
+(* ::Subsection::Closed:: *)
+(*Examples from github documentation*)
+
+
+(* ::Input:: *)
+(*int[Sqrt[x^4+6 x^2+1]/(x (x^2+1)),x]*)
+
+
+(* ::Input:: *)
+(*int[Sqrt[x^4+6 x^2+1]/((x-1) (x+1)^3),x]*)
+
+
+(* ::Input:: *)
+(*int[1/((x+1) (x^4+6 x^2+1)^(1/4)),x]*)
+
+
+(* ::Input:: *)
+(*int[(-1-2 x+3 x^2)/Sqrt[-3-2 x-x^2+4 x^3-x^4-2 x^5+x^6],x]*)
+
+
+(* ::Input:: *)
+(*int[(x^2-x)/Sqrt[-2 x+4 x^2-2 x^3+x^4-2 x^5+x^6],x]*)
+
+
+(* ::Input:: *)
+(*int[(1+3 x)/Sqrt[-1-4 x-5 x^2-2 x^3+x^4],x]*)
+
+
+(* ::Input:: *)
+(*int[x/Sqrt[1+4 x+3 x^2-2 x^3+x^4],x]*)
+
+
+(* ::Input:: *)
+(*int[x/Sqrt[-71-96 x+10 x^2+x^4],x]*)
+
+
+(* ::Input:: *)
+(*int[((2+x-x^3-x^4)^(2/3) (6+2 x+x^4) (-2-x+x^3+x^4))/(x^6 (-2-x+2 x^3+x^4)),x]*)
+(*AlgebraicIntegrateHeuristic`Private`RationalSubstitution*)
+(**)
+
+
+(* ::Input:: *)
+(*int[((-1+x^3-x^5-2 x^7)^(2/3) (1-x^3+x^5+2 x^7) (-3+2 x^5+8 x^7))/x^9,x]*)
+(*AlgebraicIntegrateHeuristic`Private`RationalSubstitution*)
+
+
+(* ::Input:: *)
+(*int[((1-x^3)^(2/3) (-1+4 x^3))/(x^6 (-2+3 x^3)),x]*)
+(*AlgebraicIntegrateHeuristic`Private`RationalSubstitution*)
+
+
+(* ::Input:: *)
+(*int[((x^2-1) Sqrt[x^4+x^2+1])/((x^2+1) (x^4+x^3+x^2+x+1)),x]*)
+(*AlgebraicIntegrateHeuristic`Private`RationalSubstitution*)
+
+
+(* ::Input:: *)
+(*int[(1-x^2)^2/((x^2+1) (x^4+6 x^2+1)^(3/4)),x]*)
+
+
+(* ::Input:: *)
+(*int[((3+2 x) (1+x+x^3)^(1/3))/(x^2 (1+x)),x]*)
+
+
+(* ::Input:: *)
+(*int[((-1+x^4-x^5)^(1/4) (-4+x^5))/x^6,x]*)
+
+
+(* ::Input:: *)
+(*int[1/(x^4+1)^(1/4),x]*)
+
+
+(* ::Input:: *)
+(*int[(1+x^6)/((1-x^6) Sqrt[1-x^2+x^4]),x]*)
+
+
+(* ::Input:: *)
+(*int[(1+x^2)/((1-x^2) Sqrt[1+x^4]),x]*)
 
 
 (* ::Subsection::Closed:: *)
