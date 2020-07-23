@@ -9,90 +9,83 @@ The package AlgebraicIntegrateHeuristic.m exposes one function: **solveAlgebraic
 This method can solve some interesting pseudo-elliptic integrals. Below are some examples, many more are in the source code. 
 
 ```
-In[290]:= solveAlgebraicIntegral[(1 + x^2)/((1 - x^2) Sqrt[1 + x^4]), x]
+In[1261]:= IntegrateAlgebraic[(1 + x^2)/((1 - x^2) Sqrt[1 + x^4]), x]
 
-Out[290]= {0, 0, ArcTanh[Sqrt[1 + x^4]/(Sqrt[2] x)]/Sqrt[2]}
+Out[1261]= ArcTanh[(Sqrt[2] x)/Sqrt[1 + x^4]]/Sqrt[2]
 ```
 
 ```
-In[291]:= solveAlgebraicIntegral[(1 + x^6)/((1 - x^6) Sqrt[1 - x^2 + x^4]), x]
+In[1260]:= IntegrateAlgebraic[(1 + x^6)/((1 - x^6) Sqrt[1 - x^2 + x^4]), x]
 
-Out[291]= {0, 0, 1/3 Sqrt[2] ArcTan[(Sqrt[2] x)/Sqrt[1 - x^2 + x^4]] + 1/3 ArcTanh[x/Sqrt[1 - x^2 + x^4]]}
+Out[1260]= 1/3 Sqrt[2] ArcTan[(Sqrt[2] x)/Sqrt[1 - x^2 + x^4]] + 1/3 ArcTanh[x/Sqrt[1 - x^2 + x^4]]
 ```
 
 ```
-In[1974]:= solveAlgebraicIntegral[1/(x^4 + 1)^(1/4), x]
+In[1259]:= IntegrateAlgebraic[1/(x^4 + 1)^(1/4), x]
 
-Out[1974]= {0, 0, 1/2 ArcTan[x/(1 + x^4)^(1/4)] + 1/2 ArcTanh[x/(1 + x^4)^(1/4)]}
+Out[1259]= 1/2 ArcTan[x/(1 + x^4)^(1/4)] + 1/2 ArcTanh[x/(1 + x^4)^(1/4)]
 ```
 
 ```
-In[1990]:= solveAlgebraicIntegral[((-1 + x^4 - x^5)^(1/4) (-4 + x^5))/x^6, x]
+In[1258]:= IntegrateAlgebraic[((-1 + x^4 - x^5)^(1/4) (-4 + x^5))/x^6, x]
 
-Out[1990]= {0, 0, ((-1 + x^4 - x^5)^(1/4) (4/5 - (4 x^4)/5 + (4 x^5)/5))/x^5}
+Out[1258]= -((4 (-1 + x^4 - x^5)^(5/4))/(5 x^5))
 ```
 
 ```
-In[1991]:= solveAlgebraicIntegral[((3 + 2 x) (1 + x + x^3)^(1/3))/(x^2 (1 + x)), x]
+In[1257]:= IntegrateAlgebraic[((3 + 2 x) (1 + x + x^3)^(1/3))/(x^2 (1 + x)), x]
 
-Out[1991]= {0, 0, -((3 (1 + x + x^3)^(1/3))/x) + 
-  Sqrt[3] ArcTan[(x + 2 (1 + x + x^3)^(1/3))/(Sqrt[3] x)] - 
-  Log[-x + (1 + x + x^3)^(1/3)] + 
-  1/2 Log[x^2 + x (1 + x + x^3)^(1/3) + (1 + x + x^3)^(2/3)]}
+Out[1257]= -((3 (1 + x + x^3)^(1/3))/x) + Sqrt[3] ArcTan[(x + 2 (1 + x + x^3)^(1/3))/(Sqrt[3] x)] - 
+ Log[-x + (1 + x + x^3)^(1/3)] + 1/2 Log[x^2 + x (1 + x + x^3)^(1/3) + (1 + x + x^3)^(2/3)]
 ```
 
 ```
-In[4006]:= solveAlgebraicIntegral[(1 - x^2)^2/((x^2 + 1) (x^4 + 6 x^2 + 1)^(3/4)), x]
+In[1256]:= IntegrateAlgebraic[(1 - x^2)^2/((x^2 + 1) (x^4 + 6 x^2 + 1)^(3/4)), x]
 
-Out[4006]= {0, 0, ArcTan[(1 - x)/(1 + 6 x^2 + x^4)^(1/4)] - ArcTan[(1 + x)/(1 + 6 x^2 + x^4)^(1/4)] - 
-  ArcTanh[(1 - x)/(1 + 6 x^2 + x^4)^(1/4)] + ArcTanh[(1 + x)/(1 + 6 x^2 + x^4)^(1/4)]}
+Out[1256]= -ArcTan[(-1 + x)/(1 + 6 x^2 + x^4)^(1/4)] - ArcTan[(1 + x)/(1 + 6 x^2 + x^4)^(1/4)] + 
+ ArcTanh[(-1 + x)/(1 + 6 x^2 + x^4)^(1/4)] + ArcTanh[(1 + x)/(1 + 6 x^2 + x^4)^(1/4)]
 ```
 
 ```
-In[293]:= solveAlgebraicIntegral[((x^2 - 1) Sqrt[x^4 + x^2 + 1])/((x^2 + 1) (x^4 + x^3 + x^2 + x + 1)), x]
+In[1254]:= IntegrateAlgebraic[((x^2 - 1) Sqrt[x^4 + x^2 + 1])/((x^2 + 1) (x^4 + x^3 + x^2 + x + 1)), x]
+AlgebraicIntegrateHeuristic`Private`RationalSubstitution
 
-Out[293]= {0, 0, ArcTan[Sqrt[1 + x^2 + x^4]/x] + 
-  Sqrt[2/(5 (-1 + Sqrt[5]))] ArcTan[(Sqrt[-2 + 2 Sqrt[5]] Sqrt[1 + x^2 + x^4])/
-  (-1 + Sqrt[5] - 2 x - x^2 + Sqrt[5] x^2)] + 
-  1/5 Sqrt[(15 - 5 Sqrt[5])/(-1 + Sqrt[5])] Log[2 + x + Sqrt[5] x + 2 x^2] - 
-  1/5 Sqrt[(15 - 5 Sqrt[5])/(-1 + Sqrt[5])] Log[1 + Sqrt[5] + 2 x + x^2 + Sqrt[5] x^2 - 
-  Sqrt[2 + 2 Sqrt[5]] Sqrt[1 + x^2 + x^4]]}
+Out[1254]= -2 ArcTan[Sqrt[1 + x^2 + x^4]/(1 - x + x^2)] + 
+ Sqrt[2/5 (1 + Sqrt[5])] ArcTan[Sqrt[1 + x^2 + x^4]/(Sqrt[2 + Sqrt[5]] (1 - x + x^2))] + 
+ Sqrt[2/5 (-1 + Sqrt[5])] ArcTanh[(Sqrt[-2 + Sqrt[5]] Sqrt[1 + x^2 + x^4])/(1 + x + x^2)]
+
+Out[1255]= (-1 - x^2)/x
 ```
 
 Below we see that the symbol ```AlgebraicIntegrateHeuristic`Private`RationalSubstitution``` stores the substitution used in computing the integral, incase the interested reader would like to see the substitution that simplified the integral.
 
 ```
-In[1999]:= solveAlgebraicIntegral[((1 - x^3)^(2/3) (-1 + 4 x^3))/(x^6 (-2 + 3 x^3)), x]
+In[1252]:= IntegrateAlgebraic[((1 - x^3)^(2/3) (-1 + 4 x^3))/(x^6 (-2 + 3 x^3)), x]
 AlgebraicIntegrateHeuristic`Private`RationalSubstitution
 
-Out[1999]= {0, 0, ((1 - x^3)^(2/3) (-(1/10) + (29 x^3)/40))/x^5 + 
-  (5 ArcTan[(x/Sqrt[3] + (2 2^(1/3) (1 - x^3)^(1/3))/Sqrt[3])/x])/(4 2^(2/3) Sqrt[3]) - 
-  (5 Log[x])/(12 2^(2/3)) + (5 Log[x^2])/(24 2^(2/3)) + 
-  (5 Log[x - 2^(1/3) (1 - x^3)^(1/3)])/(12 2^(2/3)) - 
-  (5 Log[x^2 + 2^(1/3) x (1 - x^3)^(1/3) + 2^(2/3) (1 - x^3)^(2/3)])/(24 2^(2/3))}
+Out[1252]= ((1 - x^3)^(2/3) (-4 + 29 x^3))/(40 x^5) - (5 ArcTan[(Sqrt[3] x)/(x + 2 2^(1/3) (1 - x^3)^(1/3))])/(4 2^(2/3) Sqrt[3]) + (5 Log[-x + 2^(1/3) (1 - x^3)^(1/3)])/(12 2^(2/3)) - (5 Log[x^2 + 2^(1/3) x (1 - x^3)^(1/3) + 2^(2/3) (1 - x^3)^(2/3)])/(24 2^(2/3))
 
-Out[2000]= (1 + x^3)/x^3
+Out[1253]= (1 + x^3)/x^3
 ```
 
 ```
-In[2005]:= solveAlgebraicIntegral[((-1 + x^3 - x^5 - 2 x^7)^(2/3) (1 - x^3 + x^5 + 2 x^7) (-3 + 2 x^5 + 8 x^7))/x^9, x]
+In[1250]:= IntegrateAlgebraic[((-1 + x^3 - x^5 - 2 x^7)^(2/3) (1 - x^3 + x^5 + 2 x^7) (-3 + 2 x^5 + 8 x^7))/x^9, x]
 AlgebraicIntegrateHeuristic`Private`RationalSubstitution
 
-Out[2005]= {0, 0, ((-1 + x^3 - x^5 - 2 x^7)^(2/3) (3/8 - (3 x^3)/4 + (3 x^5)/4 + (3 x^6)/8 + 
-  (3 x^7)/2 - (3 x^8)/4 - (9 x^10)/8 + (3 x^12)/2 + (3 x^14)/2))/x^8}
+Out[1250]= (3 (-1 + x^3 - x^5 - 2 x^7)^(8/3))/(8 x^8)
 
-Out[2006]= (-1 - x^5 - 2 x^7)/x^3
+Out[1251]= (-1 - x^5 - 2 x^7)/x^3
 ```
 
 ```
-In[2017]:= solveAlgebraicIntegral[((2 + x - x^3 - x^4)^(2/3) (6 + 2 x + x^4) (-2 - x + x^3 + x^4))/(x^6 (-2 - x + 2 x^3 + x^4)), x]
+In[1246]:= IntegrateAlgebraic[((2 + x - x^3 - x^4)^(2/3) (6 + 2 x + x^4) (-2 - x + x^3 + x^4))/(x^6 (-2 - x + 2 x^3 + x^4)), x]
 AlgebraicIntegrateHeuristic`Private`RationalSubstitution
 
-Out[2017]= {0, 0, (3 (2 + x - x^3 - x^4)^(2/3) (-4 - 2 x - 3 x^3 + 2 x^4))/(10 x^5) - 
-  Sqrt[3] ArcTan[(Sqrt[3] x + 2 Sqrt[3] (2 + x - x^3 - x^4)^(1/3))/(3 x)] - Log[-x + (2 + x - x^3 - x^4)^(1/3)] + 
-  1/2 Log[x^2 + x (2 + x - x^3 - x^4)^(1/3) + (2 + x - x^3 - x^4)^(2/3)]}
 
-Out[2018]= (2 + x - x^4)/x^3
+Out[1246]= -(((12 + 6 x + 9 x^3 - 6 x^4) (2 + x - x^3 - x^4)^(2/3))/(10 x^5)) - Sqrt[3] ArcTan[(x + 2 (2 + x - x^3 - x^4)^(1/3))/(Sqrt[3] x)] - 
+ Log[-x + (2 + x - x^3 - x^4)^(1/3)] + 1/2 Log[x^2 + x (2 + x - x^3 - x^4)^(1/3) + (2 + x - x^3 - x^4)^(2/3)]
+
+Out[1247]= (2 + x - x^4)/x^3
 ```
 
 We now have some additional specific methods for integrals of the form ```Integrate[a[x]/(b[x] Sqrt[r[x]])] == c Log[p[x] + q[x] Sqrt[r[x]]]```. For example, the following integral was posted on sci.math.symbolic by Henri Cohen in 1993 and was solved by Manuel Bronstein using AXIOM: 
