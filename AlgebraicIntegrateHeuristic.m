@@ -987,7 +987,7 @@ rationalUndetermined[x_Symbol, max_Integer] :=
 (Sum[V[k] x^k, {k, 0, max}]/Sum[V[max + k + 1] x^k, {k, 0, max}])
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*postProcess*)
 
 
@@ -1143,6 +1143,19 @@ e /. reps
 (*matchRadicals[ArcTanh[Sqrt[x+x^2]/(1+x)], x/Sqrt[x^3+x^4],x]*)
 
 
+stripConst[e_, x_] := Module[{simp, const},
+
+	simp = e;
+	simp = partialExpand[simp];
+	If[Head[simp] === Plus, 
+		const = Cases[simp, n_ /; FreeQ[n, x], {1}];
+		simp -= Total[const];
+	];
+	
+	simp
+]
+
+
 (* ::Text:: *)
 (*postProcess is not only for asthetic reasons. We also attempt to correct for the substitution taking a branch of the radical. *)
 (**)
@@ -1153,14 +1166,10 @@ Clear[postProcess];
 
 Options[postProcess] = {"Integrand" -> None};
 
-postProcess[e_, x_, OptionsPattern[]] := Module[{$function, simp, permutations, numerics, denomP},
+postProcess[e_, x_, OptionsPattern[]] := Module[{$function, simp, permutations, denomP},
 
 	(* Remove constants. *)
-	simp = partialExpand[simp];
-	If[Head[simp] === Plus, 
-		numerics = Cases[simp, n_ /; FreeQ[n, x], {1}];
-		simp -= Total[numerics];
-	];
+	simp = stripConst[simp, x];
 
 	simp = e /. {RootSum -> $rootSum, Function -> $function};
 
@@ -1224,22 +1233,14 @@ postProcess[e_, x_, OptionsPattern[]] := Module[{$function, simp, permutations, 
 	simp = simp /. ArcTanh[a_] /; nicerQ[Numerator[a], Denominator[a], x] :> ArcTanh[collectnumden @ canonic[Denominator[a]/Numerator[a]]];
 
 	(* Remove constants. *)
-	simp = partialExpand[simp];
-	If[Head[simp] === Plus, 
-		numerics = Cases[simp, n_ /; FreeQ[n, x], {1}];
-		simp -= Total[numerics];
-	];
+	simp = stripConst[simp, x];
 
 	simp = collect[simp, x] /. Power[p_, r_Rational] :> Expand[p]^r;
 	simp = simp /. p_ /; PolynomialQ[p,x] :> Collect[p, x];
 	simp = simp /. Log[ex_] :> Log[Collect[ex, Power[_, _Rational]]];
 
 	(* Remove constants. *)
-	simp = partialExpand[simp];
-	If[Head[simp] === Plus, 
-		numerics = Cases[simp, n_ /; FreeQ[n, x], {1}];
-		simp -= Total[numerics];
-	];
+	simp = stripConst[simp, x];
 	
 	simp /. {$rootSum -> RootSum, $function -> Function}
 ]
