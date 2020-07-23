@@ -4,7 +4,7 @@ This is a Mathematica prototype for solving _some_ pseudo-elliptic integrals in 
 
 This method should be easy enough to port to other CAS. We use **SolveAlways** to equate coefficients of powers of _x_ and compute the undeterminted coefficients in a system of equations, but this could easily be hand-coded and reduced to a system of linear equations.
 
-The package AlgebraicIntegrateHeuristic.m exposes one function: **IntegrateAlgebraic[**_integrand_, _variable_**]**. 
+The package AlgebraicIntegrateHeuristic.m exposes one function: **IntegrateAlgebraic[**_integrand_, _variable_**]**. There is a variable $verboseLevel which can be set to 0, 1, 2, 3, with higher values showing more of the internal execution of **IntegrateAlgebraic**. 
 
 This method can solve some interesting pseudo-elliptic integrals. Below are some examples, many more are in the source code. 
 
