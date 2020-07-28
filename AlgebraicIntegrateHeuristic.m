@@ -432,7 +432,8 @@ Options[IntegrateAlgebraic] = {
 	"TableSize" -> "Small",
 	"DegreeBound" -> 8,
 	"LinearRational" -> True,
-	"Elementary" -> True
+	"Elementary" -> True,
+	"Apart" -> False
 }; 
 
 IntegrateAlgebraic[e_, x_, opts:OptionsPattern[]] := Module[
@@ -607,25 +608,27 @@ debugPrint1["logPart returned : ", {rationalPart, unintegratedPart, integratedPa
 
 (* Partial fraction expansion and integrate term-by-term. *)
 
-debugPrint1["Trying partial fractions on ", unintegratedPart];
-result = partialFractionIntegrate[unintegratedPart, x, opts];
-If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[result[[3]], unintegratedPart - result[[1]] - result[[2]]],
-	rationalPart    += result[[1]]; 
-	unintegratedPart = result[[2]];
-	integratedPart  += result[[3]]
-];
-debugPrint1["partialFractionIntegrate returned : ", {rationalPart, unintegratedPart, integratedPart}];
+If[OptionValue["Apart"],
+	debugPrint1["Trying partial fractions on ", unintegratedPart];
+	result = partialFractionIntegrate[unintegratedPart, x, opts];
+	If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[result[[3]], unintegratedPart - result[[1]] - result[[2]]],
+		rationalPart    += result[[1]]; 
+		unintegratedPart = result[[2]];
+		integratedPart  += result[[3]]
+	];
+	debugPrint1["partialFractionIntegrate returned : ", {rationalPart, unintegratedPart, integratedPart}];
 
-(* Expand and integrate term-by-term. *)
+	(* Expand and integrate term-by-term. *)
 
-debugPrint1["Trying expansion into sum of terms on ", unintegratedPart];
-result = expandIntegrate[unintegratedPart, x, opts];
-If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[result[[3]], unintegratedPart - result[[1]] - result[[2]]],
-	rationalPart    += result[[1]]; 
-	unintegratedPart = result[[2]];
-	integratedPart  += result[[3]]
+	debugPrint1["Trying expansion into sum of terms on ", unintegratedPart];
+	result = expandIntegrate[unintegratedPart, x, opts];
+	If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[result[[3]], unintegratedPart - result[[1]] - result[[2]]],
+		rationalPart    += result[[1]]; 
+		unintegratedPart = result[[2]];
+		integratedPart  += result[[3]]
+	];
+	debugPrint1["expandIntegrate returned : ", {rationalPart, unintegratedPart, integratedPart}];
 ];
-debugPrint1["expandIntegrate returned : ", {rationalPart, unintegratedPart, integratedPart}];
 
 	If[$Testing,
 		testSolveAlgebraicIntegral[integrand // Hash] = {
@@ -762,7 +765,7 @@ rationalUndeterminedIntegrate[integrand_, x_, opts : OptionsPattern[]] := Module
 						debugPrint3["u substitution = ", usubstitution, ", ", Style[usubstitutionParam, Red]];
 
 						(* Solve for the rational part of the integral. *)
-						{matched, rationalFormU, rationalMatchRules} = solveRational[(* solveRationalUndetermined *)
+						{matched, rationalFormU, rationalMatchRules} = solveRationalUndetermined[(* solveRationalUndetermined *)
 							integrandNumerator, integrandDenominator, p, r, 
 							usubstitutionParam, radicandDenominatorUParam, x, u, 
 							"MaxRationalDegree" -> maxRationalDegree];
@@ -1938,8 +1941,13 @@ If[!PolynomialQ[den, x],
 ];
 
 (* Substitute x \[Rule] (b - a) u + a *)
-{a,b,c} = Sort[x /. Solve[rad == 0, x]];(* TODO: conditions on the roots? real? repeated?? SB *)
+{a,b,c} = Sort[x /. Solve[rad == 0, x]];
 debugPrint2["Radicand roots are ", {a,b,c}];
+
+(* Demand two real roots. *)
+If[Count[{a,b,c}, s_ /; FreeQ[s, _Complex]] < 2, 
+	Return[ False ]
+];
 
 If[! FreeQ[{a,b,c}, 0] && ! FreeQ[{a,b,c}, 1],
 	c = Complement[{a,b,c}, {0, 1}] /. {{e_} :> e, {} -> 1}; 
@@ -3357,7 +3365,7 @@ ClearAll[integrateNestedRadicals];
 integrateNestedRadicals[e_, x_, u_] := Module[{integrand, subst, result},
 
 	{integrand, subst} = decreaseNestedRadicals[e, x, u];
-	debug2["Recursive call for the integrand ", integrand];
+	debug1["Using the substitution ", subst, " reduces the integral to ", integrand];
 	result = solveAlgebraicIntegral[integrand, u];
 	
 	result = {0, result[[2]], Integrate[result[[1]], u] + result[[3]]} /. subst;
@@ -3365,7 +3373,7 @@ integrateNestedRadicals[e_, x_, u_] := Module[{integrand, subst, result},
 	result = result /. Factor -> Identity;
 	result = result /. {$rootSum -> RootSum, $function -> Function};
 	
-	postProcess[result // PowerExpand, x]
+	postProcess[result // PowerExpand // Apart // Expand, x]
 ]
 
 
