@@ -708,12 +708,9 @@ rationalUndeterminedIntegrate[integrand_, x_, opts : OptionsPattern[]] := Module
 			Do[
 				(* All further candidate substitutions will not match (as the 
 					substitution numerators are sorted by degree). *)
+					
 				If[Exponent[usubstitution, x] > Exponent[p, x],
 					Throw[{}]];
-
-				(* Check the degrees agree.  *)
-				If[Exponent[radicand[usubstitution], x] =!= Exponent[p, x],
-					Continue[]];
 
 				(* Form the substitution. *)
 				uform = usubstitution/x^denP;
@@ -765,7 +762,7 @@ rationalUndeterminedIntegrate[integrand_, x_, opts : OptionsPattern[]] := Module
 						debugPrint3["u substitution = ", usubstitution, ", ", Style[usubstitutionParam, Red]];
 
 						(* Solve for the rational part of the integral. *)
-						{matched, rationalFormU, rationalMatchRules} = solveRationalUndetermined[(* solveRationalUndetermined *)
+						{matched, rationalFormU, rationalMatchRules} = solveRational[(* solveRationalUndetermined *)
 							integrandNumerator, integrandDenominator, p, r, 
 							usubstitutionParam, radicandDenominatorUParam, x, u, 
 							"MaxRationalDegree" -> maxRationalDegree];
@@ -2431,7 +2428,7 @@ SortBy[goodsubs, LeafCount] // First
 (*linearRationalSubstitution2[(-7+x)/((-11+5 x)Sqrt[-60+83 x-21 x^2-3 x^3+x^4]), x,u]//Timing*)
 
 
-(* ::Subsubsection::Closed:: *)
+(* ::Subsubsection:: *)
 (*linearRationalSubstitution3*)
 
 
@@ -2487,8 +2484,12 @@ If[goodsubs === {},
 	Return[ False ]
 ];
 
-SortBy[goodsubs, LeafCount] // First
+SortBy[goodsubs, LeafCount] // First // PowerExpand
 ]
+
+
+(* ::Input:: *)
+(*linearRationalSubstitution3[((2 x^2+x-1) (x^4-x^3)^(1/4))/(x^2-x-1), x, u]*)
 
 
 (* ::Subsection::Closed:: *)
@@ -3491,6 +3492,9 @@ Dt[y]==integrand Dt[x],
 u==sub//PowerExpand,
 Dt[u==sub]//Together//Cancel(* // PowerExpand *)
 };
+
+eqns = eqns /. HoldPattern[Dt][Except[y|x|u]] -> 0; 
+
 debugPrint2[eqns];
 
 (*
@@ -3520,6 +3524,7 @@ If[MatchQ[uintegrands, {}|{{}}|_Solve],
 uintegrands = uintegrands /. Dt[u] -> 1;
 
 uintegrands = PowerExpand[Factor[uintegrands]] //. Power[a_,n_Rational]Power[b_,n_Rational] :> a^IntegerPart[n] b^IntegerPart[n] Power[a b, FractionalPart[n]];
+debugPrint2[uintegrands];
 
 (* Pick the correct substitution. *)
 gooduintegrands = Cases[uintegrands, {_ -> intU_} /; (PossibleZeroQ[integrand - Cancel @ Together[intU D[sub, x] /. u -> sub]]), 1, 1];
@@ -3667,8 +3672,32 @@ EndPackage[];
 (*int[(1-x^2)^2/((x^2+1) (x^4+6 x^2+1)^(3/4)),x]*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*current bugs and deficiencies*)
+
+
+(* ::Input:: *)
+(*int[(x^4 (x^3+x^4)^(1/4))/(1+x),x]*)
+
+
+(* ::Input:: *)
+(*int[(x^2 (x^3+x^4)^(1/4))/(-1+x),x]*)
+
+
+(* ::Input:: *)
+(*int[((x^4+x-1) (x^4-x^3)^(1/4))/(x+1),x]*)
+
+
+(* ::Input:: *)
+(*int[((x^2-x) (x^4-x^3)^(1/4))/(x^2-x-1),x]*)
+
+
+(* ::Input:: *)
+(*int[((2 x^2+x-1) (x^4-x^3)^(1/4))/(x^2-x-1),x]*)
+
+
+(* ::Text:: *)
+(*It should be easy enough to implement a general method for integrals like*)
 
 
 (* ::Input:: *)
