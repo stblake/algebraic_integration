@@ -1455,7 +1455,7 @@ integrateQuadraticRadical[e_, x_] := Module[
 	(* Can we substitute u \[Equal] (x^2)? eg. (x*Sqrt[-2 + x^2])/(2 - 4*x^2 + x^4) *)
 	
 	intt = subst[e, t -> x^2, x];
-	If[intt =!= {} && ListQ[linearRadicalToRational[intt // First, t, u]],
+	If[intt =!= False && ListQ[linearRadicalToRational[intt // First, t, u]],
 		Return[ integrate[intt // First, t] /. Last[intt] ]
 	];
 
@@ -1554,7 +1554,7 @@ exy = n/a u^(n-1) exy /. {x -> (u^n - b)/a, y -> u};
 (*\[Integral]((1+u)^(2/3) (1-4 u+2 u^2))/(3 (-1+u)^2) \[DifferentialD]u*)
 
 
-(* ::Subsubsection::Closed:: *)
+(* ::Subsubsection:: *)
 (*quadraticRadicalToRational*)
 
 
@@ -1930,7 +1930,13 @@ If[Not[algebraicQ[intrat, x] && singleEllipticRadicalQ[intrat, x] && PolynomialQ
 	Return[ False ]
 ];
 
-rad = Cases[den, Power[p_, 1/2] /; (! FreeQ[p, x] && PolynomialQ[p, x]) :> p, {0, Infinity}, 1][[1]];
+rad = Cases[den, Power[p_, 1/2] /; (! FreeQ[p, x] && PolynomialQ[p, x]) :> p, {0, Infinity}, 1];
+
+If[rad === {}, 
+	Return[ False ],
+	rad = rad[[1]]
+];
+
 If[Exponent[rad, x] =!= 3, 
 	Return[ False ]];
 
@@ -2006,6 +2012,10 @@ If[!(rationalQ[ratv, v] || NumberQ[ratv]),
 sub = Together[sub /. u -> (x - a)/(b - a)] /. p_ /; PolynomialQ[p, x] :> Expand[p];
 {ratv /. v -> u, u -> sub}
 ]
+
+
+(* ::Input:: *)
+(*goursatIntegrate[(1-x^2)^2/((1+x^2) (1+6 x^2+x^4)^(3/4)),x,u]*)
 
 
 (* ::Input:: *)
@@ -3731,7 +3741,7 @@ EndPackage[];
 (*int[1/((x+1) (x^3+2)^(1/3)),x]*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*wish list*)
 
 
