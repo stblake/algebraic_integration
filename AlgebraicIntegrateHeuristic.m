@@ -1667,6 +1667,10 @@ integrateMultipleLinearRadical[e_, x_] := Module[{u, integrand, subst, integral}
 
 
 (* ::Input:: *)
+(*integrateMultipleLinearRadical[1/(2 Sqrt[x]+Sqrt[1+x])^2,x]*)
+
+
+(* ::Input:: *)
 (*IntegrateAlgebraic[Sqrt[1-x]/(8 (1+x)^(7/2)),x]*)
 
 
@@ -1682,13 +1686,14 @@ integrateMultipleLinearRadical[e_, x_] := Module[{u, integrand, subst, integral}
 (*Ref: equation 221.1, pp. 32		Gr\[ODoubleDot]bner, W. Hofreiter, N. (1949). "Integraltafel Erster Teil: Unbestimmte Integrale", Springer-Verlag Wien. *)
 
 
-(* ::Input::Initialization:: *)
+(* ::Input::Initialization::Plain:: *)
 ClearAll[multipleLinearRadicalToRational];
 
 multipleLinearRadicalToRational[e_, x_, u_] := Module[
 {radicals, ys, exy,y1, y2, dx, a, b, c, d, \[Alpha], \[Beta], \[Gamma], rat},
 
-(* Find radicals of the form (a x + b)^(1/2). *)radicals = Cases[e, y:(a_. x + b_.)^m_ /; 
+(* Find radicals of the form (a x + b)^(1/2). *)
+radicals = Cases[e, y:(a_. x + b_.)^m_ /; 
 	Denominator[m]==2 && FreeQ[{a,b},x] :> {y, a, b}, {0, Infinity}];
 
 radicals = Union[radicals];
@@ -1738,7 +1743,7 @@ dx-> (4\[Beta] \[Gamma] c^2 u^4-8(2\[Alpha] a c+a d+b c)c u^3+24\[Beta] \[Gamma]
 (*Ideally \[Alpha] should be chosen such that Sqrt[a \[Alpha] + b] and Sqrt[c \[Alpha] + d] are both integers or rationals. *)
 
 
-(* ::Input::Initialization:: *)
+(* ::Input::Initialization::Plain:: *)
 ClearAll[pickAlpha];
 
 pickAlpha[a_,b_,c_,d_] := Module[
@@ -2348,7 +2353,7 @@ If[MatchQ[solns, {}|{{}} | _Solve | {{(_ -> _?PossibleZeroQ) ..}..}],
 subs = Table[
 	subX = (a - b u)/(u - 1) /. soln // Cancel;
 	subX = subX /. a|b|p|q -> 1 // Cancel;
-	intU = MapAll[Together, e dx /. {x -> subX, dx -> D[subX, u]}] // Cancel // PowerExpand // Cancel;
+	intU = Quiet[ MapAll[Together, e dx /. {x -> subX, dx -> D[subX, u]}] // Cancel // PowerExpand // Cancel ];
 	subU = (x + a)/(x + b) /. soln // Cancel;
 	subU = subU /. a|b|p|q -> 1 // Cancel;
 
@@ -2368,15 +2373,19 @@ SortBy[goodsubs, LeafCount] // First
 
 
 (* ::Input:: *)
-(*Timing[linearRationalSubstitution[(1-x^2)^2/((x^2+1) (x^4+6 x^2+1)^(3/4)),x,u]]*)
+(*linearRationalSubstitution1[(-x+x^2)/Sqrt[-2 x+4 x^2-2 x^3+x^4-2 x^5+x^6],x,u]*)
 
 
 (* ::Input:: *)
-(*linearRationalSubstitution[1/((x+1) (x^4+6 x^2+1)^(1/4)),x,u]//Timing*)
+(*linearRationalSubstitution1[(1-x^2)^2/((x^2+1) (x^4+6 x^2+1)^(3/4)),x,u]*)
 
 
 (* ::Input:: *)
-(*linearRationalSubstitution[(1+15 x^2+15 x^4+x^6)^(1/6)/((-1+x) (1+x)^2),x,u]//Timing*)
+(*linearRationalSubstitution1[1/((x+1) (x^4+6 x^2+1)^(1/4)),x,u]*)
+
+
+(* ::Input:: *)
+(*linearRationalSubstitution1[(1+15 x^2+15 x^4+x^6)^(1/6)/((-1+x) (1+x)^2),x,u]*)
 
 
 (* ::Subsubsection::Closed:: *)
@@ -2418,7 +2427,7 @@ If[MatchQ[solns, {}|{{}} | _Solve | {{(_ -> _?PossibleZeroQ) ..}..}],
 subs = Table[
 	subX = (a - b u)/(u - 1) /. soln // Cancel;
 	subX = subX /. a|b|p|q|r -> 1 // Cancel;
-	intU = MapAll[Together, e dx /. {x -> subX, dx -> D[subX, u]}] // Cancel // PowerExpand // Cancel;
+	intU = Quiet[ MapAll[Together, e dx /. {x -> subX, dx -> D[subX, u]}] // Cancel // PowerExpand // Cancel ];
 	subU = (x + a)/(x + b) /. soln // Cancel;
 	subU = subU /. a|b|p|q|r -> 1 // Cancel;
 	{semiRationalise[intU, u], u -> subU},
@@ -2440,7 +2449,7 @@ SortBy[goodsubs, LeafCount] // First
 (*linearRationalSubstitution2[(-7+x)/((-11+5 x)Sqrt[-60+83 x-21 x^2-3 x^3+x^4]), x,u]//Timing*)
 
 
-(* ::Subsubsection:: *)
+(* ::Subsubsection::Closed:: *)
 (*linearRationalSubstitution3*)
 
 
@@ -2480,7 +2489,7 @@ If[MatchQ[solns, {}|{{}} | _Solve | {{(_ -> _?PossibleZeroQ) ..}..}],
 subs = Table[
 	subX = (a - b u)/(u - 1) /. soln;
 	subX = subX /. a|b|p|q|r -> 1 // Cancel;
-	intU = MapAll[Together, e dx /. {x -> subX, dx -> D[subX, u]}] // Cancel;
+	intU = Quiet[ MapAll[Together, e dx /. {x -> subX, dx -> D[subX, u]}] // Cancel ];
 	subU = (x + a)/(x + b) /. soln;
 	subU = subU /. a|b|p|q|r -> 1 // Cancel;
 	Sequence @@ {
@@ -3691,6 +3700,14 @@ EndPackage[];
 
 
 (* ::Text:: *)
+(*Ouch:*)
+
+
+(* ::Input:: *)
+(*int[1/(2 Sqrt[x]+Sqrt[x+1])^2,x]*)
+
+
+(* ::Text:: *)
 (*The integral below should work without Expand[]:*)
 
 
@@ -4290,7 +4307,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[(1-x^2)^2/((x^2+1) (x^4+6 x^2+1)^(3/4)),x]*)
+(*int[(1-x^2)^2/((x^2+1) (x^4+6 x^2+1)^(3/4)),x,"Apart"->True]*)
 
 
 (* ::Input:: *)
@@ -4313,7 +4330,7 @@ EndPackage[];
 (*int[(1+x^2)/((1-x^2) Sqrt[1+x^4]),x]*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*regression testing*)
 
 
@@ -4411,10 +4428,6 @@ EndPackage[];
 
 (* ::Input:: *)
 (*int[1/(Sqrt[x^2-1] (3 x^2-4)^2),x]*)
-
-
-(* ::Input:: *)
-(*int[1/(2 Sqrt[x]+Sqrt[x+1])^2,x]*)
 
 
 (* ::Input:: *)
