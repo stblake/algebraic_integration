@@ -441,7 +441,7 @@ IntegrateAlgebraic[e_, x_, opts:OptionsPattern[]] := Module[
 
 	$ProfileStartTime = AbsoluteTime[];
 
-	{rationalPart, unintegratedPart, integratedPart} = solveAlgebraicIntegral[e, x, opts];
+	{rationalPart, unintegratedPart, integratedPart} = solveAlgebraicIntegral[e /. C -> internalC, x, opts];
 	
 	If[unintegratedPart === 0, 
 			integral = integratedPart + Integrate[rationalPart, x],
@@ -449,7 +449,7 @@ IntegrateAlgebraic[e_, x_, opts:OptionsPattern[]] := Module[
 	];
 	
 	integral = Collect[integral, (Power[p_,_Rational] /; !FreeQ[p,x]) | _Log | _ArcTan | _ArcTanh | _RootSum, Simplify];
-	stripConst[integral, x]
+	stripConst[integral, x] /. internalC -> C
 ]
 
 
@@ -943,8 +943,8 @@ solveRadicand[poly_, form_, x_] := Module[{rules},
 	
 	If[Exponent[poly, x] === Exponent[form, x],
 		rules = Quiet[Solve[! Eliminate[!(poly == form), {x}], Reverse @ Union @ Cases[form, (A|B)[_], Infinity]], {Solve::"svars"}];
-		{! MatchQ[rules, {} | _SolveAlways], rules},
-		{False, {}}	
+		{! MatchQ[rules, {} | {{}} | _Solve], rules},
+		{False, {}}
 	]
 ]
 
@@ -1327,9 +1327,17 @@ ClearAll[numericZeroQ];
 Options[numericZeroQ] = {Precision -> $MachinePrecision, Tolerance -> 1.0*^-6};
 
 numericZeroQ[e_, OptionsPattern[]] := Module[
-	{v, ef, lower, upper, step, numericeval},
-	v = Union[Flatten[Variables /@ Level[e, {-1}]]];
-	ef = Function @@ {v, e};
+	{ee, vpre, v, ef, lower, upper, step, numericeval, $c},
+
+	If[NumericQ[e] && e == 0., Return[ True ]];
+	
+	vpre = Union[Flatten[{ 
+		Cases[e, c:(C|internalC)[_Integer] :> (c -> Unique[$c]), {0,\[Infinity]}],
+		Cases[e, s_Symbol[_Integer] /; Context[s] == "Global`" :> (s -> Unique[$c]), {0,\[Infinity]}]}]];
+	ee = e /. vpre;
+	
+	v = Union[Flatten[Variables /@ Level[ee, {-1}]]];
+	ef = Function @@ {v, ee};
 
 	lower = -10.0 - (119. E)/(121. Pi); (* Some crazy numbers to hopefully not hit a pole. *)
 	upper = 10.0 + (119. E)/(121. Pi);
@@ -1431,10 +1439,11 @@ integrate[e_, x_] /; ListQ[ linearRadicalToRational[e, x, $u] ] :=
 	integrateLinearRadical[e, x]
 
 
-integrateLinearRadical[e_, x_] := Module[{integrand, subst, integral},
+integrateLinearRadical[e_, x_] := Module[{integrand, substitution, integral},
 
-	{integrand, subst} = linearRadicalToRational[e, x, $u];
-	integral = Integrate[integrand, $u] /. subst;
+	{integrand, substitution} = linearRadicalToRational[e, x, $u];
+	debugPrint3["Rationalised integrand and substitution is ", {integrand, substitution}];
+	integral = Integrate[integrand, $u] /. substitution;
 	integral	
 ]
 
@@ -1462,6 +1471,7 @@ integrateQuadraticRadical[e_, x_] := Module[
 	(* Euler's substitution for Sqrt[quadratic]. *)
 	
 	{integrand, substitution} = quadraticRadicalToRational[e, x, u];
+	debugPrint3["Rationalised integrand and substitution is ", {integrand, substitution}];
 	integral = Integrate[integrand, u] /. substitution;
 	integral = integral // Apart // Expand // Together;
 
@@ -1972,6 +1982,9 @@ If[! FreeQ[{a,b,c}, 0] && ! FreeQ[{a,b,c}, 1],
 	debugPrint2["Integrand translated so roots at 0 and 1 in ", u, " is ", numu/(denu Sqrt[radu])];
 ];
 
+If[! PossibleZeroQ[Together[num/(den Sqrt[rad]) - (numu/(denu Sqrt[radu]) /. u -> (x - a)/(b - a))]], 
+	Return[ False ]];
+
 (* The three cases which yield pseudo-elliptic integrals for cubics. *)
 Which[
 (* F(u) \[Equal] F(1/(k^2 u)) *)
@@ -2322,7 +2335,7 @@ powerReduce2[e_, x_] := e //. (p_ q_^n_Integer)^m_Rational /;
 ClearAll[linearRationalSubstitution1];
 
 linearRationalSubstitution1[e_, x_, u_] := Module[
-{radicals, radicand, deg, a, b, d, p, q, r, s, radU,
+{radicals, radicand, deg, a, b, d, p, q, r, s, n, radU,
  eqn, soln, solns, subX, subU, intU, dx, subs, goodsubs},
 
 radicals = Cases[e, Power[p_ /; PolynomialQ[p,x], r_Rational] :> {p, r}, {0,Infinity}];
@@ -2332,7 +2345,9 @@ If[radicals === {} || Length[Union[radicals]] > 1,
 ];
 
 radicand = radicals[[1,1]];
+n = Denominator[radicals[[1,2]]];
 deg = Exponent[radicand, x];
+If[n != deg, Return[ False ]];
 
 radU = Collect[radicand /. {x -> (a - b u)/(u - 1)} // Together // Cancel, u];
 eqn = Numerator[radU] == (p u^deg + q);
@@ -2370,6 +2385,10 @@ If[goodsubs === {},
 
 SortBy[goodsubs, LeafCount] // First
 ]
+
+
+(* ::Input:: *)
+(*linearRationalSubstitution1[1/((1+x) (x^2-x+1)^(1/3)),x,u]*)
 
 
 (* ::Input:: *)
@@ -2607,6 +2626,11 @@ True,
 
 
 (* ::Input:: *)
+(*guntherIntegrate[(2-x+x^2)/((-1+x^2)^(1/3) (3+4 x+x^2)),x]*)
+(*D[%//Last,x]-(2-x+x^2)/((-1+x^2)^(1/3) (3+4 x+x^2))//Simplify*)
+
+
+(* ::Input:: *)
 (*guntherIntegrate[((-1+x^2)^2 (x+x^3))/(Sqrt[1+x^4] (1-2 x^2+4 x^4-2 x^6+x^8)),x]*)
 (*D[%//Last,x]-((-1+x^2)^2 (x+x^3))/(Sqrt[1+x^4] (1-2 x^2+4 x^4-2 x^6+x^8))//Simplify*)
 
@@ -2668,7 +2692,7 @@ Do[
 
 	debugPrint2["numerator/denominator degree = ", ndeg, ", ", ddeg];
 
-	y = Sum[C[k] x^k, {k, 0, deg}]/r^(1/m);
+	y = Sum[A[k] x^k, {k, 0, deg}]/r^(1/m);
 	debugPrint2["Substitution form is ", y];
 
 	form = Sum[V[k] u^(m k), {k, 0, ndeg}]/Sum[V[ndeg + 1 + k] u^(m k), {k, 0, ddeg}];
@@ -2682,7 +2706,7 @@ Do[
 		Continue[]];
 
 	eqn = Numerator[unparameterised] q - Denominator[unparameterised] p == 0;
-	vars = Union @ Cases[eqn, (C|V)[_], Infinity];
+	vars = Union @ Cases[eqn, (A|V)[_], Infinity];
 
 	soln = TimeConstrained[
 		Solve[! Eliminate[! eqn, {x}], vars],
@@ -2696,7 +2720,7 @@ Do[
 		soln = solnre];
 
 	If[soln =!= {},
-		{form, y} = {form, y} /. soln[[1]] /. {V[0] -> 1, V[1] -> 0, C[_] -> 1};
+		{form, y} = {form, y} /. soln[[1]] /. {V[0] -> 1, V[1] -> 0, A[_] -> 1};
 		RationalSubstitution = y;
 		If[!MatchQ[form, Indeterminate|0],
 			Throw @ Cancel[ {form, y} ]
@@ -2743,7 +2767,7 @@ Do[
 
 	debugPrint2["numerator/denominator degree = ", ndeg, ", ", ddeg];
 
-	y = r^(1/m)/Sum[C[k] x^k, {k, 0, deg}];
+	y = r^(1/m)/Sum[A[k] x^k, {k, 0, deg}];
 	debugPrint2["Substitution form is ", y];
 
 	form = Sum[V[k] u^(m k), {k, 0, ndeg}]/Sum[V[ndeg + 1 + k] u^(m k), {k, 0, ddeg}];
@@ -2757,7 +2781,7 @@ Do[
 		Continue[]];
 
 	eqn = Numerator[unparameterised] q - Denominator[unparameterised] p == 0;
-	vars = Union @ Cases[eqn, (C|V)[_], Infinity];
+	vars = Union @ Cases[eqn, (A|V)[_], Infinity];
 
 	soln = TimeConstrained[
 		Solve[!Eliminate[!eqn, {x}], vars],
@@ -2771,7 +2795,7 @@ Do[
 		soln = solnre];
 
 	If[soln =!= {},
-		{form, y} = {form, y} /. soln[[1]] /. {V[0] -> 1, V[1] -> 0, C[_] -> 1};
+		{form, y} = {form, y} /. soln[[1]] /. {V[0] -> 1, V[1] -> 0, A[_] -> 1};
 		RationalSubstitution = y;
 		If[!MatchQ[form, Indeterminate|0],
 			Throw @ Cancel[ {form, y} ]
@@ -2814,7 +2838,7 @@ Do[
 
 	debugPrint2["numerator/denominator degree = ", ndeg, ", ", ddeg];
 
-	y = 1/(Sum[C[k] x^k, {k, 0, deg}] r^(1/m));
+	y = 1/(Sum[A[k] x^k, {k, 0, deg}] r^(1/m));
 	debugPrint2["Substitution form is ", y];
 
 	form = Sum[V[k] u^(m k), {k, 0, ndeg}]/Sum[V[ndeg + 1 + k] u^(m k), {k, 0, ddeg}];
@@ -2828,7 +2852,7 @@ Do[
 		Continue[]];
 
 	eqn = Numerator[unparameterised] q - Denominator[unparameterised] p == 0;
-	vars = Union @ Cases[eqn, (C|V)[_], Infinity];
+	vars = Union @ Cases[eqn, (A|V)[_], Infinity];
 
 	soln = TimeConstrained[
 		Solve[!Eliminate[!eqn, {x}], vars],
@@ -2842,7 +2866,7 @@ Do[
 		soln = solnre];
 
 	If[soln =!= {},
-		{form, y} = {form, y} /. soln[[1]] /. {V[0] -> 1, V[1] -> 0, C[_] -> 1};
+		{form, y} = {form, y} /. soln[[1]] /. {V[0] -> 1, V[1] -> 0, A[_] -> 1};
 		RationalSubstitution = y;
 		If[!MatchQ[form, Indeterminate|0],
 			Throw @ Cancel[ {form, y} ]
@@ -2877,7 +2901,7 @@ Do[
 
 	debugPrint2["numerator/denominator degree = ", ndeg, ", ", ddeg];
 
-	y = Sum[C[k] x^k, {k, 0, deg}] r^(1/m);
+	y = Sum[A[k] x^k, {k, 0, deg}] r^(1/m);
 	debugPrint2["Substitution form is ", y];
 
 	form = Sum[V[k] u^(m k), {k, 0, ndeg}]/Sum[V[ndeg + 1 + k] u^(m k), {k, 0, ddeg}];
@@ -2891,7 +2915,7 @@ Do[
 		Continue[]];
 
 	eqn = Numerator[unparameterised] q - Denominator[unparameterised] p == 0;
-	vars = Union @ Cases[eqn, (C|V)[_], Infinity];
+	vars = Union @ Cases[eqn, (A|V)[_], Infinity];
 
 	soln = TimeConstrained[
 		Solve[!Eliminate[!eqn, {x}], vars],
@@ -2905,7 +2929,7 @@ Do[
 		soln = solnre];
 
 	If[soln =!= {},
-		{form, y} = {form, y} /. soln[[1]] /. {V[0] -> 1, V[1] -> 0, C[_] -> 1};
+		{form, y} = {form, y} /. soln[[1]] /. {V[0] -> 1, V[1] -> 0, A[_] -> 1};
 		RationalSubstitution = y;
 		If[!MatchQ[form, Indeterminate|0],
 			Throw @ Cancel[ {form, y} ]
@@ -4330,7 +4354,7 @@ EndPackage[];
 (*int[(1+x^2)/((1-x^2) Sqrt[1+x^4]),x]*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*regression testing*)
 
 
@@ -4352,6 +4376,26 @@ EndPackage[];
 (*15-Apr-2020	0.409 Seconds*)
 (*16-Apr-2020	0.372 Seconds*)
 (*02-Jul-2020	0.178 Seconds*)
+
+
+(* ::Input:: *)
+(*int[1/(x (2-3 x+x^2)^(1/3)),x]*)
+
+
+(* ::Input:: *)
+(*int[1/((-1+x) (2-2 x+x^2)^(1/3)),x]*)
+
+
+(* ::Input:: *)
+(*int[(-5+x)/((-2-x+x^2)^(1/3) (-3+4 x+x^2)),x]*)
+
+
+(* ::Input:: *)
+(*int[(6+2 x+x^2)/((2+x) (2+x^2) (2+x+x^2)^(1/3)),x]*)
+
+
+(* ::Input:: *)
+(*int[(6+2 x+x^2)/((1+x) (2+x+x^2)^(1/3) (2-x+2 x^2)),x]*)
 
 
 (* ::Input:: *)
