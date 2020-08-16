@@ -3719,6 +3719,14 @@ EndPackage[];
 (*int[(1-x^2)^2/((x^2+1) (x^4+6 x^2+1)^(3/4)),x,"Apart"->True]*)
 
 
+(* ::Text:: *)
+(*Integrals with parameters which cause Risch to hang can be handled.*)
+
+
+(* ::Input:: *)
+(*int[(2a^2 x^4-b^2)/((a^2 x^8-b^2)Power[a^2 x^4-b^2, (4)^-1]),x]*)
+
+
 (* ::Subsection::Closed:: *)
 (*current bugs and deficiencies*)
 
