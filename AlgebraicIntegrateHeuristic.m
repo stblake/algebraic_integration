@@ -1182,7 +1182,7 @@ postProcess[e_, x_, OptionsPattern[]] := Module[{$function, simp, permutations, 
 
 	simp = simp /. (h:Sin|Cos|Tan|Cot|Sec|Csc)[Pi r_Rational] :> FunctionExpand[h[Pi r]];
 	simp = simp /. (h : ArcSinh | ArcCosh | ArcSin | ArcCos)[a_] :> TrigToExp[h[a]];
-
+			
 	(* The order of the next three lines is important, for example 
 		int[(x Sqrt[x^4 - x^2])/(-3 + 2 x^2), x]
     we don't want to write Sqrt[x^4 - x^2] as x Sqrt[x^2 - 1.] *)
@@ -1245,6 +1245,7 @@ postProcess[e_, x_, OptionsPattern[]] := Module[{$function, simp, permutations, 
 	simp = collect[simp, x] /. Power[p_, r_Rational] :> Expand[p]^r;
 	simp = simp /. p_ /; PolynomialQ[p,x] :> Collect[p, x];
 	simp = simp /. Log[ex_] :> Log[Collect[ex, Power[_, _Rational]]];
+	simp = simp /. Log[ex_^n_] :> n Log[ex];
 
 	(* Remove constants. *)
 	simp = stripConst[simp, x];
@@ -3720,7 +3721,7 @@ EndPackage[];
 
 
 (* ::Text:: *)
-(*Integrals with parameters which cause Risch to hang can be handled.*)
+(*Some integrals with parameters which causes Risch-Trager-Bronstein to hang can be handled.*)
 
 
 (* ::Input:: *)
