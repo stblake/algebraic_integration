@@ -1173,7 +1173,7 @@ Clear[postProcess];
 
 Options[postProcess] = {"Integrand" -> None};
 
-postProcess[e_, x_, OptionsPattern[]] := Module[{$function, simp, permutations, denomP},
+postProcess[e_, x_, OptionsPattern[]] := Module[{$function, simp, permutations, denomP, rad},
 
 	(* Remove constants. *)
 	simp = stripConst[simp, x];
@@ -1250,7 +1250,14 @@ postProcess[e_, x_, OptionsPattern[]] := Module[{$function, simp, permutations, 
 	(* Remove constants. *)
 	simp = stripConst[simp, x];
 	
-	simp /. {$rootSum -> RootSum, $function -> Function}
+	simp = simp /. {$rootSum -> RootSum, $function -> Function};
+
+	rad = ToRadicals[simp];
+	If[LeafCount[rad] < LeafCount[simp], 
+		simp = rad
+	];
+	
+	simp
 ]
 
 
@@ -2533,7 +2540,7 @@ SortBy[goodsubs, LeafCount] // First // PowerExpand
 (*linearRationalSubstitution3[((2 x^2+x-1) (x^4-x^3)^(1/4))/(x^2-x-1), x, u]*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Generalised Gunther substitutions*)
 
 
@@ -2666,7 +2673,7 @@ True,
 (*D[%//Last,x]-(2 x^2-x)/((2-x+x^2)Sqrt[x^4-x^3])//Simplify*)
 
 
-(* ::Subsubsection::Closed:: *)
+(* ::Subsubsection:: *)
 (*guntherSolve1	(u == p[x]/(q[x])^(1/m))*)
 
 
@@ -2697,7 +2704,7 @@ Do[
 	debugPrint2["Substitution form is ", y];
 
 	form = Sum[V[k] u^(m k), {k, 0, ndeg}]/Sum[V[ndeg + 1 + k] u^(m k), {k, 0, ddeg}];
-	form = form /. V[ndeg|ndeg + 1 + ddeg] -> 1;
+	(* form = form /. V[ndeg|ndeg + 1 + ddeg] -> 1; *)
 	yform = form /. u -> y;
 
 	unparameterised = Cancel[r^(1/m) Together[yform D[y,x]]];
@@ -3725,7 +3732,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[(2a^2 x^4-b^2)/((a^2 x^8-b^2)Power[a^2 x^4-b^2, (4)^-1]),x]*)
+(*int[(2 a^2 x^4-b^2)/((a^2 x^8-b^2) (a^2 x^4-b^2)^(1/4)),x]*)
 
 
 (* ::Subsection::Closed:: *)
