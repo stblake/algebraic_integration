@@ -609,8 +609,33 @@ debugPrint1["logPart returned : ", {rationalPart, unintegratedPart, integratedPa
 (* Partial fraction expansion and integrate term-by-term. *)
 
 If[OptionValue["Apart"],
-	debugPrint1["Trying partial fractions on ", unintegratedPart];
-	result = partialFractionIntegrate[unintegratedPart, x, opts];
+	
+	(* Use partial fractions with a factorisation over Q. *)
+	
+	debugPrint1["Trying partial fractions over Q on ", unintegratedPart];
+	result = apartIntegrate[unintegratedPart, x, opts, "FactorComplete" -> False];
+	If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[result[[3]], unintegratedPart - result[[1]] - result[[2]]],
+		rationalPart    += result[[1]]; 
+		unintegratedPart = result[[2]];
+		integratedPart  += result[[3]]
+	];
+	debugPrint1["partialFractionIntegrate returned : ", {rationalPart, unintegratedPart, integratedPart}];
+		
+	(* Use partial fractions with a factorisation over the splitting field of the integrand. *)
+
+	debugPrint1["Trying partial fractions over K on ", unintegratedPart];
+	result = apartIntegrate[unintegratedPart, x, opts, "FactorComplete" -> True];
+	If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[result[[3]], unintegratedPart - result[[1]] - result[[2]]],
+		rationalPart    += result[[1]]; 
+		unintegratedPart = result[[2]];
+		integratedPart  += result[[3]]
+	];
+	debugPrint1["partialFractionIntegrate returned : ", {rationalPart, unintegratedPart, integratedPart}];
+			
+	(* Expand and integrate term-by-term. *)
+	
+	debugPrint1["Trying expansion into sum of terms with Apart on ", unintegratedPart];
+	result = expandIntegrate2[unintegratedPart, x, opts];
 	If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[result[[3]], unintegratedPart - result[[1]] - result[[2]]],
 		rationalPart    += result[[1]]; 
 		unintegratedPart = result[[2]];
@@ -618,10 +643,8 @@ If[OptionValue["Apart"],
 	];
 	debugPrint1["partialFractionIntegrate returned : ", {rationalPart, unintegratedPart, integratedPart}];
 
-	(* Expand and integrate term-by-term. *)
-
-	debugPrint1["Trying expansion into sum of terms on ", unintegratedPart];
-	result = expandIntegrate[unintegratedPart, x, opts];
+	debugPrint1["Trying expansion into sum of terms with Expand on ", unintegratedPart];
+	result = expandIntegrate1[unintegratedPart, x, opts];
 	If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[result[[3]], unintegratedPart - result[[1]] - result[[2]]],
 		rationalPart    += result[[1]]; 
 		unintegratedPart = result[[2]];
@@ -2540,7 +2563,7 @@ SortBy[goodsubs, LeafCount] // First // PowerExpand
 (*linearRationalSubstitution3[((2 x^2+x-1) (x^4-x^3)^(1/4))/(x^2-x-1), x, u]*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Generalised Gunther substitutions*)
 
 
@@ -2673,7 +2696,7 @@ True,
 (*D[%//Last,x]-(2 x^2-x)/((2-x+x^2)Sqrt[x^4-x^3])//Simplify*)
 
 
-(* ::Subsubsection:: *)
+(* ::Subsubsection::Closed:: *)
 (*guntherSolve1	(u == p[x]/(q[x])^(1/m))*)
 
 
@@ -2779,7 +2802,7 @@ Do[
 	debugPrint2["Substitution form is ", y];
 
 	form = Sum[V[k] u^(m k), {k, 0, ndeg}]/Sum[V[ndeg + 1 + k] u^(m k), {k, 0, ddeg}];
-	form = form /. V[ndeg|ndeg + 1 + ddeg] -> 1;
+	(* form = form /. V[ndeg|ndeg + 1 + ddeg] -> 1; *)
 	yform = form /. u -> y;
 
 	unparameterised = Cancel[r^(-1/m) Together[yform D[y,x]]];
@@ -2850,7 +2873,7 @@ Do[
 	debugPrint2["Substitution form is ", y];
 
 	form = Sum[V[k] u^(m k), {k, 0, ndeg}]/Sum[V[ndeg + 1 + k] u^(m k), {k, 0, ddeg}];
-	form = form /. V[ndeg|ndeg + 1 + ddeg] -> 1;
+	(* form = form /. V[ndeg|ndeg + 1 + ddeg] -> 1; *)
 	yform = form /. u -> y;
 
 	unparameterised = Cancel[r^(1/m) Together[yform D[y,x]]];
@@ -2913,7 +2936,7 @@ Do[
 	debugPrint2["Substitution form is ", y];
 
 	form = Sum[V[k] u^(m k), {k, 0, ndeg}]/Sum[V[ndeg + 1 + k] u^(m k), {k, 0, ddeg}];
-	form = form /. V[ndeg|ndeg + 1 + ddeg] -> 1;
+	(* form = form /. V[ndeg|ndeg + 1 + ddeg] -> 1; *)
 	yform = form /. u -> y;
 
 	unparameterised = Cancel[r^(-1/m) Together[yform D[y,x]]];
@@ -3287,14 +3310,14 @@ Do[
 (*Expand integrate*)
 
 
-ClearAll[expandIntegrate];
+ClearAll[expandIntegrate1];
 
-Options[expandIntegrate] = Options[solveAlgebraicIntegral];
+Options[expandIntegrate1] = Options[solveAlgebraicIntegral];
 
-expandIntegrate[0|0., x_, opts:OptionsPattern[]] := {0, 0, 0}
+expandIntegrate1[0|0., x_, opts:OptionsPattern[]] := {0, 0, 0}
 
 
-expandIntegrate[e_, x_, opts:OptionsPattern[]] := Module[
+expandIntegrate1[e_, x_, opts:OptionsPattern[]] := Module[
 {exnum, lexnum, unintegratedPart, integratedPart, term, integrated, rationalPart},
 
 exnum = Expand @ Numerator[e];
@@ -3331,11 +3354,7 @@ If[Head[exnum] === Plus,
 
 (* ::Input:: *)
 (*$verboseLevel=3;*)
-(*expandIntegrate[-((2 2^(3/4) (-1+u) u^2)/((-1+u^4) (1+u^4)^(3/4))),u]*)
-
-
-(* ::Subsection::Closed:: *)
-(*Partial fraction integrate*)
+(*expandIntegrate1[-((2 2^(3/4) (-1+u) u^2)/((-1+u^4) (1+u^4)^(3/4))),u]*)
 
 
 ClearAll[apartList];
@@ -3345,8 +3364,8 @@ apartList[e_, x_] := Module[{pf},
 pf = Apart[e, x];
 
 If[Head[pf] === Plus,
-	pf = List @@ Apart[e, x],
-	Return[{e}]	
+	pf = List @@ pf,
+	Return[{e}]
 ];
 
 pf = GatherBy[pf, Union[Cases[#, Power[p_, n_Rational] /; (! FreeQ[p, x] && PolynomialQ[p, x]) :> p^Abs[n],{0,Infinity}]]&];
@@ -3363,14 +3382,14 @@ Simplify[ Cancel[Together[Total[#]]]& /@ pf ]
 (*apartList[(2 x^(5/2))/((-1+x)^4 (1+x)^(7/2)),x]*)
 
 
-ClearAll[partialFractionIntegrate];
+ClearAll[expandIntegrate2];
 
-Options[partialFractionIntegrate] = Options[solveAlgebraicIntegral];
+Options[expandIntegrate2] = Options[solveAlgebraicIntegral];
 
-partialFractionIntegrate[0|0., x_, opts:OptionsPattern[]] := {0, 0, 0}
+expandIntegrate2[0|0., x_, opts:OptionsPattern[]] := {0, 0, 0}
 
 
-partialFractionIntegrate[e_, x_, opts:OptionsPattern[]] := Module[
+expandIntegrate2[e_, x_, opts:OptionsPattern[]] := Module[
 {exy, pf, unintegratedPart, integratedPart, integrated, rationalPart},
 
 If[MatchQ[e, 0|0.], 
@@ -3383,7 +3402,7 @@ If[! algebraicQ[e, x],
 pf = apartList[e, x];
 
 If[Length[pf] > 1, 
-	debugPrint2["Expanding integrand and integrating term-by-term."];
+	debugPrint2["Expanding integrand and integrating like terms, term-by-term."];
 	rationalPart = 0;
 	unintegratedPart = 0;
 	integratedPart = 0;
@@ -3408,6 +3427,68 @@ If[Length[pf] > 1,
 	{0, e, 0}
 ]
 ]
+
+
+(* ::Subsection::Closed:: *)
+(*Partial fraction integrate*)
+
+
+ClearAll[apartIntegrate];
+
+Options[apartIntegrate] = Append[Options[solveAlgebraicIntegral], "FactorComplete" -> False];
+
+apartIntegrate[0|0., x_, opts:OptionsPattern[]] := {0, 0, 0}
+
+
+apartIntegrate[e_, x_, opts:OptionsPattern[]] := Module[
+	{radicals, pf, y, exy, sf, rationalPart, unintegratedPart, integratedPart, integrated},
+
+radicals = Cases[e, Power[p_, n_Rational] /; (! FreeQ[p, x] && PolynomialQ[p, x]), {0, Infinity}];	
+
+If[Length[radicals] > 1, Return[ {0, e, 0} ]];
+
+exy = e /. radicals[[1]] -> y;
+
+If[OptionValue["FactorComplete"], 
+	sf = x /. Solve[Denominator[exy] == 0 /. y -> 1, x];
+	exy = Numerator[exy]/Factor[Denominator[exy], Extension -> sf]
+];
+
+pf = Apart[exy, x] /. y -> radicals[[1]];
+
+If[Head[pf] === Plus,
+	pf = List @@ pf,
+	Return[{0, e, 0}]
+];
+
+debugPrint2["Using partial fractions and integrating term-by-term."];
+rationalPart = 0;
+unintegratedPart = 0;
+integratedPart = 0;
+
+Do[
+	If[rationalQ[term, x], 
+		rationalPart += term,
+		debugPrint2["Integrating ", term, " wrt ", x];
+		integrated = solveAlgebraicIntegral[term, x, opts];
+		debugPrint2["Recursive call to solveAlgebraicIntegral returned ", integrated];
+		rationalPart += integrated[[1]];
+		unintegratedPart += integrated[[2]];
+		integratedPart += integrated[[3]]
+	], 
+{term, pf}];
+
+If[integratedPart === 0,
+	unintegratedPart = e;
+	integratedPart = 0;
+	rationalPart = 0;
+];
+{rationalPart, unintegratedPart, postProcess[integratedPart // Expand, x]}
+]
+
+
+(* ::Input:: *)
+(*apartIntegrate[1/((x^2-3)Power[1-3 x^2, (3)^-1]),x,"FactorComplete"->True]*)
 
 
 (* ::Subsection::Closed:: *)
@@ -3740,14 +3821,6 @@ EndPackage[];
 
 
 (* ::Text:: *)
-(*Ouch:*)
-
-
-(* ::Input:: *)
-(*int[1/(2 Sqrt[x]+Sqrt[x+1])^2,x]*)
-
-
-(* ::Text:: *)
 (*The integral below should work without Expand[]:*)
 
 
@@ -3796,6 +3869,7 @@ EndPackage[];
 
 (* ::Input:: *)
 (*int[1/((x+1) (x^3+2)^(1/3)),x]*)
+(*D[1/12 (2 Sqrt[3] ArcTan[(Sqrt[3] (2+x^3)^(2/3) (-1072244631963565627440642667696-1764382450892402509391037276448 x-642339750020464731448133545632 x^2+190053406517364372745124029472 x^3+98966744593197647869364591874 x^4)+Sqrt[3] (2+x^3)^(1/3) (1190118508012558386973005239952+2230842809300000322439227290544 x+735314591615271415729365586328 x^2-726175722499147186465445363320 x^3-453545129950193664973324584892 x^4-45228634350310035870300951616 x^5)+Sqrt[3] (-47674000995597211057816884304+351260598258508240019971964880 x+888876515195959220955879945824 x^2+889426563183087468015580290048 x^3+673924074224408772959625384792 x^4+382151535711085278859235047618 x^5+93292570833559435663132301885 x^6))/(4664445860470002276943457906640+7625406903034897531937916271008 x+1085003586721431086608600126056 x^2-2686291575945300326054363894472 x^3+46796858328175763683008212928 x^4+1013240117509374668590043803350 x^5+236716304443694165237125394649 x^6)]+Log[(-140-192 x+24 x^2+44 x^3-48 x^4+6 x^5+22 x^6+(2+x^3)^(2/3) (12-60 x-96 x^2-6 x^3+21 x^4)+(2+x^3)^(1/3) (96+228 x+102 x^2-48 x^3+21 x^5))/(1+6 x+15 x^2+20 x^3+15 x^4+6 x^5+x^6)]),x] - 1/((x+1) (x^3+2)^(1/3))//Simplify*)
 
 
 (* ::Subsection::Closed:: *)
@@ -3858,12 +3932,25 @@ EndPackage[];
 (*int[((-2+x) (-x^2+x^4)^(1/4))/(-1+2 x^2),x]*)
 
 
+(* ::Text:: *)
+(*This one requires the rational substitution u == (1+2 x^2)/(-1+2 x)*)
+
+
+(* ::Input:: *)
+(*int[((-1-2 x+2 x^2) Sqrt[x+x^4])/(-1+2 x)^3,x]*)
+(*D[((1/4+x^2/2) Sqrt[x+x^4])/(-1+2 x)^2+1/16 Log[-1-2 x^2+2 Sqrt[x (1+x^3)]]-1/16 Log[1+2 x^2+2 Sqrt[x+x^4]],x]-((-1-2 x+2 x^2) Sqrt[x+x^4])/(-1+2 x)^3//Simplify*)
+
+
 (* ::Subsection::Closed:: *)
 (*previously bugs, deficiencies or edge cases*)
 
 
 (* ::Input:: *)
 (*$verboseLevel=3;*)
+
+
+(* ::Input:: *)
+(*int[1/(2 Sqrt[x]+Sqrt[x+1])^2,x]*)
 
 
 (* ::Input:: *)
@@ -4392,6 +4479,10 @@ EndPackage[];
 (*15-Apr-2020	0.409 Seconds*)
 (*16-Apr-2020	0.372 Seconds*)
 (*02-Jul-2020	0.178 Seconds*)
+
+
+(* ::Input:: *)
+(*int[1/((x^2-3) (1-3 x^2)^(1/3)),x,"Apart"->True]*)
 
 
 (* ::Input:: *)
