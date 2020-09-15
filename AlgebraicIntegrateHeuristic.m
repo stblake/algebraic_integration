@@ -433,12 +433,14 @@ Options[IntegrateAlgebraic] = {
 	"DegreeBound" -> 8,
 	"LinearRational" -> True,
 	"Elementary" -> True,
-	"Apart" -> False
+	"Apart" -> False,
+	"SingleStepTimeConstraint" -> 0.25
 }; 
 
 IntegrateAlgebraic[e_, x_, opts:OptionsPattern[]] := Module[
 	{rationalPart, unintegratedPart, integratedPart, integral},
 
+	$timeConstraint = OptionValue["SingleStepTimeConstraint"];
 	$ProfileStartTime = AbsoluteTime[];
 
 	{rationalPart, unintegratedPart, integratedPart} = solveAlgebraicIntegral[e /. C -> internalC, x, opts];
@@ -459,7 +461,6 @@ IntegrateAlgebraic[e_, x_, opts:OptionsPattern[]] := Module[
 
 $Testing = False;
 $Profile = True;
-$timeConstraint = 0.25;
 
 
 ClearAll[solveAlgebraicIntegral];
@@ -480,7 +481,7 @@ start = AbsoluteTime[];
 If[PolynomialQ[unintegratedPart, x] || rationalQ[unintegratedPart, x], 
 	debugPrint1["Integrand is in Q(x): ", unintegratedPart];
 	integral = Integrate[unintegratedPart, x];
-	Return[ {0, 0, integral}, Module ]
+	Return[ {0, 0, postProcess[integral, x]}, Module ]
 ];
 
 (* Integrand is in Q(x, (a*x + b)^(m[1]/n[1]), (a*x + b)^(m[2]/n[2]), \[Ellipsis]) *)
@@ -489,7 +490,7 @@ If[ListQ @ linearRadicalToRational[unintegratedPart, x, u],
 	debugPrint1["Integrand is in Q(x, (a*x + b)^(m[1]/n[1]), (a*x + b)^(m[2]/n[2]), \[Ellipsis]): ", unintegratedPart];
 	integral = integrateLinearRadical[unintegratedPart, x];
 	If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[integral, unintegratedPart],
-		Return[ {0, 0, integral}, Module ],
+		Return[ {0, 0, postProcess[integral, x]}, Module ],
 		Return[ {0, unintegratedPart, 0}, Module ]
 	]
 ];
@@ -500,7 +501,7 @@ If[ListQ @ quadraticRadicalToRational[unintegratedPart, x, u],
 	debugPrint1["Integrand is in Q(x, (a x^2 + b x + c)^(n[1]/2), (a x^2 + b x + c)^(n[2]/2), \[Ellipsis]): ", unintegratedPart];
 	integral = integrateQuadraticRadical[unintegratedPart, x];
 	If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[integral, unintegratedPart],
-		Return[ {0, 0, integral}, Module ],
+		Return[ {0, 0, postProcess[integral, x]}, Module ],
 		Return[ {0, unintegratedPart, 0}, Module ]
 	]
 ];
@@ -511,7 +512,7 @@ If[ListQ @ multipleLinearRadicalToRational[unintegratedPart, x, u],
 	debugPrint1["Integrand is in Q(x, (a*x + b)^(1/2), (c*x + d)^(1/2)): ", unintegratedPart];
 	integral = integrateMultipleLinearRadical[unintegratedPart, x];
 	If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[integral, unintegratedPart],
-		Return[ {0, 0, integral}, Module ],
+		Return[ {0, 0, postProcess[integral, x]}, Module ],
 		Return[ {0, unintegratedPart, 0}, Module ]
 	]
 ];
@@ -522,7 +523,7 @@ If[ListQ @ linearRatioRadicalToRational[unintegratedPart, x, u],
 	debugPrint1["Integrand is in Q(x,((a x + b)/(c x + d))^(m[1]/n[1]), ((a x + b)/(c x + d))^(m[2]/n[2]), \[Ellipsis]): ", unintegratedPart];
 	integral = integrateLinearRatioRadical[unintegratedPart, x];
 	If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[integral, unintegratedPart],
-		Return[ {0, 0, integral}, Module ],
+		Return[ {0, 0, postProcess[integral, x]}, Module ],
 		Return[ {0, unintegratedPart, 0}, Module ]
 	]
 ];
@@ -2256,7 +2257,7 @@ sub = Together[sub /. u -> (x - a)/(b - a)] /. p_ /; PolynomialQ[p, x] :> Expand
 (*integrand//Clear*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Linear rational substitutions*)
 
 
@@ -2299,7 +2300,7 @@ linearRationalIntegrate[e_, x_, opts : OptionsPattern[]] := Module[{u, linRat, o
 	
 	result = expandIntegrate1[linRat // First, u, Sequence @@ options];
 	
-	If[! MatchQ[result, {0, 0, _}],
+	If[! MatchQ[result, {_, 0, _}],
 		result = solveAlgebraicIntegral[linRat // First, u, Sequence @@ options]];
 	
 	If[MatchQ[result, {_, 0, _}],
@@ -3936,15 +3937,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*$verboseLevel=0;*)
-
-
-(* ::Text:: *)
-(*The following integral requires using semiRationalise prior to partial fraction expansion:*)
-
-
-(* ::Input:: *)
-(*int[(1+x^2)/((-1+x) Sqrt[1-x^2+x^4]),x,"Apart"->True]*)
+(*int[x/((x^3+1)Sqrt[4x^3+1]),x]*)
 
 
 (* ::Input:: *)
@@ -4014,6 +4007,10 @@ EndPackage[];
 
 (* ::Input:: *)
 (*$verboseLevel=3;*)
+
+
+(* ::Input:: *)
+(*int[(1+x^2)/((-1+x) Sqrt[1-x^2+x^4]),x,"Apart"->True]*)
 
 
 (* ::Input:: *)
@@ -4113,7 +4110,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[((-1+2 x+2 x^2) (-x^2+x^4)^(1/4))/(-1+2 x^2),x]*)
+(*int[((-1+2 x+2 x^2) (-x^2+x^4)^(1/4))/(-1+2 x^2),x,"Apart"->True]*)
 
 
 (* ::Input:: *)
@@ -4121,7 +4118,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[((x+2 x^2) (x^2+x^4)^(1/4))/(1+2 x^2),x]*)
+(*int[((x+2 x^2) (x^2+x^4)^(1/4))/(1+2 x^2),x,"Apart"->True]*)
 
 
 (* ::Input:: *)
@@ -4546,6 +4543,10 @@ EndPackage[];
 (*15-Apr-2020	0.409 Seconds*)
 (*16-Apr-2020	0.372 Seconds*)
 (*02-Jul-2020	0.178 Seconds*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(x^2+1)/((1+x) Sqrt[x^4+x^2+1]),x,"Apart"->True]*)
 
 
 (* ::Input:: *)
