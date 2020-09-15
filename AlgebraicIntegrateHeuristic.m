@@ -473,7 +473,7 @@ goursat},
 
 start = AbsoluteTime[];
 
-{rationalPart, unintegratedPart, integratedPart} = {0, integrand, 0};
+{rationalPart, unintegratedPart, integratedPart} = {0, Together[integrand], 0};
 
 (* Integrand is a rational function of x (needed for recursive integration). *)
 
@@ -2256,7 +2256,7 @@ sub = Together[sub /. u -> (x - a)/(b - a)] /. p_ /; PolynomialQ[p, x] :> Expand
 (*integrand//Clear*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Linear rational substitutions*)
 
 
@@ -2297,7 +2297,10 @@ linearRationalIntegrate[e_, x_, opts : OptionsPattern[]] := Module[{u, linRat, o
 		DeleteCases[{opts}, HoldPattern["LinearRational" -> True]], 
 		"LinearRational" -> False];
 	
-	result = solveAlgebraicIntegral[linRat // First, u, Sequence @@ options];
+	result = expandIntegrate1[linRat // First, u, Sequence @@ options];
+	
+	If[! MatchQ[result, {0, 0, _}],
+		result = solveAlgebraicIntegral[linRat // First, u, Sequence @@ options]];
 	
 	If[MatchQ[result, {_, 0, _}],
 		debugPrint2["Integral of ", linRat // First, " is ", result];
@@ -2367,7 +2370,8 @@ ClearAll[linearRationalSubstitution1];
 
 linearRationalSubstitution1[e_, x_, u_] := Module[
 {radicals, radicand, deg, a, b, d, p, q, r, s, n, radU,
- eqn, soln, solns, subX, subU, intU, dx, subs, goodsubs},
+ eqn, soln, solns, subX, subU, intU, dx, subs, goodsubs, 
+ best, uradicals},
 
 radicals = Cases[e, Power[p_ /; PolynomialQ[p,x], r_Rational] :> {p, r}, {0,Infinity}];
 
@@ -2402,7 +2406,6 @@ subs = Table[
 	intU = Quiet[ MapAll[Together, e dx /. {x -> subX, dx -> D[subX, u]}] // Cancel // PowerExpand // Cancel ];
 	subU = (x + a)/(x + b) /. soln // Cancel;
 	subU = subU /. a|b|p|q -> 1 // Cancel;
-
 	{semiRationalise[intU, u], u -> subU},
 {soln, solns}];
 
@@ -2414,8 +2417,20 @@ If[goodsubs === {},
 	Return[ False ]
 ];
 
-SortBy[goodsubs, LeafCount] // First
+SortBy[goodsubs, LeafCount] // First;
+
+best = SortBy[goodsubs, LeafCount] // First // PowerExpand;
+
+uradicals = Cases[best // First, Power[p_ /; !FreeQ[p, u] && PolynomialQ[p, u], r_Rational], {0,Infinity}];
+If[LeafCount[uradicals] < LeafCount[radicals], 
+	best, 
+	False
 ]
+]
+
+
+(* ::Input:: *)
+(*linearRationalSubstitution1[(-1+x^2)^2/((1+x^2) (1+6 x^2+x^4)^(3/4)),x,u]*)
 
 
 (* ::Input:: *)
@@ -2446,7 +2461,8 @@ ClearAll[linearRationalSubstitution2];
 
 linearRationalSubstitution2[e_, x_, u_] := Module[
 {radicals, radicand, deg, a, b, c, d, p, q, r, s, t, radU,
- eqn, soln, solns, subX, subU, intU, dx, subs, goodsubs},
+ eqn, soln, solns, subX, subU, intU, dx, subs, goodsubs, best, 
+ uradicals},
 
 radicals = Cases[e, Power[p_ /; PolynomialQ[p,x], r_Rational] :> {p, r}, {0,Infinity}];
 
@@ -2491,12 +2507,22 @@ If[goodsubs === {},
 	Return[ False ]
 ];
 
-SortBy[goodsubs, LeafCount] // First
+best = SortBy[goodsubs, LeafCount] // First;
+
+uradicals = Cases[best // First, Power[p_ /; !FreeQ[p, u] && PolynomialQ[p, u], r_Rational], {0,Infinity}];
+If[LeafCount[uradicals] < LeafCount[radicals], 
+	best, 
+	False
+]
 ]
 
 
 (* ::Input:: *)
-(*linearRationalSubstitution2[(-7+x)/((-11+5 x)Sqrt[-60+83 x-21 x^2-3 x^3+x^4]), x,u]//Timing*)
+(*Timing[linearRationalSubstitution2[(-7+x)/((-11+5 x) Sqrt[-60+83 x-21 x^2-3 x^3+x^4]),x,u]]*)
+
+
+(* ::Input:: *)
+(*linearRationalSubstitution2[(x^2+1)/((1+x) Sqrt[x^4+x^2+1]),x,u]*)
 
 
 (* ::Subsubsection::Closed:: *)
@@ -2507,7 +2533,8 @@ ClearAll[linearRationalSubstitution3];
 
 linearRationalSubstitution3[e_, x_, u_] := Module[
 {radicals, radicand, deg, a, b, p, q, r, n, radU,
- eqn, soln, solns, subX, subU, intU, dx, subs, goodsubs, expt},
+ eqn, soln, solns, subX, subU, intU, dx, subs, goodsubs, 
+ expt, best, uradicals},
 
 radicals = Cases[e, Power[p_ /; PolynomialQ[p,x], r_Rational] :> {p, r}, {0,Infinity}];
 
@@ -2555,12 +2582,18 @@ If[goodsubs === {},
 	Return[ False ]
 ];
 
-SortBy[goodsubs, LeafCount] // First // PowerExpand
+best = SortBy[goodsubs, LeafCount] // First // PowerExpand;
+
+uradicals = Cases[best // First, Power[p_ /; !FreeQ[p, u] && PolynomialQ[p, u], r_Rational], {0,Infinity}];
+If[LeafCount[uradicals] < LeafCount[radicals], 
+	best, 
+	False
+]
 ]
 
 
 (* ::Input:: *)
-(*linearRationalSubstitution3[((2 x^2+x-1) (x^4-x^3)^(1/4))/(x^2-x-1), x, u]*)
+(*linearRationalSubstitution3[((2 x^2+x-1) (x^4-x^3)^(1/4))/(x^2-x-1),x,u]*)
 
 
 (* ::Subsection::Closed:: *)
@@ -3481,8 +3514,15 @@ Do[
 If[integratedPart === 0,
 	unintegratedPart = e;
 	integratedPart = 0;
-	rationalPart = 0;
+	rationalPart = 0,
+	(* recursively try to integrate all the unintegrated terms together. *)
+	debugPrint2["Recursively calling solveAlgebraicIntegral on all unintegrated terms: ", unintegratedPart];
+	integrated = solveAlgebraicIntegral[unintegratedPart, x, opts];
+	rationalPart += integrated[[1]];
+	unintegratedPart = integrated[[2]];
+	integratedPart += integrated[[3]]
 ];
+
 {rationalPart, unintegratedPart, postProcess[integratedPart // Expand, x]}
 ]
 
@@ -3821,6 +3861,23 @@ EndPackage[];
 
 
 (* ::Text:: *)
+(*Something strange happening here:*)
+
+
+(* ::Input:: *)
+(*int[(1+x^2)/((-1+x) Sqrt[1-x^2+x^4]),x,"Apart"->True]*)
+(*IntegrateAlgebraic[(1+x)/((-1+x) Sqrt[1-x^2+x^4]),x]*)
+
+
+(* ::Text:: *)
+(*This should return the partial answer it found (if not the complete integral):*)
+
+
+(* ::Input:: *)
+(*int[(-1+x^3)^(1/3)/(1+x),x,"Apart"->True]*)
+
+
+(* ::Text:: *)
 (*The integral below should work without Expand[]:*)
 
 
@@ -3834,6 +3891,8 @@ EndPackage[];
 
 (* ::Input:: *)
 (*int[Sqrt[x]/(-2+x^2)^(3/4),x]*)
+(*subst[Sqrt[x]/(-2+x^2)^(3/4),u->Sqrt[x],x]*)
+(*int[%//First,u]/.Last[%]*)
 
 
 (* ::Text:: *)
@@ -3878,6 +3937,14 @@ EndPackage[];
 
 (* ::Input:: *)
 (*$verboseLevel=0;*)
+
+
+(* ::Text:: *)
+(*The following integral requires using semiRationalise prior to partial fraction expansion:*)
+
+
+(* ::Input:: *)
+(*int[(1+x^2)/((-1+x) Sqrt[1-x^2+x^4]),x,"Apart"->True]*)
 
 
 (* ::Input:: *)
