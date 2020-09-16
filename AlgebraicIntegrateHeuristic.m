@@ -2271,7 +2271,8 @@ Options[linearRationalIntegrate] = Options[solveAlgebraicIntegral];
 
 linearRationalIntegrate[0|0., _, OptionsPattern[]] := {0, 0, 0}
 
-linearRationalIntegrate[e_, x_, opts : OptionsPattern[]] := Module[{u, linRat, options, result},
+linearRationalIntegrate[e_, x_, opts : OptionsPattern[]] := Module[
+	{u, linRat, options, result, const, integral},
 
 	linRat = linearRationalSubstitution1[e, x, u];
 	debugPrint3["linearRationalSubstitution1 returned ", linRat];
@@ -2304,8 +2305,14 @@ linearRationalIntegrate[e_, x_, opts : OptionsPattern[]] := Module[{u, linRat, o
 		result = solveAlgebraicIntegral[linRat // First, u, Sequence @@ options]];
 	
 	If[MatchQ[result, {_, 0, _}],
+	
+		(* Fix for int[(3 - x^2)/((1 - x^2)*(1 - 6*x^2 + x^4)^(1/4)), x, "Apart" -> True] *)
+		integral = postProcess[powerReduce1[MapAll[Together,result /. Last[linRat]], x], x];
+		const = Simplify[e/(integral[[1]] + D[integral[[3]], x])];
+		If[Cancel[D[const, x]] == 0, integral[[3]] *= const];
+
 		debugPrint2["Integral of ", linRat // First, " is ", result];
-		postProcess[powerReduce1[MapAll[Together,result /. Last[linRat]], x], x],
+		integral,
 		debugPrint2["Recursive call could not find an antiderivative of ", linRat // First];
 		{0, e, 0}
 	]
@@ -2334,7 +2341,7 @@ If[conj === 1,
 
 
 (* ::Input:: *)
-(*semiRationalise[(-2 2^(3/4) u^2)/((1+u) (1+u^2) (1+u^4)^(3/4)),u]*)
+(*semiRationalise[-((2 2^(3/4) u^2)/((1+u) (1+u^2) (1+u^4)^(3/4))),u]*)
 
 
 linearFactorQ[p_,x_] := If[PolynomialQ[p,x],
@@ -2372,7 +2379,7 @@ ClearAll[linearRationalSubstitution1];
 linearRationalSubstitution1[e_, x_, u_] := Module[
 {radicals, radicand, deg, a, b, d, p, q, r, s, n, radU,
  eqn, soln, solns, subX, subU, intU, dx, subs, goodsubs, 
- best, uradicals},
+ best, uradicals, subs1, subs2},
 
 radicals = Cases[e, Power[p_ /; PolynomialQ[p,x], r_Rational] :> {p, r}, {0,Infinity}];
 
@@ -2401,26 +2408,36 @@ solns = DeleteCases[solns, s_ /; !FreeQ[s, Power[_Integer, _Rational]]];
 If[MatchQ[solns, {}|{{}} | _Solve | {{(_ -> _?PossibleZeroQ) ..}..}], 
 	Return[ False ]];
 
-subs = Table[
+subs1 = Table[
+	subX = (a - b u)/(u - 1) /. soln // Cancel;
+	subX = subX /. a|b|p|q -> 1 // Cancel;
+	intU = Quiet[ MapAll[Together, e dx /. {x -> subX, dx -> D[subX, u]}] // Cancel ];
+	subU = (x + a)/(x + b) /. soln // Cancel;
+	subU = subU /. a|b|p|q -> 1 // Cancel;
+	{intU, u -> subU},
+{soln, solns}];
+
+subs2 = Table[
 	subX = (a - b u)/(u - 1) /. soln // Cancel;
 	subX = subX /. a|b|p|q -> 1 // Cancel;
 	intU = Quiet[ MapAll[Together, e dx /. {x -> subX, dx -> D[subX, u]}] // Cancel // PowerExpand // Cancel ];
 	subU = (x + a)/(x + b) /. soln // Cancel;
 	subU = subU /. a|b|p|q -> 1 // Cancel;
-	{semiRationalise[intU, u], u -> subU},
+	{intU, u -> subU},
 {soln, solns}];
+
+subs = Join[subs1, subs2];
 
 goodsubs = Cases[subs, 
 	{integrand_, u -> usub_} /; 
-	PossibleZeroQ[e - PowerExpand @ Cancel @ Together[integrand D[usub, x] /. u -> usub]]];
+	PossibleZeroQ[e - Cancel @ Together[integrand D[usub, x] /. u -> usub]]];
 
 If[goodsubs === {}, 
 	Return[ False ]
 ];
 
-SortBy[goodsubs, LeafCount] // First;
-
 best = SortBy[goodsubs, LeafCount] // First // PowerExpand;
+best[[1]] = semiRationalise[best[[1]], u];
 
 uradicals = Cases[best // First, Power[p_ /; !FreeQ[p, u] && PolynomialQ[p, u], r_Rational], {0,Infinity}];
 If[LeafCount[uradicals] < LeafCount[radicals], 
@@ -2432,6 +2449,10 @@ If[LeafCount[uradicals] < LeafCount[radicals],
 
 (* ::Input:: *)
 (*linearRationalSubstitution1[(-1+x^2)^2/((1+x^2) (1+6 x^2+x^4)^(3/4)),x,u]*)
+
+
+(* ::Input:: *)
+(*linearRationalSubstitution1[(3-x^2)/((1-x^2) (1-6 x^2+x^4)^(1/4)),x,u]*)
 
 
 (* ::Input:: *)
@@ -4046,19 +4067,19 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[Sqrt[1-Sqrt[1-Sqrt[1-1/x]]]/x,x]*)
+(*int[Sqrt[1-Sqrt[1-Sqrt[1-1/x]]]/x,x,"SingleStepTimeConstraint"->0.5]*)
 
 
 (* ::Input:: *)
-(*int[Sqrt[1-Sqrt[1-Sqrt[1-1/x]]]/x^2,x]*)
+(*int[Sqrt[1-Sqrt[1-Sqrt[1-1/x]]]/x^2,x,"SingleStepTimeConstraint"->2.0]*)
 
 
 (* ::Input:: *)
-(*int[Sqrt[1-Sqrt[1-Sqrt[1-1/x^2]]]/x,x]*)
+(*int[Sqrt[1-Sqrt[1-Sqrt[1-1/x^2]]]/x,x,"SingleStepTimeConstraint"->0.5]*)
 
 
 (* ::Input:: *)
-(*int[Sqrt[1+Sqrt[1-Sqrt[1+1/x^2]]]/x,x]*)
+(*int[Sqrt[1+Sqrt[1-Sqrt[1+1/x^2]]]/x,x,"SingleStepTimeConstraint"->0.5]*)
 
 
 (* ::Input:: *)
