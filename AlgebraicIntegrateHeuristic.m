@@ -434,7 +434,9 @@ Options[IntegrateAlgebraic] = {
 	"LinearRational" -> True,
 	"Elementary" -> True,
 	"Apart" -> False,
-	"SingleStepTimeConstraint" -> 0.25
+	"SingleStepTimeConstraint" -> 0.25,
+	"RationalUndeterminedOnly" -> False,
+	"FactorComplete" -> False
 }; 
 
 IntegrateAlgebraic[e_, x_, opts:OptionsPattern[]] := Module[
@@ -550,6 +552,7 @@ If[nestedCount[unintegratedPart, x] > 0,
 
 (* Goursat pseudo-elliptic integral. *)
 
+If[! OptionValue["RationalUndeterminedOnly"],
 debugPrint1["Trying Goursat method on ", unintegratedPart];
 goursat = goursatIntegrate[unintegratedPart, x, u];
 If[ListQ @ goursat,
@@ -559,6 +562,7 @@ If[ListQ @ goursat,
 		integratedPart  += integral
 	];
 	debugPrint1["Goursat returned : ", {rationalPart, unintegratedPart, integratedPart}];
+]
 ];
 
 (* Rational substitution with undetermined coefficients. *)
@@ -572,6 +576,7 @@ If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[result[[3]], unintegr
 ];
 debugPrint1["Rational undetermined returned : ", {rationalPart, unintegratedPart, integratedPart}];
 
+If[! OptionValue["RationalUndeterminedOnly"],
 (* Linear rational substitution. *)
 
 If[TrueQ[OptionValue["LinearRational"]],
@@ -606,6 +611,8 @@ If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[result[[3]], unintegr
 	integratedPart  += result[[3]]
 ];
 debugPrint1["logPart returned : ", {rationalPart, unintegratedPart, integratedPart}];
+
+];
 
 (* Partial fraction expansion and integrate term-by-term. *)
 
@@ -938,7 +945,7 @@ solveRational[num_, den_, p_, r_, usubstitution_, radicandDenominator_, x_, u_, 
 	debugPrint3[eqns];
 
 	solns = TimeConstrained[
-		Solve[eqns[[1]] == 0, Dt[y]] // Factor // PowerExpand, 
+		Quiet[ Solve[eqns[[1]] == 0, Dt[y]] ] // Factor // PowerExpand, 
 		$timeConstraint/2,
 		$TimedOut];
 
@@ -1034,7 +1041,7 @@ powerExpand[e_] := e /. Power[a_ b_^n_Integer, r_Rational] /;
 
 ClearAll[continuousQ];
 
-continuousQ[e_, x_] := TimeConstrained[
+continuousQ[e_, x_] := Quiet @ TimeConstrained[
 	TrueQ[! Reduce[1/e == 0, x, Reals]], 
 	$timeConstraint, 
 	True
@@ -1151,7 +1158,7 @@ Do[
 	Do[
 		If[Denominator[Last[rad]] == Denominator[Last[match]],
 			rem = PolynomialRemainder[First[match],First[rad],x];
-			If[rem//zeroQ,
+			If[rem // zeroQ,
 				quot = PolynomialQuotient[First[match],First[rad],x];
 				If[MatchQ[quot, x^n_ /; Mod[n,1/Denominator[Last[match]]] == 0],
 					AppendTo[reps, {
@@ -1491,7 +1498,7 @@ integrate[e_, x_] /; ListQ[ quadraticRadicalToRational[e, x, $u] ] :=
 ClearAll[integrateQuadraticRadical];
 
 integrateQuadraticRadical[e_, x_] := Module[
-{t, u, mmaInt, intt, integrand, substitution, integral, numerics},
+{t, u, mmaInt, intt, integrand, substitution, integral, numerics, result},
 
 	(* Can we substitute u \[Equal] (x^2)? eg. (x*Sqrt[-2 + x^2])/(2 - 4*x^2 + x^4) *)
 	
@@ -1502,10 +1509,14 @@ integrateQuadraticRadical[e_, x_] := Module[
 
 	(* Euler's substitution for Sqrt[quadratic]. *)
 	
-	{integrand, substitution} = quadraticRadicalToRational[e, x, u];
-	debugPrint3["Rationalised integrand and substitution is ", {integrand, substitution}];
-	integral = Integrate[integrand, u] /. substitution;
-	integral = integral // Apart // Expand // Together;
+	result = quadraticRadicalToRational[e, x, u];
+	If[ListQ[result],
+		{integrand, substitution} = result;
+		debugPrint3["Rationalised integrand and substitution is ", {integrand, substitution}];
+		integral = Integrate[integrand, u] /. substitution;
+		integral = integral // Apart // Expand // Together,
+		integral = Integrate[e, x] (* eg. Integrate[Sqrt[2I x^2-3I x+1],x] *)	
+	];
 
 	(* Remove constants. *)
 	If[Head[integral] === Plus, 
@@ -1596,7 +1607,7 @@ exy = n/a u^(n-1) exy /. {x -> (u^n - b)/a, y -> u};
 (*\[Integral]((1+u)^(2/3) (1-4 u+2 u^2))/(3 (-1+u)^2) \[DifferentialD]u*)
 
 
-(* ::Subsubsection:: *)
+(* ::Subsubsection::Closed:: *)
 (*quadraticRadicalToRational*)
 
 
@@ -1628,15 +1639,10 @@ b = Coefficient[radicals[[1,2]], x, 1];
 c = Coefficient[radicals[[1,2]], x, 0];
 
 (* This is here for compact forms for solveAlgebraicIntegral. *)
-(*
-If[! (MatchQ[Head[a], Integer|Rational] && 
-	  MatchQ[Head[b], Integer|Rational] && 
-	  MatchQ[Head[c], Integer|Rational]),
-	Return[ False ]];
-*)
+
 transformed = {};
 
-If[a > 0,
+If[Im[a] == 0 && a > 0,
 	(* Euler's first substitution. *)
 	X = (u^2 - c)/(b - 2 Sqrt[a] u);
 	U = Sqrt[radicals[[1,2]]] - Sqrt[a] x;
@@ -1645,7 +1651,7 @@ If[a > 0,
 	AppendTo[transformed, euler1]
 ];
 
-If[a < 0 && c > 0,
+If[Im[a] == 0 && Im[c] == 0 && a < 0 && c > 0,
 	(* Euler's second substitution. *)
 	X = Cancel @ Together[(2 Sqrt[c] u - b)/(a - u^2)];
 	U = (Sqrt[radicals[[1,2]]] - Sqrt[c])/x;	
@@ -1654,7 +1660,7 @@ If[a < 0 && c > 0,
 	AppendTo[transformed, euler2]
 ];
 
-If[b^2 - 4 a c > 0, 
+If[Im[b^2 - 4 a c] == 0 && b^2 - 4 a c > 0, 
 	(* Euler's third substitution. *)
 	\[Alpha] = -b/(2 a) - Sqrt[b^2 - 4 a c]/(2 a);
 	\[Beta] = -b/(2 a) + Sqrt[b^2 - 4 a c]/(2 a);
@@ -1665,8 +1671,15 @@ If[b^2 - 4 a c > 0,
 	AppendTo[transformed, euler3]
 ];
 
-SortBy[transformed, LeafCount] // First
+If[transformed === {},
+	False,
+	SortBy[transformed, LeafCount] // First
 ]
+]
+
+
+(* ::InheritFromParent:: *)
+(*quadraticRadicalToRational[(u Sqrt[-1-2 I Sqrt[2]+u^2] (-24+60 I Sqrt[2]+62 u^2+16 I Sqrt[2] u^2-3 u^4-8 I Sqrt[2] u^4+4 I Sqrt[2] u^6+u^8))/((16 I-14 Sqrt[2]+23 I u^2+8 Sqrt[2] u^2-2 I u^4+6 Sqrt[2] u^4-I u^6) (-16 I-14 Sqrt[2]-23 I u^2+8 Sqrt[2] u^2+2 I u^4+6 Sqrt[2] u^4+I u^6)),u,t]*)
 
 
 (* ::Input:: *)
@@ -2396,7 +2409,7 @@ radU = Collect[radicand /. {x -> (a - b u)/(u - 1)} // Together // Cancel, u];
 eqn = Numerator[radU] == (p u^deg + q);
 
 solns = TimeConstrained[
-		Solve[!Eliminate[!eqn, {u}], {a,b,p,q}],
+		Quiet @ Solve[!Eliminate[!eqn, {u}], {a,b,p,q}],
 		$timeConstraint,
 		$TimedOut];
 
@@ -2500,7 +2513,7 @@ radU = Collect[radicand /. {x -> (a - b u)/(u - 1)} // Together // Cancel, u];
 eqn = Numerator[radU] == (p u^(deg) + q u^(deg/2) + r);
 
 solns = TimeConstrained[
-		Solve[!Eliminate[!eqn, {u}], {a,b,p,q,r}],
+		Quiet @ Solve[!Eliminate[!eqn, {u}], {a,b,p,q,r}],
 		$timeConstraint,
 		$TimedOut];
 		
@@ -2573,7 +2586,7 @@ radU = radicand /. {x -> (a - b u)/(u - 1)} // Together // Cancel;
 eqn = Numerator[radU] == p u^(deg-1) + q;
 
 solns = TimeConstrained[
-		Solve[!Eliminate[!eqn, {u}], {a,b,p,q}],
+		Quiet @ Solve[!Eliminate[!eqn, {u}], {a,b,p,q}],
 		$timeConstraint,
 		$TimedOut];
 
@@ -2795,7 +2808,7 @@ Do[
 	vars = Union @ Cases[eqn, (A|V)[_], Infinity];
 
 	soln = TimeConstrained[
-		Solve[! Eliminate[! eqn, {x}], vars],
+		Quiet @ Solve[! Eliminate[! eqn, {x}], vars],
 		$timeConstraint, 
 		{}
 	];
@@ -2870,7 +2883,7 @@ Do[
 	vars = Union @ Cases[eqn, (A|V)[_], Infinity];
 
 	soln = TimeConstrained[
-		Solve[!Eliminate[!eqn, {x}], vars],
+		Quiet @ Solve[!Eliminate[!eqn, {x}], vars],
 		$timeConstraint, 
 		{}
 	];
@@ -2941,7 +2954,7 @@ Do[
 	vars = Union @ Cases[eqn, (A|V)[_], Infinity];
 
 	soln = TimeConstrained[
-		Solve[!Eliminate[!eqn, {x}], vars],
+		Quiet @ Solve[!Eliminate[!eqn, {x}], vars],
 		$timeConstraint, 
 		{}
 	];
@@ -3004,7 +3017,7 @@ Do[
 	vars = Union @ Cases[eqn, (A|V)[_], Infinity];
 
 	soln = TimeConstrained[
-		Solve[!Eliminate[!eqn, {x}], vars],
+		Quiet @ Solve[!Eliminate[!eqn, {x}], vars],
 		$timeConstraint, 
 		{}
 	];
@@ -3140,7 +3153,7 @@ Do[
 	vars = Append[Union @ Cases[eqns, V[_], Infinity], c];
 
 	sol = TimeConstrained[
-		Solve[! Eliminate[!eqns, {x}], vars],
+		Quiet @ Solve[! Eliminate[!eqns, {x}], vars],
 		$timeConstraint bound,
 		{}];
 
@@ -3291,7 +3304,7 @@ Do[
 	vars = Append[Union @ Cases[eqns, V[_], Infinity], c];
 
 	sol = TimeConstrained[
-		Solve[! Eliminate[!eqns, {x}], vars],
+		Quiet @ Solve[! Eliminate[!eqns, {x}], vars],
 		$timeConstraint bound,
 		{}];
 
@@ -3490,7 +3503,7 @@ If[Length[pf] > 1,
 
 ClearAll[apartIntegrate];
 
-Options[apartIntegrate] = Append[Options[solveAlgebraicIntegral], "FactorComplete" -> False];
+Options[apartIntegrate] = Options[solveAlgebraicIntegral];
 
 apartIntegrate[0|0., x_, opts:OptionsPattern[]] := {0, 0, 0}
 
@@ -3537,7 +3550,7 @@ If[integratedPart === 0,
 	unintegratedPart = e;
 	integratedPart = 0;
 	rationalPart = 0,
-	(* recursively try to integrate all the unintegrated terms together. *)
+	(* Recursively try to integrate all the unintegrated terms together. *)
 	debugPrint2["Recursively calling solveAlgebraicIntegral on all unintegrated terms: ", unintegratedPart];
 	integrated = solveAlgebraicIntegral[unintegratedPart, x, opts];
 	rationalPart += integrated[[1]];
@@ -3711,7 +3724,7 @@ eqns = PowerExpand[Factor[eqns]] //. Power[a_,n_Rational]Power[b_,n_Rational] :>
 
 debugPrint2[eqns];
 
-uintegrands=Solve[eqns[[1]] == 0,{Dt[y]}];
+uintegrands=Quiet @ Solve[eqns[[1]] == 0,{Dt[y]}];
 debugPrint2[uintegrands];
 
 If[MatchQ[uintegrands, {}|{{}}|_Solve],
@@ -3854,6 +3867,10 @@ EndPackage[];
 (*int[(x^6-x^4)^(1/6),x,"MaxDenominatorDegree"->6]*)
 
 
+(* ::Input:: *)
+(*int[(-2+x)/((x+2) (x^3+x^2-x-1)^(1/3)),x]*)
+
+
 (* ::Text:: *)
 (*We now allow symbolic summation over the roots of a polynomial in the results.*)
 
@@ -3904,7 +3921,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[(2x-1)/((x+1)Sqrt[Expand[(x+1)^6-a^2 x^2]]),x]*)
+(*int[(2 x-1)/((x+1) Sqrt[Expand[(x+1)^6-a^2 x^2]]),x]*)
 
 
 (* ::Text:: *)
@@ -3914,7 +3931,7 @@ EndPackage[];
 (* ::Input:: *)
 (*int[Sqrt[x]/(-2+x^2)^(3/4),x]*)
 (*subst[Sqrt[x]/(-2+x^2)^(3/4),u->Sqrt[x],x]*)
-(*int[%//First,u]/.Last[%]*)
+(*int[First[%],u]/. Last[%]*)
 
 
 (* ::Text:: *)
@@ -3950,7 +3967,54 @@ EndPackage[];
 
 (* ::Input:: *)
 (*int[1/((x+1) (x^3+2)^(1/3)),x]*)
-(*D[1/12 (2 Sqrt[3] ArcTan[(Sqrt[3] (2+x^3)^(2/3) (-1072244631963565627440642667696-1764382450892402509391037276448 x-642339750020464731448133545632 x^2+190053406517364372745124029472 x^3+98966744593197647869364591874 x^4)+Sqrt[3] (2+x^3)^(1/3) (1190118508012558386973005239952+2230842809300000322439227290544 x+735314591615271415729365586328 x^2-726175722499147186465445363320 x^3-453545129950193664973324584892 x^4-45228634350310035870300951616 x^5)+Sqrt[3] (-47674000995597211057816884304+351260598258508240019971964880 x+888876515195959220955879945824 x^2+889426563183087468015580290048 x^3+673924074224408772959625384792 x^4+382151535711085278859235047618 x^5+93292570833559435663132301885 x^6))/(4664445860470002276943457906640+7625406903034897531937916271008 x+1085003586721431086608600126056 x^2-2686291575945300326054363894472 x^3+46796858328175763683008212928 x^4+1013240117509374668590043803350 x^5+236716304443694165237125394649 x^6)]+Log[(-140-192 x+24 x^2+44 x^3-48 x^4+6 x^5+22 x^6+(2+x^3)^(2/3) (12-60 x-96 x^2-6 x^3+21 x^4)+(2+x^3)^(1/3) (96+228 x+102 x^2-48 x^3+21 x^5))/(1+6 x+15 x^2+20 x^3+15 x^4+6 x^5+x^6)]),x] - 1/((x+1) (x^3+2)^(1/3))//Simplify*)
+(*Simplify[\!\( *)
+(*\*SubscriptBox[\(\[PartialD]\), \(x\)]\(( *)
+(*\*FractionBox[\(1\), \(12\)]\ \((2\ *)
+(*\*SqrtBox[\(3\)]\ ArcTan[\(( *)
+(*\*SqrtBox[\(3\)]\ *)
+(*\*SuperscriptBox[\((2 + *)
+(*\*SuperscriptBox[\(x\), \(3\)])\), \(2/3\)]\ \((\(-1072244631963565627440642667696\) - 1764382450892402509391037276448\ x - 642339750020464731448133545632\ *)
+(*\*SuperscriptBox[\(x\), \(2\)] + 190053406517364372745124029472\ *)
+(*\*SuperscriptBox[\(x\), \(3\)] + 98966744593197647869364591874\ *)
+(*\*SuperscriptBox[\(x\), \(4\)])\) + *)
+(*\*SqrtBox[\(3\)]\ *)
+(*\*SuperscriptBox[\((2 + *)
+(*\*SuperscriptBox[\(x\), \(3\)])\), \(1/3\)]\ \((1190118508012558386973005239952 + 2230842809300000322439227290544\ x + 735314591615271415729365586328\ *)
+(*\*SuperscriptBox[\(x\), \(2\)] - 726175722499147186465445363320\ *)
+(*\*SuperscriptBox[\(x\), \(3\)] - 453545129950193664973324584892\ *)
+(*\*SuperscriptBox[\(x\), \(4\)] - 45228634350310035870300951616\ *)
+(*\*SuperscriptBox[\(x\), \(5\)])\) + *)
+(*\*SqrtBox[\(3\)]\ \((\(-47674000995597211057816884304\) + 351260598258508240019971964880\ x + 888876515195959220955879945824\ *)
+(*\*SuperscriptBox[\(x\), \(2\)] + 889426563183087468015580290048\ *)
+(*\*SuperscriptBox[\(x\), \(3\)] + 673924074224408772959625384792\ *)
+(*\*SuperscriptBox[\(x\), \(4\)] + 382151535711085278859235047618\ *)
+(*\*SuperscriptBox[\(x\), \(5\)] + 93292570833559435663132301885\ *)
+(*\*SuperscriptBox[\(x\), \(6\)])\))\)/\((4664445860470002276943457906640 + 7625406903034897531937916271008\ x + 1085003586721431086608600126056\ *)
+(*\*SuperscriptBox[\(x\), \(2\)] - 2686291575945300326054363894472\ *)
+(*\*SuperscriptBox[\(x\), \(3\)] + 46796858328175763683008212928\ *)
+(*\*SuperscriptBox[\(x\), \(4\)] + 1013240117509374668590043803350\ *)
+(*\*SuperscriptBox[\(x\), \(5\)] + 236716304443694165237125394649\ *)
+(*\*SuperscriptBox[\(x\), \(6\)])\)] + Log[\((\(-140\) - 192\ x + 24\ *)
+(*\*SuperscriptBox[\(x\), \(2\)] + 44\ *)
+(*\*SuperscriptBox[\(x\), \(3\)] - 48\ *)
+(*\*SuperscriptBox[\(x\), \(4\)] + 6\ *)
+(*\*SuperscriptBox[\(x\), \(5\)] + 22\ *)
+(*\*SuperscriptBox[\(x\), \(6\)] + *)
+(*\*SuperscriptBox[\((2 + *)
+(*\*SuperscriptBox[\(x\), \(3\)])\), \(2/3\)]\ \((12 - 60\ x - 96\ *)
+(*\*SuperscriptBox[\(x\), \(2\)] - 6\ *)
+(*\*SuperscriptBox[\(x\), \(3\)] + 21\ *)
+(*\*SuperscriptBox[\(x\), \(4\)])\) + *)
+(*\*SuperscriptBox[\((2 + *)
+(*\*SuperscriptBox[\(x\), \(3\)])\), \(1/3\)]\ \((96 + 228\ x + 102\ *)
+(*\*SuperscriptBox[\(x\), \(2\)] - 48\ *)
+(*\*SuperscriptBox[\(x\), \(3\)] + 21\ *)
+(*\*SuperscriptBox[\(x\), \(5\)])\))\)/\((1 + 6\ x + 15\ *)
+(*\*SuperscriptBox[\(x\), \(2\)] + 20\ *)
+(*\*SuperscriptBox[\(x\), \(3\)] + 15\ *)
+(*\*SuperscriptBox[\(x\), \(4\)] + 6\ *)
+(*\*SuperscriptBox[\(x\), \(5\)] + *)
+(*\*SuperscriptBox[\(x\), \(6\)])\)])\))\)\)-1/((x+1) (x^3+2)^(1/3))]*)
 
 
 (* ::Subsection::Closed:: *)
@@ -3958,7 +4022,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[x/((x^3+1)Sqrt[4x^3+1]),x]*)
+(*int[x/((x^3+1) Sqrt[4 x^3+1]),x]*)
 
 
 (* ::Input:: *)
@@ -4019,7 +4083,23 @@ EndPackage[];
 
 (* ::Input:: *)
 (*int[((-1-2 x+2 x^2) Sqrt[x+x^4])/(-1+2 x)^3,x]*)
-(*D[((1/4+x^2/2) Sqrt[x+x^4])/(-1+2 x)^2+1/16 Log[-1-2 x^2+2 Sqrt[x (1+x^3)]]-1/16 Log[1+2 x^2+2 Sqrt[x+x^4]],x]-((-1-2 x+2 x^2) Sqrt[x+x^4])/(-1+2 x)^3//Simplify*)
+(*Simplify[\!\( *)
+(*\*SubscriptBox[\(\[PartialD]\), \(x\)]\(( *)
+(*\*FractionBox[\(\(( *)
+(*\*FractionBox[\(1\), \(4\)] + *)
+(*\*FractionBox[*)
+(*SuperscriptBox[\(x\), \(2\)], \(2\)])\)\ *)
+(*\*SqrtBox[\(x + *)
+(*\*SuperscriptBox[\(x\), \(4\)]\)]\), *)
+(*SuperscriptBox[\((\(-1\) + 2\ x)\), \(2\)]] + *)
+(*\*FractionBox[\(1\), \(16\)]\ Log[\(-1\) - 2\ *)
+(*\*SuperscriptBox[\(x\), \(2\)] + 2\ *)
+(*\*SqrtBox[\(x\ \((1 + *)
+(*\*SuperscriptBox[\(x\), \(3\)])\)\)]] - *)
+(*\*FractionBox[\(1\), \(16\)]\ Log[1 + 2\ *)
+(*\*SuperscriptBox[\(x\), \(2\)] + 2\ *)
+(*\*SqrtBox[\(x + *)
+(*\*SuperscriptBox[\(x\), \(4\)]\)]])\)\)-((-1-2 x+2 x^2) Sqrt[x+x^4])/(-1+2 x)^3]*)
 
 
 (* ::Subsection::Closed:: *)
@@ -4567,7 +4647,15 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[(x^2+1)/((1+x) Sqrt[x^4+x^2+1]),x,"Apart"->True]*)
+(*int[(3-x^2)/((1-x^2) (1-6 x^2+x^4)^(1/4)),x]*)
+
+
+(* ::Input:: *)
+(*int[(1+x^2)^2/((1-x^2) (1-6 x^2+x^4)^(3/4)),x]*)
+
+
+(* ::Input:: *)
+(*int[(x^2+1)/((1+x) Sqrt[x^4+x^2+1]),x,"Apart"->True]*)
 
 
 (* ::Input:: *)
@@ -4923,10 +5011,6 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[((2+x^4) (-2-2 x^2+x^4) Sqrt[-2-x^2+x^4])/((-2+x^4) (-2+x^2+x^4)^2),x]*)
-
-
-(* ::Input:: *)
 (*int[((-1-x-x^2+x^4) (2+x+2 x^4))/(Sqrt[-1-x+x^4] (4+8 x+3 x^2-x^3-7 x^4-8 x^5+x^6+4 x^8)),x]*)
 
 
@@ -5043,7 +5127,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[((-3+x^4+3 x^6) Sqrt[-x-x^5-x^7])/((1+x^4+x^6) (1-x^3+x^4+x^6)),x]*)
+(*int[((-3+x^4+3 x^6) Sqrt[x+x^5+x^7])/((1+x^4+x^6) (1-x^3+x^4+x^6)),x]*)
 
 
 (* ::Input:: *)
@@ -5139,7 +5223,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*Assuming[x>0,int[(x Sqrt[-x^2+x^4])/(-3+2 x^2),x]]*)
+(*int[(x Sqrt[-x^2+x^4])/(-3+2 x^2),x]*)
 
 
 (* ::Input:: *)
@@ -5259,15 +5343,11 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[((-1+2 x^4) Sqrt[1-3 x^2+2 x^4])/((1-2 x^2+2 x^4) (1-x^2+2 x^4)),x]*)
-
-
-(* ::Input:: *)
 (*int[((-1+x^4) Sqrt[1+x^4])/(1+x^4+x^8),x]*)
 
 
 (* ::Input:: *)
-(*int[((-1+x^2) Sqrt[-1-x^4])/((1+x^2) (1+x^4)),x]*)
+(*int[((-1+x^2) Sqrt[1+x^4])/((1+x^2) (1+x^4)),x]*)
 
 
 (* ::Input:: *)
@@ -5440,10 +5520,6 @@ EndPackage[];
 
 (* ::Input:: *)
 (*int[(Sqrt[1-x^6] (1+2 x^6) (1+x^2-x^4-2 x^6-x^8+x^12))/((-1+x^6) (-1+2 x^6-3 x^12+x^18)),x]*)
-
-
-(* ::Input:: *)
-(*int[(Sqrt[1-x^2-x^3+x^6] (-2-x^3+4 x^6) (1+x^2-2 x^3-x^4-x^5+3 x^6+x^8-2 x^9+x^12))/((1-x^3+x^6)^2 (1-2 x^3-x^4+3 x^6-2 x^9+x^12)),x]*)
 
 
 (* ::Input:: *)
@@ -5783,15 +5859,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[((-1+x^8) (1+x^4+x^8))/(1+x^8)^(9/4),x,"MaxRationalDegree"->24,"MaxNumeratorDegree"->24,"MaxDenominatorDegree"->8]*)
-
-
-(* ::Input:: *)
 (*int[((-1+x^8) (1+x^8))/((-1-x^4+x^8)^(1/4) (1-3 x^8+x^16)),x]*)
-
-
-(* ::Input:: *)
-(*int[x/(1+x^8)^(5/4),x,"MaxDenominatorDegree"->8]*)
 
 
 (* ::Input:: *)
@@ -5808,10 +5876,6 @@ EndPackage[];
 
 (* ::Input:: *)
 (*int[((-1+x^8) (1+2 x^4+x^8)^(3/4))/(1+x^4+x^8)^2,x]*)
-
-
-(* ::Input:: *)
-(*int[((1+x^8) (1-x+x^8) (-1+7 x^8))/((1+x+x^8) (1+x^2+2 x^8+x^16)^(3/2)),x]*)
 
 
 (* ::Input:: *)
