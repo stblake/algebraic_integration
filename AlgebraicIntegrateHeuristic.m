@@ -2765,7 +2765,7 @@ $Failed
 ]
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Direct rationalisation*)
 
 
@@ -2974,23 +2974,19 @@ $Failed
 (*int[(b^2 (b^3+a^3 x^3)^(1/3))/(-b^3+a^3 x^3),x]*)
 
 
-(* ::Subsubsection::Closed:: *)
+(* ::Subsubsection:: *)
 (*directRationaliseQuadraticRationalSolve*)
 
 
 ClearAll[directRationaliseQuadraticRationalSolve];
 
 directRationaliseQuadraticRationalSolve[p_, q_, r_, l_, m_, x_, u_] := Catch @ Module[
-{degp, degq, degMax, y, formnum, formden, form, yform, unparameterised, eqn, vars, soln, solnre},
+{degp, degq, y, formnum, formden, form, yform, unparameterised, eqn, vars, soln, solnre},
 
 debugPrint2["Trying directRationaliseSolve ", {p,q,r,l,m,x,u}];
 
 degp = Exponent[p,x];
 degq = Exponent[q,x];
-
-degMax = Min[Max[3, degp - degq + Exponent[r,x] + 2], 8];
-
-debugPrint2["Degree bound = ", degMax];
 
 Do[
 	If[ndeg == 0 && ddeg == 0(* || ndeg > ddeg *), 
@@ -3050,8 +3046,7 @@ Do[
 	{s, soln}], 
 	{ndeg, 0, 0}, 
 	{ddeg, 1, 1},
-	{c, {1, u, 1/u}}, 
-	{deg, 1, degMax}];
+	{c, {1, u, 1/u}}];
 
 $Failed
 ]
