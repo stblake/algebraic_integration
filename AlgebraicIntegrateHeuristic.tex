@@ -7,6 +7,8 @@ lscape,pdfpages,comment}
 % \usepackage{euler}
 % \usepackage{times}
 % \usepackage{mathptmx}
+% \usepackage{txfonts}
+
 
 \usepackage[latin1]{inputenc}
 \usepackage{tikz}
@@ -33,7 +35,7 @@ lscape,pdfpages,comment}
 
 \definecolor{gold}{rgb}{0.85,0.66,0.0}
 \def\todo#1{\textcolor{red}{\textbf{**** TODO -- #1 ****}}}
-\def\writeme{\textcolor{gold}{\textbf{WRITE ME!!}}}
+\def\writeme#1{\textcolor{orange}{\textbf{WRITE ME!! #1}}}
 \def\rewrite{\textcolor{blue}{\textbf{RE-WRITE ME!!}}}
 
 
@@ -64,17 +66,19 @@ lscape,pdfpages,comment}
 \begin{abstract}
 We introduce a method for computing some pseudo-elliptic integrals in terms of elementary 
 functions. The method is simple and fast in comparison to the algebraic case of the 
-Risch-Trager-Bronstein algorithm \cite{Risch1969}\cite{Trager1984}\cite{Bronstein1990}. 
+Risch-Trager-Bronstein algorithm \cite{Risch1969}\cite{Risch1970}\cite{Trager1984}\cite{Bronstein1990}. 
 This method can quickly solve many pseudo-elliptic integrals, which other well-known 
-computer algebra systems (CAS) either fail, return an answer in terms of special functions, 
-or require more than 20 seconds of computing time. Unlike the symbolic integration algorithms 
-of Risch \cite{Risch1969}, Davenport \cite{Davenport1979}, Trager \cite{Trager1984}, Bronstein \cite{Bronstein1990} 
-and Miller \cite{Miller2012}; our method is not a decision process. The implementation 
-of this method is less than 200 lines of Mathematica code and can be easily ported 
-to other CAS that can solve systems of linear equations.
+computer algebra systems either fail, return an answer in terms of special functions, 
+or require more than 20 seconds of computing time. Randomised tests showed our method 
+solved 73.4\% of the integrals that could be solved with the best implementation of the Risch-Trager-Bronstein 
+algorithm. Unlike the symbolic integration algorithms of Risch \cite{Risch1969}\cite{Risch1970}, 
+Davenport \cite{Davenport1979}, Trager \cite{Trager1984}, Bronstein \cite{Bronstein1990} and 
+Miller \cite{Miller2012}; our method is not a decision process. The implementation of this method 
+is less than 200 lines of Mathematica code and can be easily ported to other CAS that can solve systems 
+of polynomial equations.
 \end{abstract}
 
-\noindent\textbf{Keywords:} symbolic integration, risch algorithm, algebraic functions, pseudo-elliptic integrals
+\noindent\textbf{Keywords:} symbolic integration, Risch algorithm, algebraic functions, pseudo-elliptic integrals
 
 %\todo{Comment on integrals we can and cannot do.}\\
 
@@ -86,10 +90,10 @@ to other CAS that can solve systems of linear equations.
 The problem of finding elementary solutions to integrals of algebraic functions has 
 challenged mathematicians for centuries. In 1905, Hardy conjectured that the problem may be 
 unsolvable \cite{Hardy1916}. Sophisticated algorithms have been developed, including 
-the famed Risch algorithm \cite{Risch1969} and its modern variants by Davenport \cite{Davenport1979}, 
-Trager \cite{Trager1984}, Bronstein \cite{Bronstein1990} and Miller \cite{Miller2012}. However, 
-it is known that the implementation of these algorithms are highly complex and sometimes 
-fail, are incomplete or hang \cite{fricas_risch_status}. \\
+the famed Risch algorithm \cite{Risch1969}\cite{Risch1970} and its modern variants by 
+Davenport \cite{Davenport1979}, Trager \cite{Trager1984}, Bronstein \cite{Bronstein1990} 
+and Miller \cite{Miller2012}. However, it is known that the implementation of these 
+algorithms are highly complex and sometimes fail, are incomplete or hang \cite{fricas_risch_status}. \\
 
 %\todo{Comment on the completeness of Risch implementations in various CAS. Can we find out why 
 %part of Risch was not implemented in AXIOM?} \\
@@ -100,8 +104,9 @@ fail, are incomplete or hang \cite{fricas_risch_status}. \\
 We will be describing a seemingly new method for computing pseudo-elliptic integrals. 
 \begin{definition}
 For our purposes, a pseudo-elliptic integral is of the form 
-$$\int \frac{a(x)}{b(x)}p(x)^{n/m}dx,$$
-where $a(x),b(x),p(x)$ are polynomials, $\deg_x(p(x))>2$, $\gcd(n,m)=1.$
+$$\int \frac{p(x)}{q(x)}r(x)^{n/m}dx,$$
+where $n,m \in \mathbb{Z}$, $p(x),q(x),r(x) \in \mathbb{Z}[x]$, $\deg_x(r(x))>2$, 
+$\gcd(n,m)=1$, and possesses a solution in terms of elementary functions. 
 \end{definition} 
 
 Before we describe our method, we begin with some background and motivating examples. \\
@@ -121,7 +126,7 @@ $$\int \sqrt{x-1+\sqrt{x-1}} \, dx.$$
 In this case we make the substitution $u=\sqrt{x-1}$, then $2udu=dx$. Furthermore, we need to 
 express $x-1$ in terms of $u$, which is $u^2=x-1$. Then the integral becomes
 $$\int 2u\sqrt{u^2+u}\,du.$$
-While this integral was somewhat more difficult than the previous example, we could still 
+While this integral was more difficult than the previous example, we could still 
 pick a composite function, $\sqrt{x-1}$, of our integrand, $\sqrt{x-1+\sqrt{x-1}},$ to use 
 as our $u$ substitution. In the following well-known example, this is not immediately possible
 $$\int \frac{x^2-1}{\left(x^2+1\right)\sqrt{1+x^4}} \, dx.$$
@@ -130,28 +135,98 @@ $$\int \frac{x^2\left(1-1\left/x^2\right.\right)}{x(x+1/x)\sqrt{x^2\left(x^2+1\l
 \int \frac{1-1\left/x^2\right.}{(x+1/x)\sqrt{(x+1/x)^2-2}} \, dx. $$ 
 Then the substitution $u=x+1/x$, $du=\left(1-1\left/x^2\right.\right)dx$ yields the integral
 $$\int \frac{du}{u\sqrt{u^2-2}},$$
-which can be transformed into a rational function using the Euler substitution \cite{Euler}.\\
+which, in general, may be transformed into a rational function using the Euler substitution \cite{Euler}.\\
 
-Moses devised methods for integrating specific classes of integrals, these 
+While heuristics like algebraic rearranging and integration by substitution are simple, if a 
+computer algebra system (CAS) is available, why would you use such methods instead of the 
+algebraic case of the Risch-Trager-Bronstein algorithm? By way of explanation, consider 
+the following integral 
+\begin{equation*}
+\int\frac{2 a^2 x^4-b^2}{\left(a^2 x^8-b^2\right)\sqrt[4]{a^2 x^4-b^2}}dx,
+\end{equation*}
+where $a,b\in\mathbb{C}$. Using the substitutions $u=\left(x^4-b^2\right)/x^4$, and 
+$t^4=u+a^2-1$, this integral is reduced to integrating a rational function, 
+\begin{equation*}
+-\int\frac{t^2 \left(t^4+a^2\right)}{\left(t^4-a^2-a b\right) \left(t^4-a^2+a b\right)}dt,
+\end{equation*}
+and the solution to our original integral is 
+\iffalse
+\begin{multline*}
+\frac{b-2 a}{4 \sqrt[4]{a} b \sqrt[4]{a-b}} \tan ^{-1}\left(\frac{\sqrt[4]{a}\sqrt[4]{a-b}\,x}{\sqrt[4]{a^2x^4-b^2}}\right) + 
+\frac{b-2 a}{4 \sqrt[4]{a} b\sqrt[4]{a-b}} \tanh ^{-1}\left(\frac{\sqrt[4]{a}\sqrt[4]{a-b}\,x}{\sqrt[4]{a^2 x^4-b^2}}\right) +\\ 
+\frac{2 a+b}{\sqrt[4]{a} b \sqrt[4]{a+b}} \tan^{-1}\left(\frac{\sqrt[4]{a}\sqrt[4]{a+b}\,x}{\sqrt[4]{a^2 x^4-b^2}}\right) + 
+\frac{2 a+b}{4 \sqrt[4]{a} b \sqrt[4]{a+b}} \tanh ^{-1}\left(\frac{\sqrt[4]{a}\sqrt[4]{a+b}\,x}{\sqrt[4]{a^2 x^4-b^2}}\right).
+\end{multline*}
+\fi
+\iffalse
+\begin{multline*}
+\frac{b-2 a}{4 \sqrt[4]{a} b \sqrt[4]{a-b}} \left( \tan ^{-1}\left(\frac{\sqrt[4]{a}\sqrt[4]{a-b}\,x}{\sqrt[4]{a^2x^4-b^2}}\right) + 
+\tanh ^{-1}\left(\frac{\sqrt[4]{a}\sqrt[4]{a-b}\,x}{\sqrt[4]{a^2 x^4-b^2}}\right)\right) +\\ 
+\frac{2 a+b}{\sqrt[4]{a} b \sqrt[4]{a+b}} \left( \tan^{-1}\left(\frac{\sqrt[4]{a}\sqrt[4]{a+b}\,x}{\sqrt[4]{a^2 x^4-b^2}}\right) + 
+\tanh ^{-1}\left(\frac{\sqrt[4]{a}\sqrt[4]{a+b}\,x}{\sqrt[4]{a^2 x^4-b^2}}\right)\right).
+\end{multline*}
+\fi
+\begin{multline*}
+\frac{1}{4b \sqrt[4]{a} \sqrt[4]{a-b}} \left( 
+\left(b-2a\right)\tan ^{-1}\left(\frac{\sqrt[4]{a}\sqrt[4]{a-b}\,x}{\sqrt[4]{a^2x^4-b^2}}\right) + 
+\left(b-2a\right)\tanh ^{-1}\left(\frac{\sqrt[4]{a}\sqrt[4]{a-b}\,x}{\sqrt[4]{a^2 x^4-b^2}}\right)\right. +\\ 
+\left. \left(2a+b\right)\tan^{-1}\left(\frac{\sqrt[4]{a}\sqrt[4]{a+b}\,x}{\sqrt[4]{a^2 x^4-b^2}}\right) + 
+\left(2a+b\right) \tanh ^{-1}\left(\frac{\sqrt[4]{a}\sqrt[4]{a+b}\,x}{\sqrt[4]{a^2 x^4-b^2}}\right)
+\right).
+\end{multline*}
+The symbolic integration routines of Maple (2018.1) and Mathematica (12.1.0) cannot compute this integral. Both 
+AXIOM and FriCAS seemingly hang, with no response after 2 hours. As the integration of rational functions
+(via Hermite reduction and the Lazard-Rioboo-Trager algorithm \cite{Bronstein1997}) is significantly faster than the 
+Risch-Trager-Bronstein algorithm for algebraic integration, if we can quickly determine when a rational 
+substitution (or more precisely a Laurent polynomial substitution) will reduce the integrand to one  
+of the forms $\mathbb{Q}(x)$, $\mathbb{Q}(x, (a\,x+b)^{n/m})$, or $\mathbb{Q}(x,(a\,x^2+b\,x+c)^{n/2})$, 
+then we would have a reasonable alternative to the heavy algebraic computations required by the 
+Risch-Trager-Bronstein algorithm. This approach becomes more attractive when you consider that in major 
+computer algebra systems the algebraic case (and the mixed algebraic-transcendental case) of the 
+Risch-Trager-Bronstein algorithm is either partially implemented, not implemented, or contains computational 
+bottlenecks that result in long computations. \\
+
+\iffalse
+Moses implemented domain-specific heuristics for certain classes of integrals. These 
 included $$\int R(x) \exp(p(x)) dx,$$ where $R(x)$ is a rational function of $x$ and $p(x)$ 
 is a polynomial in $x$ \cite[pp. 85]{Moses1967}. Shortly after, these methods were 
 phased-out with the work of Risch. However in most CAS the algebraic case of the Risch 
 algorithm is either partially implemented, not implemented, or contains computational 
 bottlenecks that result in long computations. So for algebraic functions a domain-specific 
 approach still has merit. 
+\fi
 
+\iffalse
 \section{A canonical form for algebraic functions}
-We require that the integrand is of the form $\frac{p(x)}{q(x)}r(x)^{n/m}$, where 
+\textcolor{blue}{%
+The general form of an elliptic, pseudo-elliptic or hyper-elliptic integral is 
+\begin{equation*}
+\int \frac{R_1 + R_2 \sqrt{P}}{R_3 + R_4 \sqrt{P}}dx,
+\end{equation*}
+where $R_1$, $R_2$, $R_3$, $R_4$ are rational functions of $x$, and $P$ is a 
+polynomial in $x$. This general form may be reduced to the following form 
+\begin{equation*}
+\int R_5 dx + \int \frac{\sqrt{P}}{R_6}dx,
+\end{equation*}
+where
+\begin{equation*}
+R_5 = \frac{R_1 R_3 - R_2 R_4 P}{R_3^2 - R_4^2 P}, \qquad R_6 = \frac{R_3^2 - R_4^2 P}{R_2R_3 - R_1 R_4}.
+\end{equation*}
+As $R_5$ is a rational function, the integral, $\int R_5 dx$, always has a solution in terms of 
+elementary functions \cite{Bronstein1997}\cite{Byrd1954}. \\
+%
+The most general form that we consider is an integrand of the form $\frac{p(x)}{q(x)}r(x)^{n/m}$, where 
 $p(x),q(x),r(x)\in \mathbb{Z}[x]$ and $\gcd (n,m)=1$. If the integrand is not in this form 
-then we attempt to write it in this form plus a rational function of $x$. For example, 
-$$\frac{x^2+1+x\sqrt[4]{x^4+1}}{\left(x^2+1\right) \sqrt[4]{x^4+1}} = 
-\frac{y^3}{x^4+1}+\frac{x}{x^2+1},$$
-where $y^4 = x^4+1$. The rational part, $\frac{x}{x^2+1},$ is integrated using known algorithms for rational 
-function integration \cite{Bronstein1997}. An algorithmic way to create this representation is given in 
-Trager \cite{Trager1984}, however it requires an integral basis and is beyond the scope of this paper. \\
+then we attempt to write it in this form plus a rational function of $x$, either using the 
+transformation above or heuristic methods. For example, 
+\begin{equation*}
+\int\frac{x^2+1+x\sqrt[4]{x^4+1}}{\left(x^2+1\right) \sqrt[4]{x^4+1}}dx = 
+\int\frac{x\,dx}{x^2+1} + \int\frac{y^3\,dx}{x^4+1},
+\end{equation*}
+where $y^4 = x^4+1$.}
+\fi
 
 \section{A method for solving some pseudo-elliptic integrals}
-
 Following on from our example integral $\int \frac{x^2-1}{\left(x^2+1\right)\sqrt{1+x^4}} \, dx$, 
 where making the substitution $u=x+1/x$ resulted in the integral $\int \frac{du}{u\sqrt{u^2-2}}$. 
 We would like to generalise this method, however the difficulty was in the choice of the algebraic 
@@ -161,16 +236,20 @@ substitution, which simplifies the integral. Consequently our approach does not 
 on such an algebraic manipulation of the integrand. \\
 
 Our method attempts to parameterise constants $a_0, a_1, a_2$, polynomials $a(u), b(u)$ and a 
-substitution of the form 
-$$u = \frac{s(x)}{x^k}$$ 
+Laurent polynomial substitution of the form 
+\begin{equation*}
+u = \frac{s(x)}{x^k}
+\end{equation*}
 such that
 \begin{equation}
 \int \frac{p(x)}{q(x)}r(x)^{n/m}dx = \int \frac{a(u)}{b(u)}\left(a_2u^2+a_1u+a_0\right)^{n/m}du,\label{reduction}
 \end{equation}
-where $\deg_x(r(x))>2$ and $\gcd (n,m)=1$. Consequently, our method does not directly compute the 
-integral, and requires a recursive call to an algebraic integrator\footnote{If such an integrator is not 
-available then a reasonable implementation could call a lookup table of algebraic forms \cite{Prudnikov1986} 
-followed by a rational function integrator \cite{Bronstein1997}.}. We note that a reduction to this form
+where $s(x) = \sum\limits_{i=0}^{d} c_i\,x^{i}$, $\deg_x(r(x))>2$, $\gcd (n,m)=1$, 
+$a_0, a_1,a_2,c_0,c_1,\cdots,c_{d} \in \mathbb{C}$ and $k \in \mathbb{N}$. Consequently, 
+our method does not directly compute the integral, and requires a recursive call to an algebraic 
+integrator\footnote{If such an integrator is not available then a reasonable implementation 
+could call a lookup table of algebraic forms \cite{Prudnikov1986} followed by a rational 
+function integrator \cite{Bronstein1997}.}. We note that a reduction to this form
 does not guarantee an elementary solution (for example, when $m>2,a_2\ne0$ an elementary form 
 is often not possible). \\
 
@@ -183,20 +262,13 @@ a parameterisation of $a(u)$ and $b(u)$.\\
 to the form $a_2u^2+a_1u+a_0$ for a given substitution, then we cannot find a 
 parameterisation of (\ref{reduction}). Thus, we begin by computing the radicand part 
 of the integral, which requires solving 
-$$r(x) = \text{num}\left( a_2u^2 + a_1u + a_0 \right),$$
-for the constants $a_0,a_1,a_2$ and the substitution $u = s(x)/x^k$. We do this by iterating over 
-$0 < d \leq N$ such that $s(x) = \sum\limits_{i=0}^{d} c_i\,x^{i}$, where for each $d$ we 
-iterate over $0 < h \leq M$ such that $u = s(x)/x^h$. Given a candidate $u$, we then iterate over 
-the radicands 
-$$r_1(u) = a_1 u + a_0,\quad r_2(u) = a_2 u^2 + a_0, \quad r_3(u) = a_2 u^2 + a_1 u + a_0,$$ 
-where for each radicand we require $m \mid \text{deg}_x\left(\text{den}\left(r_i(u)\right)\right)$ 
-(otherwise we would have a fractional power in the denominator of $r_i(u)^{n/m}$), then we solve 
 \begin{equation}
-r(x) = \text{num}\left(r_i(u)\right).\label{reduction_radicand}
+r(x) = \text{num}\left( a_2u^2 + a_1u + a_0 \right), \label{reduction_radicand}
 \end{equation}
-If $\text{deg}_x\left(r(x)\right) \ne \text{deg}_x\left( \text{num}\left(r_i(u)\right) \right)$, then 
-a solution does not exist (as we have already considered lower-degree polynomials).
-Otherwise we solve (\ref{reduction_radicand}) by equating coefficients of $x$ and solving the system of 
+for the constants $a_0,a_1,a_2$ and the substitution $u = s(x)/x^k$. We do this by iterating over 
+$0 < d \leq \text{deg}_x(r(x))$ such that $s(x) = \sum\limits_{i=0}^{d} c_i\,x^{i}$, where for each $d$ we 
+iterate over $0 \leq h \leq \text{deg}_x(r(x))$, where $u = s(x)/x^h$ and $ h \mod m = 0$.  
+Given a candidate $u$, we solve (\ref{reduction_radicand}) by equating coefficients of $x$ and solving the system of 
 equations for the unknowns $a_0$, $a_1$, $a_2$, $c_0$, $c_1$, $\cdots$, $c_d$. If a solution 
 (or multiple solutions) exists we move to computing the rational part of the integral, otherwise 
 we move onto the next radicand or candidate substitution. If no solution exists to the radicand 
@@ -207,19 +279,19 @@ compute the integral.\\
 the radicand part of the integral, we now look to solve the rational part of the integral, 
 which is given by 
 \begin{equation}
-\frac{p(x)}{q(x)} = \frac{a(u)}{b(u)}\frac{u'(x)}{\text{den}\left(a_2u^2+a_1u+a_0\right)^{n/m}}, \label{reduction_rational}
+\frac{p(x)}{q(x)} = \frac{a(u(x))}{b(u(x))}\frac{u'(x)}{\text{den}\left(a_2u(x)^2+a_1u(x)+a_0\right)^{n/m}}, \label{reduction_rational}
 \end{equation}
 where $a_0$, $a_1$, $a_2$, $u(x)$ are known and $a(u)$, $b(u)$ are unknown. The degree bound estimate  
 of $a(u)$ and $b(u)$ is given by $\mathcal{D} = \deg_x(u(x)) + \deg_x(u'(x)) + \max\left( \deg_x(p(x)), \deg_x(q(x)) \right)$. We solve 
 (\ref{reduction_rational}) by increasing the degree, $d$, of $a(u)$ and $b(u)$ from 1 to the degree 
 bound, $\mathcal{D}$, where for each iteration we solve
 \begin{equation*}
-p(x)\,b(u(x))\,\text{den}\left(a_2u^2 + a_1u + a_0\right)^{n/m} - q(x)\,a(u(x))\,u'(x) = 0,
+p(x)\,b(u(x))\,\text{den}\left(a_2u(x)^2 + a_1u(x) + a_0\right)^{n/m} - q(x)\,a(u(x))\,u'(x) = 0,
 \end{equation*}
 where $a(u) = \sum\limits_{i=0}^d v_i u^i$, $b(u) = \sum\limits_{i=0}^d v_{d+i+1} u^i$, and 
 $a(u(x))$, $b(u(x))$ are rational functions in $x$ after replacing $u$ with the candidate 
 substitution. As before, we equate powers of $x$ and solve for the unknowns $v_0$, $v_1$, 
-$\cdots$, $v_{2d-1}$. If a solution is found, then we have a complete solution to 
+$\cdots$, $v_{2d+1}$. If a solution is found, then we have a complete solution to 
 (\ref{reduction}) and we stop. Otherwise if we have iterated up to the degree bound, and 
 iterated through all solution sets from the radicand part of the integral and we have not 
 computed a solution, then the candidate substitution is rejected and must return to the 
@@ -357,25 +429,13 @@ rational function.
 \begin{example}
 We will apply the method detailed above to compute the following integral
 $$\int \frac{\left(x^3-2\right) \sqrt{x^3-x^2+1}}{\left(x^3+1\right)^2} \, dx.$$ 
-This integral is already in our canonical form. \\
 
 \noindent\textit{The radicand part of the integral}. We find the substitution 
 $u=\left(c_1 x^3+c_0\right)/x^2$ yields a solution to the radicand part of the 
-integral, and is parameterised as follows
-$$x^3-x^2+1 = \text{num}\left( a_2u^2+a_1u+a_0 \right) = 
-	a_2 c_1^2 x^6 + a_1 c_1 x^5 + a_0 x^4 + 2 a_2 c_0 c_1 x^3 + a_1 c_0 x^2 + a_2 c_0^2.$$
-Then, equating coefficients of powers of $x$ yields the system of equations
-\begin{align*}
- a_2 c_0^2 &= 1\\
- a_1 c_0 &= -1\\
- 2 a_2 c_0 c_1 &= 1\\
- a_0 &= 0\\
- a_1 c_1 &= 0\\
- a_2 c_1^2 &= 0,
-\end{align*}
-which has no solution, so we use a linear radicand in $u$ as follows 
+integral. As the degree of the radicand is odd, we must have $a_2=0$, so we have 
+a linear radicand in $u$ as follows 
 $$x^3-x^2+1 = \text{num}\left( a_1u + a_0 \right) = a_1 c_1 x^3 + a_0 x^2 + a_1 c_0.$$
-Again, we equate coefficients of powers of $x$ and we have the system of equations
+Equating coefficients of powers of $x$, we have the following system of equations
 \begin{align*}
  a_1 c_0 &= 1\\
  a_0 &= -1\\
@@ -386,7 +446,7 @@ integral is $u-1$, where $u=\left(1+x^3\right)/x^2$. \\
 
 \noindent\textit{The rational part of the integral}. Now we see if a solution exists to the 
 rational part of the integral. The degree bound on the solution to the rational part 
-is 3. When the degree is 1, we have no solution. When the degree is 2, we have
+is 7. When the degree is 1, we have no solution. When the degree is 2, we have
 $$\frac{a(u)}{b(u)}=\frac{v_2u^2+v_1u+v_0}{v_5u^2+v_4u+v_3}.$$
 For the rational part, we are solving the following equation
 $$\frac{\left(x^3-2\right)}{\left(x^3+1\right)^2} = 
@@ -394,8 +454,9 @@ $$\frac{\left(x^3-2\right)}{\left(x^3+1\right)^2} =
 where $\text{den}(u-1)^{-1/2}=1/x$. After replacing $u$ with $\left(1+x^3\right)/x^2$ and 
 $u'(x)$ with $\left(x^3-2\right)/x^3$ we have
 $$\frac{x^3-2}{\left(x^3+1\right)^2}=
-\frac{\left(x^3-2\right) \left(u^2 v_2+u v_1+v_0\right)}{x^4 \left(u^2 v_5+u v_4+v_3\right)}=
-\frac{\left(x^3-2\right)\left(x^4 v_0+x^2 v_1+x^5 v_1+v_2+2 x^3 v_2+x^6 v_2\right)}{x^4 \left(x^4 v_3+x^2 v_4+x^5 v_4+v_5+2 x^3 v_5+x^6 v_5\right)},$$
+\frac{\left(x^3-2\right) \left(v_2u^2+v_1u+v_0\right)}{x^4 \left(v_5u^2+v_4u+v_3\right)}=
+\frac{\left(x^3-2\right)\left(v_2x^6+v_1x^5+v_0x^4+2 v_2x^3+v_1x^2+v_2\right)}
+	{x^4 \left(v_5x^6+v_4x^5+v_3x^4+2 v_5x^3+v_4x^2+v_5 \right)},$$
 which after clearing denominators is a polynomial equation in $x$, given by
 \begin{multline*}
 -v_2 x^{15}-v_1 x^{14}+\left(v_5-v_0\right) x^{13}+\left(v_4-2 v_2\right) x^{12}
@@ -445,11 +506,12 @@ $$\int\frac{\left(x^2-1\right)\sqrt{x^4+x^2+1}}{\left(x^2+1\right)\left(x^4+x^3+
 \end{example}
 \fi
 
+\iffalse
 \section{Generalisations of the method}
 
 In this section we will look at two generalisations of this method to extend the 
-classes of integrals with elementary solutions. We also consider solutions in terms 
-of special functions. 
+classes of integrals we can solve in terms of elementary functions. We also 
+consider solutions in terms of special functions. 
 
 \subsection{Generalisations of the reduction}
 
@@ -505,7 +567,7 @@ to a difficult integral.
 \begin{example}
 For the following integral, our method makes the substitution 
 $u = \sqrt{2}\left(2x^8-1\right)/x^2$, then for the recursive integration, we make 
-the substitution $u = t^2$ to obtain 
+the substitution $t = u^2$ to obtain 
 \begin{multline*}
 \int \frac{6 x^8+1}{\left(2 x^8-1\right) \sqrt[4]{8 x^{16}-8 x^8-x^4+2}} dx =
  \int\frac{du}{2 u \sqrt[4]{u^2-1}} = \int \frac{dt}{4 t \sqrt[4]{t-1}} = \\
@@ -522,29 +584,31 @@ the substitution $u = t^2$ to obtain
 
 In the above example, the integral 
 $$\int\frac{du}{2 u \sqrt[4]{u^2-1}} = 
--\frac{1}{2\sqrt{2}} \tan ^{-1}\left(\frac{\sqrt{2} \sqrt[4]{u^2-1}}{\sqrt{u^2-1}-1}\right) - 
-\frac{1}{2\sqrt{2}} \tanh ^{-1}\left(\frac{\sqrt{2} \sqrt[4]{u^2-1}}{\sqrt{u^2-1}+1}\right),$$ 
-does not return an elementary form in either Mathematica (12.1) or Maple (2018.1).
+\frac{1}{2\sqrt{2}} \tan ^{-1}\left(\frac{\sqrt{u^2-1}-1}{\sqrt{2} \sqrt[4]{u^2-1}}\right) - 
+\frac{1}{2\sqrt{2}} \tanh ^{-1}\left(\frac{\sqrt{u^2-1}+1}{\sqrt{2} \sqrt[4]{u^2-1}}\right),$$ 
+does not return an elementary form in either Mathematica (12.1) or Maple (2018.1) (without 
+converting the integral to \texttt{RootOf} representation in Maple).
+\fi
 
 \section{A comparison with major CAS and algebraic integration packages}
 
-We will compare our method with the Mathematica (12.1.0), Maple (2018.1), REDUCE (5286, 1-Mar-20), 
-and FriCAS (version 1.2.6) computer algebra systems. We will also include in the comparison a table 
-lookup package, Rubi (Rule-based integrator) \cite{Rich2018}, which has been ported to a number of computer algebra systems 
-and compares favourably with most built-in integrators on a large suite of problems \cite{rubi_results}. 
-We have also included an experimental algebraic integration package developed in Mathematica by Manuel 
-Kauers \cite{Kauers2008}. Within the Kauers package we have replaced the calls to Singular in favour
-of Mathematica's built-in Groebner basis routine.\\
+We will compare our method with the Mathematica (12.1.0), Maple (2018.1), AXIOM (August 2014), 
+REDUCE (5286, 1-Mar-20) with the algint package by James Davenport \cite{Davenport1979}, and 
+FriCAS (1.3.6) computer algebra systems. We will also include 
+in the comparison a table lookup package, Rubi (Rule-based integrator) \cite{Rich2018}, which 
+has been ported to a number of computer algebra systems and compares favourably with most 
+built--in integrators on a large suite of problems \cite{rubi_results}. We have also included 
+an experimental algebraic integration package developed in Mathematica by Manuel Kauers 
+\cite{Kauers2008}. Within this package we have replaced the calls to Singular in favour
+of Mathematica's built--in Groebner basis routine.\\
 
 We have included results from Maple twice. Once with a call of \texttt{int(integrand, x)} 
 and once with \texttt{int(convert(integrand, RootOf),x)}. This is because the default 
 behaviour of Maple is to not use the Risch-Trager-Bronstein integration 
-algorithm \cite{Trager1984}\cite{Bronstein1990} for algebraic functions unless the 
-radicals in the integrand are converted to the Maple \texttt{RootOf} notation.\\
+algorithm for algebraic functions unless the radicals in the integrand are converted 
+to the Maple \texttt{RootOf} notation \cite[pp. 16--23]{rybowicz1992}.\\
 
-Within REDUCE we have used the algint package by James Davenport \cite{Davenport1979}. \\
-
-Our test suite is 190 integrals that can be found on github \cite{test_suite_github}. 
+Our test suite is 191 integrals that can be found on github \cite{test_suite_github}. 
 All the integrals in the suite have a solution in terms of elementary functions. \\
 
 We will show the results from all the systems and packages for one integral from the test 
@@ -575,7 +639,12 @@ FriCAS returns:
 & \frac{1}{2\sqrt[4]{2}}\tan ^{-1}\left(\frac{-4 x^6-4 x^2+\sqrt{2} \left(x^8+4 x^4+1\right)}{\sqrt{2} \left(-x^8-1\right)+\sqrt{x^4+1} \left(2^{3/4} \left(2x^5+2 x\right)-4 \sqrt[4]{2} x^3\right)}\right)
 \end{align*}
 \normalsize
-Kauer's algorithm returns: 
+
+\bigskip
+
+\noindent AXIOM returns the integral unevaluated, which is a claim that the integral is not elementary \cite[pp. 120]{Daly2005}. \\ 
+
+\noindent Kauers' method returns: 
 \small
 $$\int \frac{\left(x^4-1\right) \sqrt{x^4+1}}{x^8+1} \, dx = 
 \sum_{512 \alpha ^4-1=0}\alpha  \log \left(4 \alpha  \sqrt{x^4+1}-x\right)$$
@@ -586,7 +655,7 @@ $$\int \frac{\left(x^4-1\right) \sqrt{x^4+1}}{x^8+1} \, dx =
 \frac{1}{2 \sqrt[4]{2}} \tan ^{-1}\left(\frac{\sqrt{x^4+1}}{\sqrt[4]{2} x}\right) - 
 \frac{1}{4 \sqrt[4]{2}} \log\left(\frac{\frac{\sqrt{x^4+1}}{\sqrt{2} x}+\frac{1}{\sqrt[4]{2}}}{\frac{\sqrt{x^4+1}}{\sqrt{2} x}-\frac{1}{\sqrt[4]{2}}}\right)$$
 \normalsize
-Maple (RootOf) returns:
+Maple (with the \texttt{RootOf} conversion) returns:
 \small
 \begin{multline*}
 \int \frac{\left(x^4-1\right) \sqrt{x^4+1}}{x^8+1} \, dx = 
@@ -603,9 +672,11 @@ Mathematica returns:
 \left. \Pi\left(-(-1)^{3/4};\left.i \sinh ^{-1}\left(\sqrt[4]{-1} x\right)\right|-1\right)+\Pi \left((-1)^{3/4};\left.i \sinh ^{-1}\left(\sqrt[4]{-1} x\right)\right|-1\right)\right)
 \end{multline*}
 \normalsize
-where \textit{F} is the elliptic integral of the first kind, and $\Pi$ is the incomplete elliptic integral. \\
+where \href{https://reference.wolfram.com/language/ref/EllipticF.html}{\textit{F}} and 
+\href{https://reference.wolfram.com/language/ref/EllipticPi.html}{$\Pi$} are the incomplete 
+elliptic integrals of the first and third kind as defined in Mathematica. \\
 
-\noindent REDUCE (using algint package) returns:
+\noindent REDUCE (using the algint package) returns:
 \small
 $$\int \frac{\left(x^4-1\right) \sqrt{x^4+1}}{x^8+1} \, dx = 
 \int \frac{x^4 \sqrt{x^4+1}}{x^8+1} \, dx-\int \frac{\sqrt{x^4+1}}{x^8+1} \, dx$$
@@ -633,14 +704,21 @@ F\left(2 \tan ^{-1}(x)|\frac{1}{2}\right)}{8 \sqrt{x^4+1}} - \\
 \sqrt{\frac{x^4+1}{\left(x^2+1\right)^2}} F\left(2 \tan ^{-1}(x)|\frac{1}{2}\right)}{\sqrt{x^4+1}}
 \end{multline*}
 \normalsize
-where \textit{F} is the elliptic integral of the first kind, and $\Pi$ is the incomplete elliptic integral. \\
+where \href{https://reference.wolfram.com/language/ref/EllipticF.html}{\textit{F}} is the incomplete 
+elliptic integral of the first kind as defined in Mathematica. Noting that the last 5 terms 
+in the result from Rubi sum to zero, we obtain the same result as our method. \\
 
-The table below summarises the comparison between all systems on the test suite of integrals. The 
-expression size is the leaf count(\texttt{LeafCount}) in Mathematica.
+The table below summarises the comparison between all systems on the test suite of integrals. The integrals 
+in this suite were created in such a way that our method described in this paper should solve. Similarly, 
+computer algebra systems containing an implementation of the algebraic case of the Risch-Trager-Bronstein 
+algorithm should solve all these integrals. 
 
 \begin{table}[H]
 \centering
-\caption{A comparison of our method with major CAS and algebraic integration packages.}
+\caption{\small A comparison of our method (listed as ``new'') with major CAS and algebraic integration packages. The 
+median time excludes integrals that timed-out. The tests were ran on a 2018 Macbook Pro 
+with a 2.2GHz i7 and 16GB of RAM. For AXIOM, FriCAS and REDUCE we did not find a built-in 
+routine to compute the leaf count. \normalsize}
 {\small
 \begin{tabular}{c|c|c|c|c|c|c}
 	\begin{tabular}{@{}c@{}} \text{CAS} \\ \text{/package} \end{tabular} & 
@@ -649,75 +727,87 @@ expression size is the leaf count(\texttt{LeafCount}) in Mathematica.
 	\begin{tabular}{@{}c@{}} \text{Contains} \\ \text{special} \\ \text{functions [\%]} \end{tabular} &
 	\begin{tabular}{@{}c@{}} \text{Timed-out} \\ \text{($>$20s) [\%]} \end{tabular} &
 	\begin{tabular}{@{}c@{}} \text{Median} \\ \text{time [s]} \end{tabular} &
-	\begin{tabular}{@{}c@{}} \text{Expression size} \\ \text{- string length} \end{tabular} \\
+	\begin{tabular}{@{}c@{}} \text{Median} \\ \text{expression size} \\ \text{- string length} \end{tabular} \\
 \hline
- \text{new} & 100.0 & 0.0 & 0.0 & 0.0 & 0.26 & 81--118 \\
+ \text{new} & 100.0 & 0.0 & 0.0 & 0.0 & 0.26 & 81\:--\:118 \\
 \hline
- \text{Maple} (\texttt{RootOf}) & 91.6 & 2.0 & 0.0 & 6.3 & 4.32 & 136--238 \\
+ \text{Maple} (\texttt{RootOf}) & 91.6 & 2.0 & 0.0 & 6.3 & 4.32 & 136\:--\:238 \\
 \hline
- \text{FriCAS} & 70.0 & 4.7 & 0.0 & 25.3 & 0.26 & .\text{  }--129 \\
+ \text{FriCAS} & 75.4 & 2.1 & 0.0 & 18.3 & 0.38 & .\text{  }\:--\:186 \\
 \hline
- \text{Kauers} & 62.6 & 7.9 & 0.0 & 29.4 & 0.40 & 88--116 \\
+ \text{Kauers} & 62.6 & 7.9 & 0.0 & 29.4 & 0.40 & 88\:--\:116 \\
 \hline
- \text{Rubi} & 13.7 & 60.0 & 16.3 & 10.0 & 0.34 & 244--405 \\
+\text{AXIOM} & 48.7 & 31.9 & 0.0 & 19.4 & 0.42 & .\text{  }\:--\:118 \\
 \hline
- \text{Maple} & 11.6 & 55.3 & 33.2 & 0.0 & 0.34 & 436--943 \\
+ \text{Rubi} & 13.7 & 60.0 & 16.3 & 10.0 & 0.34 & 244\:--\:405 \\
 \hline
- \text{Mathematica} & 9.5 & 44.7 & 43.2 & 2.63 & 1.21 & 574--1019 \\
+ \text{Maple} & 11.6 & 55.3 & 33.2 & 0.0 & 0.34 & 436\:--\:943 \\
+\hline
+ \text{Mathematica} & 9.5 & 44.7 & 43.2 & 2.63 & 1.21 & 574\:--\:1019 \\
 \hline
  \text{REDUCE} (\text{algint}) & 6.3 & 65.3 & 0.0 & 28.4 & 1.16 & . \\
 \end{tabular}
 }
 \end{table}
 
-In regards to this table: The median time excludes integrals that timed-out. For 
-FriCAS and REDUCE we did not find a built-in routine to compute the leaf count. \\
-
-Mathematica is far more comfortable in returning an answer in terms of elliptic 
-functions, but these results are far from concise. Computing the integral in 
-terms of elliptic functions takes considerable time. \\
-
+\iffalse
 Maple fares much better when it uses the algebraic case of the Risch-Trager-Bronstein 
-algorithm. When the integrand is converted to \texttt{RootOf} notation in Maple, 
-the time required increases significantly, however the results improve significantly. 
-We are then left wondering why Maple does not make this conversion internally if 
-the initial algebraic integration routines fail? \\
+algorithm, which is only used if the integrand is manually converted to \texttt{RootOf} 
+notation via \texttt{convert} prior to calling \texttt{int} \cite[pp. 16--23]{rybowicz1992}. Once 
+this conversion is made, the results are significantly better than any other CAS. \\
 
-FriCAS is a fork of AXIOM. FriCAS inherits the most complete implementation of the 
-Risch-Trager-Bronstein algorithm for integration in finite (elementary) terms. The 
-results suggest that the FriCAS (version 1.2.6) integrator is either fast, hangs, or 
-returns an error. We have reported these issues to the FriCAS developers and most 
-issues will be fixed in the next release \cite{fricas_sci.math.symbolic}. Thus, the 
-performance of FriCAS on our test suite of integrals will be much better, with the 
-exception of incomplete parts of the Risch-Bronstein-Trager algorithm for algebraic 
-functions, for example after 16 seconds of computing time FriCAS (version 1.2.6) returns \\
+FriCAS is a fork of AXIOM. Since this fork, the integration capabilities of FriCAS for 
+algebraic functions has improved significantly over AXIOM. One error message returned frequently 
+from FriCAS was ``implementation incomplete (residue poly has multiple non-linear factors)''. 
+This is seemingly not a limitation of the Risch-Trager-Bronstein implementation in Maple.  AXIOM 
+issued numerous warnings during these tests, and as we showed previously, claimed one of the 
+integrals is not elementary. \\
 
-\footnotesize
-\begin{verbatim}
-(1) -> integrate(((4+x^6)*(-4+x^4+2*x^6)*
-                       (32-14*x^4-32*x^6-4*x^8+7*x^10+8*x^12)^(1/2))/(x^9*(-2+x^6)),x)
- 
-   >> Error detected within library code:
-   integrate: implementation incomplete (residue poly has multiple non-linear factors)
-\end{verbatim}
-\normalsize
+While Kauers' method is only a small experimental package, it has outperformed 
+AXIOM, Mathematica and Maple (without the \texttt{RootOf} conversion). It also often 
+returns a concise form. Miller \cite{Miller2012} has extended Kauers' heuristic to a 
+complete algorithm for the logarithmic part of the integral of a mixed algebraic-transcendental 
+function. Unfortunately, we did not have access to an implementation for comparison. \\
 
-When Kauer's heuristic does not time out, then its fast, with only 11 problems taking 
-longer than 2 seconds. It also often returns a concise form. Miller \cite{Miller2012} 
-has extended Kauer's heuristic to a complete algorithm for the logarithmic part of 
-the integral of a mixed algebraic-transcendental function. Unfortunately, we did not 
-have access to an implementation for comparison. \\
+Mathematica is far more comfortable returning an answer in terms of elliptic 
+functions, but these results are far from concise and often difficult to verify 
+symbolically by differentiation and simplification.  \\
+\fi
+
+Our method can quickly solve all these integrals, however this is not surprising as the suite 
+of integrals was designed so that a Laurent polynomial substitution would reduce the integral 
+to a simple elementary integral. What is interesting in the results from this suite is the 
+performance of the computer algebra systems. Our naive expectation was the computer algebra 
+systems with an implementation of the Risch-Trager-Bronstein algorithm would solve these 
+integrals. \\
+
+We would like to estimate the percentage of algebraic integrals which may be solved with 
+our method. We do this with a random search for integrals with elementary solutions, using 
+Maple (with the \texttt{RootOf} conversion), as it was the best performing CAS in 
+our first suite of integrals. The suite of 384 integrals are available on 
+github \cite{test_suite_github_2}. Our method could compute 73.4\% of these integrals in 
+a median time of 0.23 seconds. \\
+
+\iffalse
+Some of the integrals which could not be computed with our method may be computed 
+after splitting the integral into a sum of integrals, either by direct expansion, polynomial long 
+division, or partial fractions. For example, 
+%
+\begin{equation*}
+\int \frac{x^2+1}{(x-1)\sqrt{x^4-x^2+1}}dx = \int\frac{x}{\sqrt{x^4-x^2+1}}dx+\int\frac{x+1}{(x-1) \sqrt{x^4-x^2+1}}dx.
+\end{equation*}
+\fi
 
 \section{Conclusions}
 
-We have shown that we can efficiently solve some pseudo-elliptic integrals, both in terms of 
-elementary functions and special functions. Our method compares favourably with 
-major CAS and algebraic integration packages.  \\
+We have shown that we can efficiently solve some pseudo-elliptic integrals in terms of 
+elementary functions. Our method compares favourably with major CAS and algebraic 
+integration packages.  \\
 
-The computational burden of our method is low, as the core computational routine requires 
-solving multiple systems of linear equations, and consequently our method should be tried before the 
-more computationally expensive algorithms of Trager \cite{Trager1984}, Bronstein \cite{Bronstein1990}, 
-Kauers \cite{Kauers2008}, or Miller \cite{Miller2012}.\\
+The computational burden of our method is low, as the core routine requires 
+solving multiple systems of polynomial equations, and consequently our method should be tried before the 
+more computationally expensive algorithms of Trager \cite{Trager1979}\cite{Trager1984}, Bronstein 
+\cite{Bronstein1990}, Kauers \cite{Kauers2008}, or Miller \cite{Miller2012}.\\
 
 Our method, relative to the algebraic case of the Risch-Bronstein-Trager algorithm, is very simple to 
 implement. Our exemplar implementation in Mathematica is only a couple of hundred lines of code and 
@@ -726,7 +816,9 @@ coefficients. The implementation is available on github \cite{algebraic_github}.
 
 \section{Acknowledgements}
 I would like to thank Albert Rich and David Stoutemyer for their detailed comments and suggestions; and 
-thank Daniel Lichtblau for a detailed explanation of block ordering of Groebner basis in Mathematica. 
+thank Daniel Lichtblau for an explanation of block ordering of Groebner basis in Mathematica. I am 
+grateful for the use of the Spartan high performance computing system at The University of 
+Melbourne \cite{lafayette2016}. 
 
 \bibliographystyle{abbrv}
 
@@ -735,7 +827,12 @@ thank Daniel Lichtblau for a detailed explanation of block ordering of Groebner 
 \bibitem{Bronstein1990} Bronstein, M. (1990). ``Integration of Elementary Functions''. 
 \textit{Journal of Symbolic Computation}. 9(2), pp. 117-173.
 
-\bibitem{Bronstein1997} Bronstein, M. (1997). ``Symbolic Integration 1: Transcendental Functions''. Springer-Verlag.
+\bibitem{Bronstein1997} Bronstein, M. (1997). ``Symbolic Integration I: Transcendental Functions''. Springer--Verlag.
+
+\bibitem{Byrd1954} Byrd, P.F. Friedman, M.D. (1954). ``Handbook of Elliptic Integrals for Engineers and Physicists'', 
+Springer--Verlag.
+
+\bibitem{Daly2005} Daly, T. (2005). ``AXIOM The 30 Year Horizon, Volume 1: AXIOM Tutorial'' 
 
 \bibitem{Davenport1979} Davenport, J. (1979). ``Integration of algebraic functions'', \textit{EUROSAM `79: Proceedings of the International Symposium on Symbolic and Algebraic Computation. }pp. 415-425.
 
@@ -751,6 +848,8 @@ University Press. Cambridge, England.
 
 \bibitem{Kauers2008} Kauers, M. (2008). ``Integration of algebraic functions: a simple heuristic for finding the logarithmic part''. \textit{ISSAC `08}. pp. 133-140.
 
+\bibitem{lafayette2016} Lafayette, L., Sauter, G., Vu, L., Meade, B. (2016). ``Spartan Performance and Flexibility: An HPC-Cloud Chimera'', OpenStack Summit, Barcelona doi.org/10.4225/49/58ead90dceaaa
+
 \bibitem{Miller2012} Miller, B. (2012). ``On the Integration of Elementary Functions: Computing the Logarithmic Part''. Thesis (Ph.D.) Texas Tech University, Dept. of Mathematics and Statistics.
 
 \bibitem{Moses1967} Moses, J. (1967). ``Symbolic Integration''. MAC-TR-47, MIT, Cambridge, MA.
@@ -759,15 +858,26 @@ University Press. Cambridge, England.
 
 \bibitem{Rich2018} Rich, A. Scheibe, P. Abbasi, N. (2018). ``Rule-based integration: An extensive system of symbolic integration rules''. Journal of Open Source Software. 3.32, p1073 1-3.
 
-\bibitem{Risch1969} Risch, R. (1969). ``The Problems of Integration in Finite Terms'', \textit{ Trans. AMS}. 139(1). pp. 167-189.
+\bibitem{Risch1969} Risch, R. (1969). ``The Problem of Integration in Finite Terms''. \textit{ Trans. A.M.S.}. 139(1). pp. 167--189.
+
+\bibitem{Risch1970} Risch, R. (1970). ``The Solution of the Problem of Integration in Finite Terms''. \textit{Bulletin A.M.S}. 
+vol. 76. no. 3. pp. 605--608.
 
 \bibitem{rubi_results} \url{https://rulebasedintegration.org/testResults}
+
+\bibitem{rybowicz1992} Rybowicz, M. \text{et al} (1992). ``MAPLETECH -- Extended Capabilities for Computing with Algebraic Functions and Numbers'', \textit{The Maple Technical Newsletter}.
+
+\bibitem{Trager1979} Trager, B.M. (1979). ``Integration of simple radical extensions''. \textit{Proc. EUROSAM}. Springer, Berlin, Heidelberg. pp. 408--414.
 
 \bibitem{Trager1984} Trager, B. (1984). ``Integration of algebraic functions''. Thesis (Ph.D.) Massachusetts Institute of Technology, Dept. of Electrical Engineering and Computer Science.
 
 \bibitem{test_suite_github} \url{https://github.com/stblake/algebraic_integration/blob/master/comparisonIntegrands.m}
 
-\bibitem{algebraic_github} \url{https://github.com/stblake/algebraic_integration/blob/master/AlgebraicIntegrateHeuristic.m}
+\bibitem{maple_source} \url{https://github.com/stblake/algebraic_integration/blob/master/maple_search.mpl}
+
+\bibitem{test_suite_github_2} \url{https://github.com/stblake/algebraic_integration/blob/master/mapleIntegrands.m}
+
+\bibitem{algebraic_github} The routine \texttt{rationalUndeterminedIntegrate} or \texttt{IntegrateAlgebraic[\textit{integrand}, \textit{x}, ''RationalUndeterminedOnly'' -> True]}. \url{https://github.com/stblake/algebraic_integration/blob/master/AlgebraicIntegrateHeuristic.m}
 
 \bibitem{fricas_sci.math.symbolic} \url{https://groups.google.com/forum/#!topic/sci.math.symbolic/zd0v05DNrNc}
 
