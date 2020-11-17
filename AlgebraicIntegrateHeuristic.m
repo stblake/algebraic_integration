@@ -472,7 +472,8 @@ ClearAll[solveAlgebraicIntegral];
 
 Options[solveAlgebraicIntegral] = Options[IntegrateAlgebraic];
 
-solveAlgebraicIntegral[integrand_, x_, opts : OptionsPattern[]] := Module[
+solveAlgebraicIntegral[integrand_, x_, opts : OptionsPattern[]] := 
+	solveAlgebraicIntegral[integrand, x, opts] = Module[
 {start, u, rationalPart, unintegratedPart, integratedPart, 
 rationalIntegrand, substitution, integral, linRat, result, 
 goursat},
@@ -2765,7 +2766,7 @@ $Failed
 ]
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Direct rationalisation*)
 
 
@@ -2874,10 +2875,26 @@ If[result =!= $Failed,
 	Return[ {0, 0, postProcess[ratIntegral /. u -> Last[result], x]} ]
 ];
 
+result = directRationaliseQuadraticRationalSolve[p, q, r, n, -n, x, u];
+
+If[result =!= $Failed, 
+	debugPrint2["directRationaliseQuadraticRationalSolve -- substitution of the form s[x]/t[x]*r[x]^(-n): ", result];
+	ratIntegral = Integrate[result // First, u];
+	Return[ {0, 0, postProcess[ratIntegral /. u -> Last[result], x]} ]
+];
+
 result = directRationaliseQuadraticRationalSolve[p, q, r, n, n+1, x, u];
 
 If[result =!= $Failed, 
 	debugPrint2["directRationaliseQuadraticRationalSolve -- substitution of the form s[x]/t[x]*r[x]^(n+1): ", result];
+	ratIntegral = Integrate[result // First, u];
+	Return[ {0, 0, postProcess[ratIntegral /. u -> Last[result], x]} ]
+];
+
+result = directRationaliseQuadraticRationalSolve[p, q, r, n, -n-1, x, u];
+
+If[result =!= $Failed, 
+	debugPrint2["directRationaliseQuadraticRationalSolve -- substitution of the form s[x]/t[x]*r[x]^(-n-1): ", result];
 	ratIntegral = Integrate[result // First, u];
 	Return[ {0, 0, postProcess[ratIntegral /. u -> Last[result], x]} ]
 ];
@@ -2974,7 +2991,7 @@ $Failed
 (*int[(b^2 (b^3+a^3 x^3)^(1/3))/(-b^3+a^3 x^3),x]*)
 
 
-(* ::Subsubsection:: *)
+(* ::Subsubsection::Closed:: *)
 (*directRationaliseQuadraticRationalSolve*)
 
 
@@ -2983,7 +3000,7 @@ ClearAll[directRationaliseQuadraticRationalSolve];
 directRationaliseQuadraticRationalSolve[p_, q_, r_, l_, m_, x_, u_] := Catch @ Module[
 {degp, degq, y, formnum, formden, form, yform, unparameterised, eqn, vars, soln, solnre},
 
-debugPrint2["Trying directRationaliseSolve ", {p,q,r,l,m,x,u}];
+debugPrint2["Trying directRationaliseQuadraticRationalSolve ", {p,q,r,l,m,x,u}];
 
 degp = Exponent[p,x];
 degq = Exponent[q,x];
@@ -3509,7 +3526,7 @@ If[Length[pf] > 1,
 ]
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Partial fraction integrate*)
 
 
@@ -3528,6 +3545,8 @@ radicals = Cases[e, Power[p_, n_Rational] /; (! FreeQ[p, x] && PolynomialQ[p, x]
 If[Length[radicals] > 1, Return[ {0, e, 0} ]];
 
 exy = e /. radicals[[1]] -> y;
+
+If[FreeQ[Denominator[exy], x], Return[ {0, e, 0} ]];
 
 If[OptionValue["FactorComplete"], 
 	sf = x /. Solve[Denominator[exy] == 0 /. y -> 1, x];
