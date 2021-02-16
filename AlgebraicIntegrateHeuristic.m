@@ -1,7 +1,7 @@
 (* ::Package:: *)
 
 (* ::Title:: *)
-(*A simple method for solving some pseudo-elliptic integrals*)
+(*A collection of simple methods for solving some pseudo-elliptic integrals*)
 
 
 (* ::Subtitle:: *)
@@ -558,7 +558,7 @@ If[nestedCount[unintegratedPart, x] > 0,
 
 If[! OptionValue["RationalUndeterminedOnly"],
 debugPrint1["Trying Goursat method on ", unintegratedPart];
-goursat = goursatIntegrate[unintegratedPart, x, u];
+goursat = TimeConstrained[goursatIntegrate[unintegratedPart, x, u], $timeConstraint, False];
 If[ListQ @ goursat,
 	integral = goursat // First;
 	If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[integral, unintegratedPart],
@@ -776,8 +776,8 @@ rationalUndeterminedIntegrate[integrand_, x_, opts : OptionsPattern[]] := Module
 						debugPrint["radicand matches ", Style[radicand[u], Darker @ Green], ", ", radicandNumeratorU, radicandMatchRule];
 						
 						(* Parameterise. *)
-						radicandDenominatorUParam = Expand[ radicandDenominatorU /. radicandMatchRule /. {A[1]|A[2]|B[1]|B[2] -> 1, A[0]|B[0] -> 0} ];
-						radicandNumeratorUParam = Expand[ radicandNumeratorU /. radicandMatchRule /. {A[1]|A[2]|B[1]|B[2] -> 1, A[0]|B[0] -> 0} ];
+						radicandDenominatorUParam = Quiet @ Expand[ radicandDenominatorU /. radicandMatchRule /. {A[1]|A[2]|B[1]|B[2] -> 1, A[0]|B[0] -> 0} ];
+						radicandNumeratorUParam = Quiet @ Expand[ radicandNumeratorU /. radicandMatchRule /. {A[1]|A[2]|B[1]|B[2] -> 1, A[0]|B[0] -> 0} ];
 
 						If[! FreeQ[{radicandDenominatorUParam, radicandDenominatorUParam}, C[_]|A[_]], 
 							Continue[]];
@@ -814,10 +814,11 @@ rationalUndeterminedIntegrate[integrand_, x_, opts : OptionsPattern[]] := Module
 							debugPrint3["Integrate returned ", intU];
 	
 							If[FreeQ[intU, Integrate(* | RootSum | Root *)] && (! OptionValue["Elementary"] || elementaryQ[intU]),
+								debugPrint2["Substitution is ", usubstitutionParam];
 								intX = intU /. u -> usubstitutionParam;
-								debugPrint3["integral is ", intX];
+								debugPrint2["integrand is ", intX];
 								intX = postProcess[intX, x, "Integrand" -> integrand];
-								debugPrint3["post processed integral is ", intX];
+								debugPrint2["post processed integral is ", intX];
 								(* Sanity check. *)
 								If[TrueQ[! OptionValue[VerifySolutions]] || TrueQ[(
 										(* Order tests from fastest to slowest. *)
@@ -1493,7 +1494,7 @@ integrateLinearRadical[e_, x_] := Module[{integrand, substitution, integral},
 
 	{integrand, substitution} = linearRadicalToRational[e, x, $u];
 	debugPrint3["Rationalised integrand and substitution is ", {integrand, substitution}];
-	integral = Integrate[integrand, $u] /. substitution;
+	integral = Quiet[ Integrate[integrand, $u] ] /. substitution;
 	integral	
 ]
 
@@ -1524,9 +1525,9 @@ integrateQuadraticRadical[e_, x_] := Module[
 	If[ListQ[result],
 		{integrand, substitution} = result;
 		debugPrint3["Rationalised integrand and substitution is ", {integrand, substitution}];
-		integral = Integrate[integrand, u] /. substitution;
+		integral = Quiet @ Integrate[integrand, u] /. substitution;
 		integral = integral // Apart // Expand // Together,
-		integral = Integrate[e, x] (* eg. Integrate[Sqrt[2I x^2-3I x+1],x] *)	
+		integral = Quiet @ Integrate[e, x] (* eg. Integrate[Sqrt[2I x^2-3I x+1],x] *)	
 	];
 
 	(* Remove constants. *)
@@ -1821,7 +1822,7 @@ pickAlpha[a_,b_,c_,d_] := Module[
 {inst, \[Alpha], p, q, n, m},
 
 inst=TimeConstrained[
-FindInstance[a \[Alpha]+b==(p/q)^2&&c \[Alpha]+d==(n/m)^2,{\[Alpha],n,m,p,q},Integers],
+Quiet @ FindInstance[a \[Alpha]+b==(p/q)^2&&c \[Alpha]+d==(n/m)^2,{\[Alpha],n,m,p,q},Integers],
 $timeConstraint, 
 {}];
 
@@ -1830,7 +1831,7 @@ Return[ \[Alpha] /. inst /. {e_} :> e ]
 ];
 
 inst=TimeConstrained[
-FindInstance[a \[Alpha]+b==(p/q)^2&&c \[Alpha]+d==(n/m)^2,{\[Alpha],n,m,p,q},Rationals],
+Quiet @ FindInstance[a \[Alpha]+b==(p/q)^2&&c \[Alpha]+d==(n/m)^2,{\[Alpha],n,m,p,q},Rationals],
 $timeConstraint, 
 {}];
 
@@ -1839,7 +1840,7 @@ Return[ \[Alpha] /. inst /. {e_} :> e ]
 ];
 
 inst=TimeConstrained[
-FindInstance[a \[Alpha]+b==(p/q)^2&&c \[Alpha]+d==n/m && n m>0,{\[Alpha],n,m,p,q},Integers],$timeConstraint, 
+Quiet @ FindInstance[a \[Alpha]+b==(p/q)^2&&c \[Alpha]+d==n/m && n m>0,{\[Alpha],n,m,p,q},Integers],$timeConstraint, 
 {}];
 
 If[!MatchQ[inst,{}|_FindInstance],
@@ -1847,7 +1848,7 @@ Return[ \[Alpha] /. inst /. {e_} :> e ]
 ];
 
 inst=TimeConstrained[
-FindInstance[a \[Alpha]+b==p/q&&c \[Alpha]+d==(n/m)^2 && p q>0,{\[Alpha],n,m,p,q},Rationals],$timeConstraint, 
+Quiet @ FindInstance[a \[Alpha]+b==p/q&&c \[Alpha]+d==(n/m)^2 && p q>0,{\[Alpha],n,m,p,q},Rationals],$timeConstraint, 
 {}];
 
 If[!MatchQ[inst,{}|_FindInstance],
@@ -1965,7 +1966,7 @@ goursatIntegrate[integrand_, x_, u_] := Module[
 quartic = goursatQuartic[integrand, x, u];
 If[ListQ[quartic],
 	{integrandu, sub} = quartic;
-	integralu = Integrate[integrandu, u];
+	integralu = integrate[integrandu, u];
 	Return[ List @ postProcess[integralu /. sub, x] ]
 ];
 
@@ -1983,23 +1984,25 @@ goursatQuartic[e_, x_, u_] := Module[
 integrand = Together[e];
 
 If[Not[algebraicQ[integrand, x] && singleRadicalQ[integrand, x]], 
-	Return[ {0, integrand, 0} ]
+	Return[ False ]
 ];
 
 radicands = Cases[integrand, 
 	Power[p_, n : (1/2)|(-1/2)] /; (! FreeQ[p, x] && PolynomialQ[p, x] && Exponent[p, x] == 4) :> p, 
 	{0, Infinity}];
 
+If[radicands === {}, Return[ False ]];
+
 Px = radicands[[1]];
 Rx = Cancel @ Together[ integrand Sqrt[Px] ];
 
 If[Length[radicands] =!= 1 && (PolynomialQ[Rx, x] || rationalQ[Rx, x]),
-	Return[ {0, integrand, 0} ]
+	Return[ False ]
 ];
 
 roots = Union[ x /. Solve[Px == 0, x] ];
 perms = Permutations[roots] // Sort // Reverse;
-perms = Cases[perms, {a_,b_,c_,d_} /; TrueQ[(a-c)(a-d)(b-c)(b-d) > 0]];
+perms = Cases[perms, {a_,b_,c_,d_} /; TrueQ[ Positive[(a-c)(a-d)(b-c)(b-d)] ]];
 
 Do[
 	{a,b,c,d} = perm;
@@ -2008,7 +2011,10 @@ Do[
 	\[ScriptCapitalN] = a b (c + d) - c d (a + b);
 	If[Rx + (Rx /. x -> -((\[ScriptCapitalM] x + \[ScriptCapitalN])/(\[ScriptCapitalL] x + \[ScriptCapitalM]))) // Together // PossibleZeroQ, 
 		(* Integral is a Goursat pseudo-elliptic *)
-		{\[Alpha], \[Beta]} = u /. Solve[\[ScriptCapitalL] u^2 + 2 \[ScriptCapitalM] u + \[ScriptCapitalN] == 0, u];
+		roots = u /. Solve[\[ScriptCapitalL] u^2 + 2 \[ScriptCapitalM] u + \[ScriptCapitalN] == 0, u];
+		If[Length[roots] == 2,  
+			{\[Alpha], \[Beta]} = roots, 
+			Continue[]];
 		dx = D[(\[Beta] u - \[Alpha])/(u - 1),u];
 		intU = Rx/Sqrt[Px] dx /. x -> (\[Beta] u - \[Alpha])/(u - 1) // Together // Factor // PowerExpand;
 		Return[{intU, u -> (x - \[Alpha])/(x - \[Beta])}, Module]
@@ -2596,8 +2602,8 @@ Do[
 
 	Do[
 		{form, y} = {form, y} /. s /. {V[_] -> 1, A[_] -> 1};
-		RationalSubstitution = y;
 		If[!MatchQ[form, Indeterminate|0] && PossibleZeroQ[Cancel[Together[p/q r^l - (form D[y, x] /. u -> y)]]],
+			RationalSubstitution = y;
 			Throw @ Cancel[ {form, y} ]
 		], 
 	{s, soln}], 
@@ -2679,8 +2685,8 @@ Do[
 
 	Do[
 		{form, y} = {form, y} /. s /. {V[_] -> 1, A[_] -> 1};
-		RationalSubstitution = y;
 		If[!MatchQ[form, Indeterminate|0] && PossibleZeroQ[Cancel[Together[p/q r^l - (form D[y, x] /. u -> y)]]],
+			RationalSubstitution = y;
 			Throw @ Cancel[ {form, y} ]
 		], 
 	{s, soln}], 
@@ -3565,7 +3571,7 @@ EndPackage[];
 
 
 (* ::Text:: *)
-(*An example which Maple cannot compute.*)
+(*An example which Maple (with RootOf conversion) cannot compute as the radicand factors.*)
 
 
 (* ::Input:: *)
@@ -4325,6 +4331,10 @@ EndPackage[];
 (*15-Apr-2020	0.409 Seconds*)
 (*16-Apr-2020	0.372 Seconds*)
 (*02-Jul-2020	0.178 Seconds*)
+
+
+(* ::Input:: *)
+(*int[1/Sqrt[x^8-x^2],x]*)
 
 
 (* ::Input:: *)
@@ -5552,7 +5562,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[((-1-x^8)^(3/4) (-1+x^8))/(1+x^8+x^16),x]*)
+(*int[((1+x^8)^(3/4) (-1+x^8))/(1+x^8+x^16),x]*)
 
 
 (* ::Input:: *)
