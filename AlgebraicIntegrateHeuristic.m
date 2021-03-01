@@ -13,7 +13,7 @@
 
 
 (* ::Text:: *)
-(*This package implements a heuristic for solving some pseudo-elliptic integrals using a combination of integration by substitution and the method of undetermined coefficients. We also try generalised Gunther substitutions, and attempt to set up systems of equations to solve some Abelian integrals. *)
+(*This package implements a suite of heuristics for solving some pseudo-elliptic integrals using a combination of integration by substitution and the method of undetermined coefficients. We also try generalised Gunther substitutions, and attempt to set up systems of equations to solve some Abelian integrals. *)
 
 
 (* ::Subsection::Closed:: *)
@@ -29,7 +29,7 @@ solveAlgebraicIntegral::usage = "solveAlgebraicIntegral[f, x] is a heuristic for
 pseudo-elliptic integral. solveAlgebraicIntegral returns {rp, up, ip}, where rp is the (unintegrated) rational part, \
 up is the unintegrated part, and ip is the integrated part.";
 
-directRationalise::usage = "solveAlgebraicIntegral[f, x] is an interface to the generalised \
+directRationalise::usage = "directRationalise[f, x] is an interface to the generalised \
 Gunther code."
 
 $verboseLevel::usage = "Controls how much information is shown when calling solveAlgebraicIntegral. With \
@@ -2547,7 +2547,7 @@ debugPrint2["Trying directRationaliseSolve ", {p,q,r,l,m,n,x,u}];
 degp = Exponent[p,x];
 degq = Exponent[q,x];
 
-degMax = Min[Max[3, degp - degq + Exponent[r,x] + 2], 8];
+degMax = Min[Max[3, degq - degp + Exponent[r,x] - 1(* + 2*)], 8];
 
 debugPrint2["Degree bound = ", degMax];
 
@@ -3155,7 +3155,7 @@ If[Length[pf] > 1,
 ]
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Partial fraction integrate*)
 
 
@@ -3166,8 +3166,8 @@ Options[apartIntegrate] = Options[solveAlgebraicIntegral];
 apartIntegrate[0|0., x_, opts:OptionsPattern[]] := {0, 0, 0}
 
 
-apartIntegrate[e_, x_, opts:OptionsPattern[]] := Module[
-	{radicals, pf, y, exy, sf, rationalPart, unintegratedPart, integratedPart, integrated},
+apartIntegrate[e_, x_, opts:OptionsPattern[]] := apartIntegrate[e, x, opts] = Module[
+	{radicals, pf, y, exy, sf, rationalPart, unintegratedPart, integratedPart, integrated, den},
 
 radicals = Cases[e, Power[p_, n_Rational] /; (! FreeQ[p, x] && PolynomialQ[p, x]), {0, Infinity}];	
 
@@ -3179,11 +3179,13 @@ If[FreeQ[Denominator[exy], x], Return[ {0, e, 0} ]];
 
 If[OptionValue["FactorComplete"], 
 	sf = x /. Solve[Denominator[exy] == 0 /. y -> 1, x];
-	exy = Numerator[exy]/Factor[Denominator[exy], Extension -> Re[sf]]
+	den = Factor[Denominator[exy], Extension -> Re[sf]];
+	If[den === Denominator[exy], 
+		den = Factor[Denominator[exy], Extension -> sf]];
+	exy = Numerator[exy]/den
 ];
 
 pf = Apart[exy, x] /. y -> radicals[[1]];
-
 If[Head[pf] === Plus,
 	pf = List @@ pf,
 	Return[{0, e, 0}]
@@ -3555,7 +3557,7 @@ EndPackage[];
 
 
 (* ::Text:: *)
-(*Some integrals with parameters which causes Risch-Trager-Bronstein to hang can be handled.*)
+(*Some integrals with parameters which cause Risch-Trager-Bronstein to hang can be handled.*)
 
 
 (* ::Input:: *)
@@ -3702,6 +3704,10 @@ EndPackage[];
 
 (* ::Subsection::Closed:: *)
 (*wish list*)
+
+
+(* ::Input:: *)
+(*int[Sqrt[b+a x]/Sqrt[a b x+Sqrt[b+a x]],x]*)
 
 
 (* ::Input:: *)
@@ -3919,10 +3925,6 @@ EndPackage[];
 
 (* ::Input:: *)
 (*int[(-1+7 x^8)/((1+x^8) Sqrt[3-x+x^2+6 x^8-x^9+3 x^16]),x]*)
-
-
-(* ::Input:: *)
-(*int[(x-1)/(x (1+x^4)^(1/4)),x,"Apart"->True]*)
 
 
 (* ::Input:: *)
