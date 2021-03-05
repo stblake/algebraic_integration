@@ -436,7 +436,7 @@ Options[IntegrateAlgebraic] = {
 	"DegreeBound" -> 8,
 	"LinearRational" -> True,
 	"Elementary" -> True,
-	"Apart" -> False,
+	"Expansion" -> False,
 	"SingleStepTimeConstraint" -> 0.25,
 	"RationalUndeterminedOnly" -> False,
 	"FactorComplete" -> False
@@ -621,7 +621,7 @@ debugPrint1["logPart returned : ", {rationalPart, unintegratedPart, integratedPa
 
 (* Partial fraction expansion and integrate term-by-term. *)
 
-If[OptionValue["Apart"],
+If[OptionValue["Expansion"],
 	
 	(* Use partial fractions with a factorisation over Q. *)
 	
@@ -665,14 +665,6 @@ If[OptionValue["Apart"],
 	];
 	debugPrint1["expandIntegrate returned : ", {rationalPart, unintegratedPart, integratedPart}];
 ];
-
-	If[$Testing,
-		testSolveAlgebraicIntegral[integrand // Hash] = {
-			integrand, 
-			AbsoluteTime[] - start, 
-			None, 
-			{rationalPart, unintegratedPart, integratedPart}}
-	];
 
 {rationalPart, unintegratedPart, integratedPart}
 ]
@@ -1033,10 +1025,6 @@ rationalUndetermined[x_Symbol, max_Integer] :=
 
 (* ::Subsection::Closed:: *)
 (*postProcess*)
-
-
-(* ::Input:: *)
-(*$timeConstraint=2*)
 
 
 Clear[togetherAll];
@@ -2082,7 +2070,7 @@ linearRationalIntegrate[e_, x_, opts : OptionsPattern[]] := Module[
 	
 	If[MatchQ[result, {_, 0, _}],
 	
-		(* Fix for int[(3 - x^2)/((1 - x^2)*(1 - 6*x^2 + x^4)^(1/4)), x, "Apart" -> True] *)
+		(* Fix for int[(3 - x^2)/((1 - x^2)*(1 - 6*x^2 + x^4)^(1/4)), x, "Expansion" -> True] *)
 		integral = postProcess[powerReduce1[MapAll[Together,result /. Last[linRat]], x], x];
 		const = Simplify[e/(integral[[1]] + D[integral[[3]], x])];
 		If[Cancel[D[const, x]] == 0, integral[[3]] *= const];
@@ -2096,7 +2084,6 @@ linearRationalIntegrate[e_, x_, opts : OptionsPattern[]] := Module[
 
 
 (* ::Input:: *)
-(*$verboseLevel=2;*)
 (*linearRationalIntegrate[1/((x+1) (x^4+6 x^2+1)^(1/4)),x]*)
 
 
@@ -2406,10 +2393,6 @@ If[LeafCount[uradicals] < LeafCount[radicals],
 (*Ref: S. Gunther, "Sur l'\[EAcute]valuation de certaines int\[EAcute]grales pseudo-elliptiques", Bulletin de la S. M. F., tome 10 (1882), p. 88-97*)
 
 
-(* ::Input:: *)
-(*$timeConstraint=0.25;*)
-
-
 Clear[directRationalise];
 
 Options[directRationalise] = Options[solveAlgebraicIntegral];
@@ -2532,7 +2515,7 @@ If[result =!= $Failed,
 ]
 
 
-(* ::Subsubsection::Closed:: *)
+(* ::Subsubsection:: *)
 (*directRationaliseSolve*)
 
 
@@ -2620,7 +2603,7 @@ $Failed
 (*int[(b^2 (b^3+a^3 x^3)^(1/3))/(-b^3+a^3 x^3),x]*)
 
 
-(* ::Subsubsection::Closed:: *)
+(* ::Subsubsection:: *)
 (*directRationaliseQuadraticRationalSolve*)
 
 
@@ -2758,7 +2741,7 @@ If[sol =!= False,
 (*logPartIntegrate[x/Sqrt[1+4 x+3 x^2-2 x^3+x^4],x]*)
 
 
-(* ::Subsubsection::Closed:: *)
+(* ::Subsubsection:: *)
 (*logPartSolve1	\[LongDash]	Integrate[a[x]/(b[x] Sqrt[r[x]]), x] == c Log[p[x] + q[x] Sqrt[r[x]]]*)
 
 
@@ -2933,7 +2916,7 @@ Do[
 (*Clear[a,b,r]*)
 
 
-(* ::Subsubsection::Closed:: *)
+(* ::Subsubsection:: *)
 (*logPartSolve2	\[LongDash]	Integrate[a[x]/(b[x] Sqrt[r[x]]), x] == c Log[(p[x] + q[x] Sqrt[r[x]])/(p[x] - q[x] Sqrt[r[x]])]*)
 
 
@@ -3079,7 +3062,6 @@ If[Head[exnum] === Plus,
 
 
 (* ::Input:: *)
-(*$verboseLevel=3;*)
 (*expandIntegrate1[-((2 2^(3/4) (-1+u) u^2)/((-1+u^4) (1+u^4)^(3/4))),u]*)
 
 
@@ -3155,7 +3137,7 @@ If[Length[pf] > 1,
 ]
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Partial fraction integrate*)
 
 
@@ -3247,7 +3229,7 @@ integrateNestedRadicals[e_, x_, u_] := Module[{integrand, subst, result},
 	result = result /. Factor -> Identity;
 	result = result /. {$rootSum -> RootSum, $function -> Function};
 	
-	postProcess[result // PowerExpand // Apart // Expand, x]
+	rewriteNestedRadicals[postProcess[result // PowerExpand // Apart // Expand, x], Last @ subst]
 ]
 
 
@@ -3347,6 +3329,34 @@ radicalCount[e_, x_] := Total[ Cases[e, Power[r_, _Rational] /;
 (*nestedCount[u^2 Sqrt[1+u],u]*)
 
 
+Clear[rewriteNestedRadicals];
+
+rewriteNestedRadicals[integral_, sub_] := 
+(integral /. Power[e_Plus|e_Times, r_Rational] :> PowerExpand[Factor[Expand[e]]^r])/.{Power[a_+b:Power[c_,_Rational],r_Rational]/;Simplify[(a+b+sub[[1]])-2b]==0 :> PowerExpand[Power[Expand[(a+b)(-a+b)], r]]/(-a+b)^r,
+Power[a_-b:Power[c_,_Rational],r_Rational]/;Simplify[(a-b+sub[[1]])-2a]==0 :> PowerExpand[Power[Expand[(a+b)(a-b)], r]]/(a+b)^r
+}
+
+
+(* ::Input:: *)
+(*rewriteNestedRadicals[(I a x)/Sqrt[-a (-b+Sqrt[b^2+a x^2])],Sqrt[b+Sqrt[b^2+a x^2]]]*)
+
+
+(* ::Input:: *)
+(*rewriteNestedRadicals[(Sqrt[-b+(a x^2+Sqrt[b+a^2 x^4])^2]+Sqrt[b] ArcTan[Sqrt[-b+(a x^2+Sqrt[b+a^2 x^4])^2]/Sqrt[b]])/(2 Sqrt[2] Sqrt[a]),Sqrt[a x^2+Sqrt[a^2 x^4+b]]]*)
+
+
+(* ::Input:: *)
+(*rewriteNestedRadicals[1/Sqrt[-1+Sqrt[1+x^2]]+ArcTan[Sqrt[-1+Sqrt[1+x^2]]/Sqrt[2]]/Sqrt[2],Sqrt[1+Sqrt[1+x^2]]]*)
+
+
+(* ::Input:: *)
+(*rewriteNestedRadicals[(Sqrt[a] Sqrt[-b+Sqrt[b^2+a x^2]])/(b-Sqrt[b^2+a x^2])+(Sqrt[2] Sqrt[a] ArcTan[(Sqrt[-b+Sqrt[b^2+a x^2]]-Sqrt[b+Sqrt[b^2+a x^2]])/(Sqrt[2] Sqrt[b])])/Sqrt[b],Sqrt[b+Sqrt[b^2+a x^2]]]*)
+
+
+(* ::Input:: *)
+(*rewriteNestedRadicals[(2 I ArcTanh[Sqrt[b-Sqrt[b^2+a x^2]]/Sqrt[b]])/(Sqrt[a] Sqrt[b]),Sqrt[b+Sqrt[b^2+a x^2]]]*)
+
+
 (* ::Subsection::Closed:: *)
 (*Integration by substitution*)
 
@@ -3401,7 +3411,7 @@ uintegrands = PowerExpand[Factor[uintegrands]] //. Power[a_,n_Rational]Power[b_,
 debugPrint2[uintegrands];
 
 (* Pick the correct substitution. *)
-gooduintegrands = Cases[uintegrands, {_ -> intU_} /; (PossibleZeroQ[integrand - Cancel @ Together[intU D[sub, x] /. u -> sub]]), 1, 1];
+gooduintegrands = Cases[uintegrands, {_ -> intU_} /; (PossibleZeroQ[integrand - rewriteNestedRadicals[Cancel @ Together[intU D[sub, x] /. u -> sub], sub]]), 1, 1];
 
 If[gooduintegrands==={},
 gooduintegrands = Join[gooduintegrands,
@@ -3425,6 +3435,14 @@ If[usub === {},
 {gooduintegrands, u -> sub}
 ]
 ]
+
+
+(* ::Input:: *)
+(*subst[Sqrt[b+Sqrt[b^2+a x^2]],u->Sqrt[b+Sqrt[b^2+a x^2]],x]*)
+
+
+(* ::Input:: *)
+(*subst[Sqrt[1+Sqrt[1+x^2]],u->Sqrt[1+Sqrt[1+x^2]],x]*)
 
 
 (* ::Input:: *)
@@ -3553,7 +3571,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[(1-x^2)^2/((x^2+1) (x^4+6 x^2+1)^(3/4)),x,"Apart"->True]*)
+(*int[(1-x^2)^2/((x^2+1) (x^4+6 x^2+1)^(3/4)),x,"Expansion"->True]*)
 
 
 (* ::Text:: *)
@@ -3589,7 +3607,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[(1+x^2)/((-1+x) Sqrt[1-x^2+x^4]),x,"Apart"->True]*)
+(*int[(1+x^2)/((-1+x) Sqrt[1-x^2+x^4]),x,"Expansion"->True]*)
 (*IntegrateAlgebraic[(1+x)/((-1+x) Sqrt[1-x^2+x^4]),x]*)
 
 
@@ -3598,7 +3616,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[(-1+x^3)^(1/3)/(1+x),x,"Apart"->True]*)
+(*int[(-1+x^3)^(1/3)/(1+x),x,"Expansion"->True]*)
 
 
 (* ::Text:: *)
@@ -3620,7 +3638,7 @@ EndPackage[];
 
 
 (* ::Text:: *)
-(*This solution to this integral is terrible. *)
+(*This solution to this integral is terrible. (Ok, its seemingly better now. 04032021)*)
 
 
 (* ::Input:: *)
@@ -3647,11 +3665,19 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[x/((4-x^3) Sqrt[1-x^3]),x]*)
+(*int[x/((4-x^3) Sqrt[1-x^3]),x,"Expansion"->True]*)
+
+
+(* ::Input:: *)
+(*int[-((2 2^(1/3)-3 x^2+2^(1/3) x^3)/(6 2^(2/3) Sqrt[1-x^3] (-4+6 2^(1/3) x-3 2^(2/3) x^2+x^3))),x]+int[(2 2^(1/3)+3 x^2+2^(1/3) x^3)/(6 2^(2/3) x (2 2^(1/3)+2^(2/3) x+x^2) Sqrt[1-x^3]),x]+int[x^2/(2 2^(2/3) Sqrt[1-x^3] (-4+x^3)),x]+int[-(1/(6 2^(2/3) x Sqrt[1-x^3])),x]*)
+(*D[%,x]//FullSimplify*)
 
 
 (* ::Input:: *)
 (*int[1/((x+1) (x^3+2)^(1/3)),x]*)
+
+
+(* ::Input:: *)
 (*Simplify[\!\( *)
 (*\*SubscriptBox[\(\[PartialD]\), \(x\)]\(( *)
 (*\*FractionBox[\(1\), \(12\)]\ \((2\ *)
@@ -3800,7 +3826,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[(1+x^2)/((-1+x) Sqrt[1-x^2+x^4]),x,"Apart"->True]*)
+(*int[(1+x^2)/((-1+x) Sqrt[1-x^2+x^4]),x,"Expansion"->True]*)
 
 
 (* ::Input:: *)
@@ -3900,7 +3926,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[((-1+2 x+2 x^2) (-x^2+x^4)^(1/4))/(-1+2 x^2),x,"Apart"->True]*)
+(*int[((-1+2 x+2 x^2) (-x^2+x^4)^(1/4))/(-1+2 x^2),x,"Expansion"->True]*)
 
 
 (* ::Input:: *)
@@ -3908,11 +3934,11 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[((x+2 x^2) (x^2+x^4)^(1/4))/(1+2 x^2),x,"Apart"->True]*)
+(*int[((x+2 x^2) (x^2+x^4)^(1/4))/(1+2 x^2),x,"Expansion"->True]*)
 
 
 (* ::Input:: *)
-(*int[((1+2 x+2 x^2) (x^2+x^4)^(1/4))/(1+2 x^2),x,"Apart"->True]*)
+(*int[((1+2 x+2 x^2) (x^2+x^4)^(1/4))/(1+2 x^2),x,"Expansion"->True]*)
 
 
 (* ::Input:: *)
@@ -3928,7 +3954,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[(x-1)/(x (1+x^4)^(1/4)),x,"Apart"->True]*)
+(*int[(x-1)/(x (1+x^4)^(1/4)),x,"Expansion"->True]*)
 
 
 (* ::Input:: *)
@@ -4212,7 +4238,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[(1-x^2)^2/((x^2+1) (x^4+6 x^2+1)^(3/4)),x,"Apart"->True]*)
+(*IntegrateAlgebraic[(1-x^2)^2/((x^2+1) (x^4+6 x^2+1)^(3/4)),x,"Expansion"->True]*)
 
 
 (* ::Input:: *)
@@ -4288,7 +4314,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[(1-x^2)^2/((x^2+1) (x^4+6 x^2+1)^(3/4)),x,"Apart"->True]*)
+(*int[(1-x^2)^2/((x^2+1) (x^4+6 x^2+1)^(3/4)),x,"Expansion"->True]*)
 
 
 (* ::Input:: *)
@@ -4311,7 +4337,7 @@ EndPackage[];
 (*int[(1+x^2)/((1-x^2) Sqrt[1+x^4]),x]*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*regression testing*)
 
 
@@ -4336,6 +4362,129 @@ EndPackage[];
 
 
 (* ::Input:: *)
+(*int[(Sqrt[1+x^2] Sqrt[1+Sqrt[x+Sqrt[1+x^2]]])/Sqrt[x+Sqrt[1+x^2]],x]*)
+
+
+(* ::Input:: *)
+(*int[(1+x^2)^(3/2) Sqrt[x+Sqrt[1+x^2]] Sqrt[1+Sqrt[x+Sqrt[1+x^2]]],x]*)
+
+
+(* ::Input:: *)
+(*int[Sqrt[1+x^2] Sqrt[1+Sqrt[x+Sqrt[1+x^2]]],x]*)
+
+
+(* ::Input:: *)
+(*int[Sqrt[1+Sqrt[x+Sqrt[1+x^2]]],x]*)
+
+
+(* ::Input:: *)
+(*int[(1+x^4)^2/((-1+x^4)^2 Sqrt[x^2+Sqrt[1+x^4]]),x]*)
+
+
+(* ::Input:: *)
+(*int[(-1+x^2)^2/((1+x^2)^2 Sqrt[x^2+Sqrt[1+x^4]]),x]*)
+
+
+(* ::Input:: *)
+(*int[(-1+x^2)^2/((1+x^2)^2 Sqrt[1+x^4] Sqrt[x^2+Sqrt[1+x^4]]),x]*)
+
+
+(* ::Input:: *)
+(*int[Sqrt[x^2+Sqrt[1+x^4]]/((1+x)^2 Sqrt[1+x^4]),x]*)
+
+
+(* ::Input:: *)
+(*int[Sqrt[x^2+Sqrt[1+x^4]]/((1+x) Sqrt[1+x^4]),x]*)
+
+
+(* ::Input:: *)
+(*int[Sqrt[x^2+Sqrt[1+x^4]]/(1+x^2),x]*)
+
+
+(* ::Input:: *)
+(*int[x^2 Sqrt[a x^2+Sqrt[b+a^2 x^4]],x]*)
+
+
+(* ::Input:: *)
+(*int[Sqrt[x^2+Sqrt[1+x^4]],x]*)
+
+
+(* ::Input:: *)
+(*int[(1+x^2)/((-1+x^2) Sqrt[x+Sqrt[1+x^2]]),x]*)
+
+
+(* ::Input:: *)
+(*int[1/((-1+x^2) Sqrt[x+Sqrt[1+x^2]]),x]*)
+
+
+(* ::Input:: *)
+(*int[1/((d+c x) Sqrt[a x+Sqrt[b^2+a^2 x^2]]),x]*)
+
+
+(* ::Input:: *)
+(*int[(a x+Sqrt[b^2+a^2 x^2])/(b+Sqrt[a x+Sqrt[b^2+a^2 x^2]]),x]*)
+
+
+(* ::Input:: *)
+(*int[((1+x^4) Sqrt[1+Sqrt[1+x^2]])/(-1+x^4),x]*)
+
+
+(* ::Input:: *)
+(*int[((b^2+a x^2)^2 Sqrt[b+Sqrt[b^2+a x^2]])/(-b^2+a x^2)^2,x]*)
+
+
+(* ::Input:: *)
+(*int[((-b^2+a x^2) Sqrt[b+Sqrt[b^2+a x^2]])/(b^2+a x^2),x]*)
+
+
+(* ::Input:: *)
+(*int[Sqrt[b+Sqrt[b^2+a x^2]]/(b^2+a x^2)^4,x]*)
+
+
+(* ::Input:: *)
+(*int[Sqrt[b+Sqrt[b^2+a x^2]]/x^4,x]*)
+
+
+(* ::Input:: *)
+(*int[Sqrt[c+d Sqrt[b+a x^2]]/x,x]*)
+
+
+(* ::Input:: *)
+(*int[(b^2+a x^2) Sqrt[b+Sqrt[b^2+a x^2]],x]*)
+
+
+(* ::Input:: *)
+(*int[Sqrt[b+Sqrt[b^2+a x^2]],x]*)
+
+
+(* ::Input:: *)
+(*int[Sqrt[1+Sqrt[1+x^2]],x]*)
+
+
+(* ::Input:: *)
+(*int[(x+2)/((x-1)Sqrt[x^3-a x^2+3x-1]),x]*)
+
+
+(* ::Input:: *)
+(*int[(x+2)/((x-1)Sqrt[x^3+a x^2+3x-1]),x]*)
+
+
+(* ::Input:: *)
+(*int[(x-2)/((x+1)Sqrt[x^3+a x^2+3x+1]),x]*)
+
+
+(* ::Input:: *)
+(*int[(x-2)/((x+1)Sqrt[x^3-a x^2+3x+1]),x]*)
+
+
+(* ::InheritFromParent:: *)
+(*(x^2-1)/((x^2+1)Power[1-x^2, (3)^-1]);*)
+(*(-3/2u)/(1+u^3)/.u->%//Cancel;*)
+(*% D[%%,x]//Simplify*)
+(*int[%,x]*)
+
+
+(* ::Input:: *)
 (*int[1/Sqrt[x^8-x^2],x]*)
 
 
@@ -4348,11 +4497,11 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[(x^2+1)/((1+x) Sqrt[x^4+x^2+1]),x,"Apart"->True]*)
+(*int[(x^2+1)/((1+x) Sqrt[x^4+x^2+1]),x,"Expansion"->True]*)
 
 
 (* ::Input:: *)
-(*int[1/((x^2-3) (1-3 x^2)^(1/3)),x,"Apart"->True]*)
+(*int[1/((x^2-3) (1-3 x^2)^(1/3)),x,"Expansion"->True]*)
 
 
 (* ::Input:: *)
@@ -4440,7 +4589,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[(a+b x)/((2-x^2) (x^2-1)^(1/4)),x,"Apart"->True]*)
+(*int[(a+b x)/((2-x^2) (x^2-1)^(1/4)),x,"Expansion"->True]*)
 
 
 (* ::Input:: *)
@@ -4456,15 +4605,15 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[1/(Sqrt[x-1] (Sqrt[x-1]+2 Sqrt[x])^2),x,"Apart"->True]*)
+(*int[1/(Sqrt[x-1] (Sqrt[x-1]+2 Sqrt[x])^2),x,"Expansion"->True]*)
 
 
 (* ::Input:: *)
-(*int[1/(Sqrt[x^2-1] (Sqrt[x^2-1]+Sqrt[x])^2),x,"Apart"->True]*)
+(*int[1/(Sqrt[x^2-1] (Sqrt[x^2-1]+Sqrt[x])^2),x,"Expansion"->True]*)
 
 
 (* ::Input:: *)
-(*int[((x-1)^(3/2)+(x+1)^(3/2))/((x+1)^(3/2) (x-1)^(3/2)),x,"Apart"->True]*)
+(*int[((x-1)^(3/2)+(x+1)^(3/2))/((x+1)^(3/2) (x-1)^(3/2)),x,"Expansion"->True]*)
 
 
 (* ::Input:: *)
@@ -4512,7 +4661,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[(1+x^3-(1+x^4)^(1/4)+x^3 (1+x^4)^(1/4))/((-1+x^3) Sqrt[1+x^4]),x,"Apart"->True]*)
+(*int[(1+x^3-(1+x^4)^(1/4)+x^3 (1+x^4)^(1/4))/((-1+x^3) Sqrt[1+x^4]),x,"Expansion"->True]*)
 
 
 (* ::Input:: *)
@@ -5220,10 +5369,6 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[(Sqrt[1-x^2+x^5] (-2+3 x^5))/(1+x^4+2 x^5+x^10),x]*)
-
-
-(* ::Input:: *)
 (*int[(Sqrt[-1+x^2+x^4+x^5] (2+2 x^4+3 x^5))/(-1+x^4+x^5)^2,x]*)
 
 
@@ -5520,10 +5665,6 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[((-1+x^4) (1+x^4))/((-1+3 x^4-x^8)^(1/4) (1-x^4+x^8)),x]*)
-
-
-(* ::Input:: *)
 (*int[(-1+x^4)^(3/4)/(1+x^4),x]*)
 
 
@@ -5537,10 +5678,6 @@ EndPackage[];
 
 (* ::Input:: *)
 (*int[((-2+x^2) (-1+x^2))/((-1+x^2-x^4)^(1/4) (1-2 x^2+x^4+x^8)),x]*)
-
-
-(* ::Input:: *)
-(*int[((-4+x^3) (-1+x^3)^(3/4))/(1-2 x^3+x^6+x^8),x]*)
 
 
 (* ::Input:: *)
