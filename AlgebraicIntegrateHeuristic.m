@@ -3550,6 +3550,10 @@ EndPackage[];
 (*int[(x^6-x^4)^(1/6),x,"MaxDenominatorDegree"->6]*)
 
 
+(* ::Input:: *)
+(*int[Sqrt[x^2+Sqrt[1+x^4]]/((1+x)^2 Sqrt[1+x^4]),x]*)
+
+
 (* ::Text:: *)
 (*An integral with an enormous solution:*)
 
@@ -4342,23 +4346,79 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*$verboseLevel=0;*)
+(*int[(x+2)/((x-3) (x^2+1) (1-x^2)^(1/4)),x]*)
 
 
 (* ::Input:: *)
-(*ClearAll[AlgebraicIntegrateHeuristic`Private`testSolveAlgebraicIntegral];*)
-(*AlgebraicIntegrateHeuristic`Private`$Testing=True;*)
+(*int[1/((a x^2-2 b) (a x^2-b)^(1/4)),x]*)
 
 
 (* ::Input:: *)
-(*Cases[DownValues[AlgebraicIntegrateHeuristic`Private`testSolveAlgebraicIntegral][[All,-1]],{_,_,_,Except[{0,0,_}]}]*)
-(*Median[DownValues[AlgebraicIntegrateHeuristic`Private`testSolveAlgebraicIntegral][[All,-1,2]]]*)
+(*int[(a+b x)/((2-x^2) Power[x^2-1, (4)^-1]),x,"Expansion" -> True]*)
 
 
-(* ::Text:: *)
-(*15-Apr-2020	0.409 Seconds*)
-(*16-Apr-2020	0.372 Seconds*)
-(*02-Jul-2020	0.178 Seconds*)
+(* ::Input:: *)
+(*int[1/((x^2-3)Power[1-3 x^2, (3)^-1]),x,"Expansion" -> True]*)
+
+
+(* ::Input:: *)
+(*int[(x+1)/((x^2-3) (x^2+1)^(1/3)),x,"Expansion" -> True]*)
+
+
+(* ::Input:: *)
+(*int[(x+1)/((x^2-3) Power[x^2+1, (3)^-1]),x,"Expansion"->True]*)
+
+
+(* ::Input:: *)
+(*int[(k^2 x^3+(k^2-2) x)/((x^4+(d k^2-2) x^2-d+1) ((1-x^2) (1-k^2 x^2))^(1/3)),x]*)
+
+
+(* ::Input:: *)
+(*int[((d+1) x^2-2 d a x+d a^2)/((a-x)^2 ((1-e) x+a e) (x^2 (x-a))^(1/3)),x]*)
+
+
+(* ::Input:: *)
+(*int[((d+1) x-a)/(((e-1) x^2+2 a x-a^2)Power[x^2 (x-a), (3)^-1]),x]*)
+
+
+(* ::Input:: *)
+(*int[(x-a)/(((d-1) x^2-2 d a x+d a^2)Power[x^2 (x-a), (3)^-1]),x]*)
+
+
+(* ::Input:: *)
+(*int[((x+a-2 b) (x-b))/((x^4-4 a x^3+(6 a^2-d) x^2-2 (2 a^3-b d) x+a^4-b^2 d) ((x-a) (x-b))^(1/3)),x]*)
+
+
+(* ::Input:: *)
+(*int[(a-2 b+x)/(((-a+x) (-b+x))^(1/3) (b+a^2 d+(-1-2 a d) x+d x^2)),x]*)
+
+
+(* ::Input:: *)
+(*int[(-Sqrt[a b]+x)/(Sqrt[x (a+x) (b+x)] (Sqrt[a b]+x)),x]*)
+
+
+(* ::Input:: *)
+(*int[(x (-b+x) (a b-2 a x+x^2))/((-a+x) Sqrt[x (-a+x) (-b+x)] (a d+(-b-d) x+x^2)),x]*)
+
+
+(* ::Input:: *)
+(*int[(a^2 b-a (2 a+b) x+3 a x^2-x^3)/(x (-b+x) Sqrt[x (-a+x) (-b+x)] (a+(-1-b d) x+d x^2)),x]*)
+
+
+(* ::Input:: *)
+(*int[(-a^2 b+a (2 a+b) x-3 a x^2+x^3)/(Sqrt[x (-a+x) (-b+x)] (-a^2+2 a x+(-1+b^2 d) x^2-2 b d x^3+d x^4)),x]*)
+
+
+(* ::Input:: *)
+(*int[(a b x-x^3)/(Sqrt[x (-a+x) (-b+x)] (a^2 b^2 d-2 a b (a+b) d x+(-1+a^2 d+4 a b d+b^2 d) x^2-2 (a+b) d x^3+d x^4)),x]*)
+
+
+(* ::Input:: *)
+(*int[((-a+x) (-b+x) (-a b+x^2))/(Sqrt[x (-a+x) (-b+x)] (a^2 b^2 d-2 a b (a+b) d x+(-1+a^2 d+4 a b d+b^2 d) x^2-2 (a+b) d x^3+d x^4)),x]*)
+
+
+(* ::Input:: *)
+(*int[(-a^2 b+a (2 a+b) x-3 a x^2+x^3)/(Sqrt[x (-a+x) (-b+x)] (-a^2-a (-2+b e) x+(-1+b^2 d+a e+b e) x^2+(-2 b d-e) x^3+d x^4)),x]*)
 
 
 (* ::Input:: *)
@@ -4462,26 +4522,19 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[(x+2)/((x-1)Sqrt[x^3-a x^2+3x-1]),x]*)
+(*int[(x+2)/((x-1) Sqrt[x^3-a x^2+3 x-1]),x]*)
 
 
 (* ::Input:: *)
-(*int[(x+2)/((x-1)Sqrt[x^3+a x^2+3x-1]),x]*)
+(*int[(x+2)/((x-1) Sqrt[x^3+a x^2+3 x-1]),x]*)
 
 
 (* ::Input:: *)
-(*int[(x-2)/((x+1)Sqrt[x^3+a x^2+3x+1]),x]*)
+(*int[(x-2)/((x+1) Sqrt[x^3+a x^2+3 x+1]),x]*)
 
 
 (* ::Input:: *)
-(*int[(x-2)/((x+1)Sqrt[x^3-a x^2+3x+1]),x]*)
-
-
-(* ::InheritFromParent:: *)
-(*(x^2-1)/((x^2+1)Power[1-x^2, (3)^-1]);*)
-(*(-3/2u)/(1+u^3)/.u->%//Cancel;*)
-(*% D[%%,x]//Simplify*)
-(*int[%,x]*)
+(*int[(x-2)/((x+1) Sqrt[x^3-a x^2+3 x+1]),x]*)
 
 
 (* ::Input:: *)
