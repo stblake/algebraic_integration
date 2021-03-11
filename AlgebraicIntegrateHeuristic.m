@@ -361,11 +361,11 @@ ClearAll[polynomialsUndetermined];
 
 Options[polynomialsUndetermined] = {
 	"MaxNumeratorDegree" -> reasonableSize, 
-	"TableSize" -> "Small"};
+	"SubstitutionSize" -> "Small"};
 
 polynomialsUndetermined[x_Symbol, opts:OptionsPattern[]] := 
 	polynomialsUndetermined[x, opts] = 
-	Switch[OptionValue["TableSize"],
+	Switch[OptionValue["SubstitutionSize"],
 		"Small",
 			SortBy[
 				Join[
@@ -430,9 +430,7 @@ ClearAll[IntegrateAlgebraic];
 Options[IntegrateAlgebraic] = {
 	VerifySolutions -> True, 
 	"MaxRationalDegree" -> 8,
-	"MaxNumeratorDegree" -> 8,
-	"MaxDenominatorDegree" -> 4,
-	"TableSize" -> "Small",
+	"SubstitutionSize" -> "Small",
 	"DegreeBound" -> 8,
 	"LinearRational" -> True,
 	"Elementary" -> True,
@@ -686,13 +684,11 @@ rationalUndeterminedIntegrate[integrand_, x_, opts : OptionsPattern[]] := Module
 	rationalMatchRules, rationalFormU, integrandU, intU, intX, unintegratedPart, integratedPart,
 	cancellingCoefficient, cancellingTerm, uform, radicandNumeratorU, radicandU, integral,
 	radicandDenominatorU, usubstitutionParam, radicandNumeratorUParam, radicandDenominatorUParam, 
-	exnum, lexnum, integrated},
+	exnum, lexnum, integrated, maxRationalDegree, maxNumeratorDegree, maxDenominatorDegree, 
+	degreeBound},
  
 	maxRationalDegree    = OptionValue["MaxRationalDegree"];
-	maxNumeratorDegree   = OptionValue["MaxNumeratorDegree"];
-	maxDenominatorDegree = OptionValue["MaxDenominatorDegree"];
-	degreeBound          = OptionValue["DegreeBound"];
-
+	
 	If[$Testing, start = AbsoluteTime[]];
  
 	(* Single radical? *)
@@ -707,13 +703,15 @@ rationalUndeterminedIntegrate[integrand_, x_, opts : OptionsPattern[]] := Module
 	{integrandNumerator, integrandDenominator, {p, r}, y2radical, rationalPart} = normalise[integrand, {x, y}];
 	debugPrint3["normalise returned ", {rationalPart, integrandNumerator, integrandDenominator, {p, r}, y2radical}];
 
+	maxNumeratorDegree = maxDenominatorDegree = Exponent[p, x];
+
 	(* Defaults. *)
 	RationalSubstitution = $Failed;
 	solution = False;
 	integratedPart = 0;	
 	unintegratedPart = integrandNumerator/integrandDenominator /. y2radical;
 
-	(* Check the algebraic part of the integrand is p(x)/q(r)*r(x)^n/m. *)
+	(* Check the integrand is in the right form. *)
 	integrandNumerator = Cancel[integrandNumerator/y^Exponent[integrandNumerator, y] ];
 	If[! FreeQ[integrandNumerator, y], 
 		debugPrint3["normalise failed ", {integrandNumerator, integrandDenominator}];
@@ -721,27 +719,21 @@ rationalUndeterminedIntegrate[integrand_, x_, opts : OptionsPattern[]] := Module
 	];
 
 	(* Possible radicands in u. *)
-	If[(Numerator[r] === 2 && Exponent[p, x] > 2) || ! OptionValue["Elementary"],
+	If[(Numerator[r] === 2 && Exponent[p, x] > 2 && EvenQ[Exponent[p, x]]) || ! OptionValue["Elementary"],
 		radicands = {A[1] # + A[0] &, A[2] #^2 + A[1] # + A[0] &},
 		radicands = {A[1] # + A[0] &}
 	];
 
 	Catch @ 
-	(* Loop over substitution numerators. *)
+	(* Loop over substitution denominators 1, x, x^2, ... *)
 	Do[
 		++k;
-		(* Radicands of the form uForm, uForm^2 + b uForm + c. *)		
+		(* Radicands of the form a u + b, u^2 + b u + c. *)		
 		Do[
-			(* Loop over radicand denominators 1, x, x^2, ... *)
+			(* Loop over substitution numerators. *)
 			Do[
-				(* All further candidate substitutions will not match (as the 
-					substitution numerators are sorted by degree). *)
-					
-				If[Exponent[usubstitution, x] > Exponent[p, x],
-					Throw[{}]];
-
 				(* Form the substitution. *)
-				uform = usubstitution/x^denP;
+				uform = usubstitutionNumerators/x^denP;
 				radicandU = Together @ radicand[uform];
 				radicandNumeratorU = Numerator @ radicandU;
 				radicandDenominatorU = Denominator @ radicandU;
@@ -787,8 +779,8 @@ rationalUndeterminedIntegrate[integrand_, x_, opts : OptionsPattern[]] := Module
 						If[Denominator[usubstitutionParam] == 1 && Exponent[Numerator[usubstitutionParam],x] == 1, 
 							Continue[]];
 
-						debugPrint3["u substitution = ", usubstitution, ", ", Style[usubstitutionParam, Red]];
-
+						debugPrint3["u substitution = ", usubstitutionNumerators, ", ", Style[usubstitutionParam, Red]];
+						
 						(* Solve for the rational part of the integral. *)
 						{matched, rationalFormU, rationalMatchRules} = solveRational[(* solveRationalUndetermined *)
 							integrandNumerator, integrandDenominator, p, r, 
@@ -808,15 +800,13 @@ rationalUndeterminedIntegrate[integrand_, x_, opts : OptionsPattern[]] := Module
 							If[FreeQ[intU, Integrate(* | RootSum | Root *)] && (! OptionValue["Elementary"] || elementaryQ[intU]),
 								debugPrint2["Substitution is ", usubstitutionParam];
 								intX = intU /. u -> usubstitutionParam;
-								debugPrint2["integrand is ", intX];
+								debugPrint2["integral is ", intX];
 								intX = postProcess[intX, x, "Integrand" -> integrand];
 								debugPrint2["post processed integral is ", intX];
 								(* Sanity check. *)
 								If[TrueQ[! OptionValue[VerifySolutions]] || TrueQ[(
 										(* Order tests from fastest to slowest. *)
-										(* seriesZeroQ[intX, unintegratedPart, x] ||  *)
 										numericZeroQ[D[intX, x] - unintegratedPart] || 
-										numericZeroQ[D[intX, x] - unintegratedPart, Precision -> 30] || 
 										PossibleZeroQ[Together[D[intX, x] - unintegratedPart]] || 
 										PossibleZeroQ[D[Simplify[D[intX, x] - unintegratedPart], x]])],
 									integratedPart = intX;
@@ -832,11 +822,11 @@ rationalUndeterminedIntegrate[integrand_, x_, opts : OptionsPattern[]] := Module
 						],
 					{radicandMatchRule, radicandMatchRules}]
 				],
-			{denP, 0, maxDenominatorDegree}],
-		{radicand, radicands}], 
-	{usubstitution, polynomialsUndetermined[x, 
+			{usubstitutionNumerators, polynomialsUndetermined[x, 
 						"MaxNumeratorDegree" -> maxNumeratorDegree, 
-						"TableSize" -> OptionValue["TableSize"]]}];
+						"SubstitutionSize" -> OptionValue["SubstitutionSize"]]}],
+		{radicand, radicands}], 
+	{denP, 0, maxDenominatorDegree}];
 
 	debugPrint[k];
 
@@ -1202,13 +1192,13 @@ stripConst[e_, x_] := Module[{simp, const},
 
 Clear[postProcess];
 
-Options[postProcess] = {"Integrand" -> None};
+Options[postProcess] = {"Integrand" -> None, "CancelRadicalDenominators" -> True};
 
 postProcess[e_, x_, OptionsPattern[]] := Module[{$function, simp, permutations, denomP, rad},
 
 	(* Remove constants. *)
 	simp = stripConst[simp, x];
-
+	
 	simp = e /. {RootSum -> $rootSum, Function -> $function};
 
 	simp = simp /. (h:Sin|Cos|Tan|Cot|Sec|Csc)[Pi r_Rational] :> FunctionExpand[h[Pi r]];
@@ -1225,10 +1215,12 @@ postProcess[e_, x_, OptionsPattern[]] := Module[{$function, simp, permutations, 
 		int[((1 + x^6)*Sqrt[-x - x^4 + x^7])/(1 + 2*x^3 - 2*x^9 + x^12), x]
 		int[((-x + x^3)^(1/3)*(-2 + x^4))/(x^4*(1 + x^2)), x] *)
 
-	denomP = Cases[simp, (p_ x^m_Integer)^n_Rational :> Denominator[n], {0,\[Infinity]}] /. {} -> {1};
-	denomP = LCM @@ denomP;
-	simp = simp /. (p_ x^m_Integer)^n_Rational /; PolynomialQ[p, x] && 
-		m < 0 :> Expand[p x^(Ceiling[Abs[m], denomP] + m)]^n /x^(n (Ceiling[Abs[m], denomP]));
+	If[OptionValue["CancelRadicalDenominators"],
+		denomP = Cases[simp, (p_ x^m_Integer)^n_Rational /; PolynomialQ[p, x] :> Denominator[n], {0,\[Infinity]}] /. {} -> {1};
+		denomP = LCM @@ denomP;
+		simp = simp /. (p_ x^m_Integer)^n_Rational /; PolynomialQ[p, x] && 
+			m < 0 :> Expand[p x^(Ceiling[Abs[m], denomP] + m)]^n /x^(n (Ceiling[Abs[m], denomP]));
+	];
 
 	(* Match radicals to those in the integrand. eg. int[x/Sqrt[x^3 + x^4], x] *)
 	simp = matchRadicals[simp, OptionValue["Integrand"], x];
@@ -2193,7 +2185,7 @@ subs = Join[subs1, subs2];
 
 goodsubs = Cases[subs, 
 	{integrand_, u -> usub_} /; 
-	PossibleZeroQ[e - Cancel @ Together[integrand D[usub, x] /. u -> usub]]];
+	Quiet[ PossibleZeroQ[e - Cancel @ Together[integrand D[usub, x] /. u -> usub]] ]];
 
 If[goodsubs === {}, 
 	Return[ False ]
@@ -2286,7 +2278,7 @@ subs = Table[
 
 goodsubs = Cases[subs, 
 	{integrand_, u -> usub_} /; 
-	PossibleZeroQ[e - PowerExpand @ Cancel @ Together[integrand D[usub, x] /. u -> usub]]];
+	Quiet[ PossibleZeroQ[e - PowerExpand @ Cancel @ Together[integrand D[usub, x] /. u -> usub]] ]];
 
 If[goodsubs === {}, 
 	Return[ False ]
@@ -2361,7 +2353,7 @@ subs = Table[
 
 goodsubs = Cases[subs, 
 	{integrand_, u -> usub_} /; 
-	PossibleZeroQ[e - powerReduce1[MapAll[Together, integrand D[usub, x] /. u -> usub],x]]];
+	Quiet[ PossibleZeroQ[e - powerReduce1[MapAll[Together, integrand D[usub, x] /. u -> usub],x]] ]];
 
 If[goodsubs === {}, 
 	Return[ False ]
@@ -2741,7 +2733,7 @@ If[sol =!= False,
 (*logPartIntegrate[x/Sqrt[1+4 x+3 x^2-2 x^3+x^4],x]*)
 
 
-(* ::Subsubsection:: *)
+(* ::Subsubsection::Closed:: *)
 (*logPartSolve1	\[LongDash]	Integrate[a[x]/(b[x] Sqrt[r[x]]), x] == c Log[p[x] + q[x] Sqrt[r[x]]]*)
 
 
@@ -2810,13 +2802,13 @@ Do[
 		Return[ False ]
 	];
 
-	logs = Table[
+	logs = Quiet @ Table[
 		c Log[p[x] + q[x]Sqrt[r[x]]] /. sol[[k]] /. V[_] -> Apply[LCM, Denominator /@ Most[sol[[k]][[All,-1]]]],
 		{k, Length[sol]}];
 
 	logs = logs /. LCM -> Times; (* Incase LCM doesn't simplify. eg. LCM[1, Sqrt[2]] *)
 
-	Select[logs, Cancel[Together[D[#, x] - a[x]/(b[x] Sqrt[r[x]])]] === 0&, 1] /. {{e_} :> e, {} -> False}
+	Select[logs, Quiet[ PossibleZeroQ[Together[D[#, x] - a[x]/(b[x] Sqrt[r[x]])]] ] &, 1] /. {{e_} :> e, {} -> False}
 ]
 
 
@@ -2916,7 +2908,7 @@ Do[
 (*Clear[a,b,r]*)
 
 
-(* ::Subsubsection:: *)
+(* ::Subsubsection::Closed:: *)
 (*logPartSolve2	\[LongDash]	Integrate[a[x]/(b[x] Sqrt[r[x]]), x] == c Log[(p[x] + q[x] Sqrt[r[x]])/(p[x] - q[x] Sqrt[r[x]])]*)
 
 
@@ -2961,12 +2953,12 @@ Do[
 		Return[ False ]
 	];
 
-	logs = Table[
+	logs = Quiet @ Table[
 		c Log[(p[x] + q [x]Sqrt[r[x]])/(p[x] - q [x]Sqrt[r[x]])] /. sol[[k]] /. V[_] -> Apply[LCM, Denominator /@ Most[sol[[k]][[All,-1]]]],
 		{k, Length[sol]}];
 	logs = logs /. LCM -> Times; (* Incase LCM doesn't simplify. eg. LCM[1, Sqrt[2]] *)
 
-	Select[logs, Cancel[Together[D[#,x]-a[x]/(b[x] Sqrt[r[x]])]] === 0&, 1] /. {{e_} :> e, {} -> False}
+	Select[logs, Quiet[ PossibleZeroQ[Together[D[#,x]-a[x]/(b[x] Sqrt[r[x]])]] ]&, 1] /. {{e_} :> e, {} -> False}
 ]
 
 
@@ -3228,8 +3220,8 @@ integrateNestedRadicals[e_, x_, u_] := Module[{integrand, subst, result},
 	result = MapAll[Factor, ExpandAll[result]] /. {RootSum -> $rootSum, Function -> $function};
 	result = result /. Factor -> Identity;
 	result = result /. {$rootSum -> RootSum, $function -> Function};
-	
-	rewriteNestedRadicals[postProcess[result // PowerExpand // Apart // Expand, x], Last @ subst]
+
+	rewriteNestedRadicals[postProcess[result // Apart // Expand, x, "CancelRadicalDenominators" -> False], Last @ subst, x]	
 ]
 
 
@@ -3331,30 +3323,36 @@ radicalCount[e_, x_] := Total[ Cases[e, Power[r_, _Rational] /;
 
 Clear[rewriteNestedRadicals];
 
-rewriteNestedRadicals[integral_, sub_] := 
-(integral /. Power[e_Plus|e_Times, r_Rational] :> PowerExpand[Factor[Expand[e]]^r])/.{Power[a_+b:Power[c_,_Rational],r_Rational]/;Simplify[(a+b+sub[[1]])-2b]==0 :> PowerExpand[Power[Expand[(a+b)(-a+b)], r]]/(-a+b)^r,
-Power[a_-b:Power[c_,_Rational],r_Rational]/;Simplify[(a-b+sub[[1]])-2a]==0 :> PowerExpand[Power[Expand[(a+b)(a-b)], r]]/(a+b)^r
+rewriteNestedRadicals[integral_, sub_, x_] := 
+((integral /. Power[e_Plus|e_Times, r_Rational] :> Factor[Expand[e]]^r) //. 
+Power[a_ b_, r_Rational] /; FreeQ[a, x] || (PolynomialQ[a, x] && Denominator[b] == 1) :> PowerExpand[a^r] b^r) /.{
+Power[a_+b:Power[c_,_Rational],r_Rational] /; Denominator[sub[[1]]] == 1 && Simplify[(a+b+sub[[1]])-2b] == 0 :> PowerExpand[Power[Expand[(a+b)(-a+b)], r]]/(-a+b)^r,
+Power[a_-b:Power[c_,_Rational],r_Rational] /; Denominator[sub[[1]]] == 1 && Simplify[(a-b+sub[[1]])-2a] == 0 :> PowerExpand[Power[Expand[(a+b)(a-b)], r]]/(a+b)^r
 }
 
 
 (* ::Input:: *)
-(*rewriteNestedRadicals[(I a x)/Sqrt[-a (-b+Sqrt[b^2+a x^2])],Sqrt[b+Sqrt[b^2+a x^2]]]*)
+(*rewriteNestedRadicals[(Sqrt[1-Sqrt[1-Sqrt[(-1+x)/x]]] (-1+Sqrt[1-Sqrt[(-1+x)/x]]) (1+Sqrt[1-Sqrt[(-1+x)/x]]))/((-1+Sqrt[1-Sqrt[1-Sqrt[(-1+x)/x]]]) (1+Sqrt[1-Sqrt[1-Sqrt[(-1+x)/x]]]) Sqrt[1-Sqrt[(-1+x)/x]] (1+Sqrt[(-1+x)/x]) Sqrt[(-1+x)/x] x^2),Sqrt[1-Sqrt[1-Sqrt[(-1+x)/x]]],x]*)
 
 
 (* ::Input:: *)
-(*rewriteNestedRadicals[(Sqrt[-b+(a x^2+Sqrt[b+a^2 x^4])^2]+Sqrt[b] ArcTan[Sqrt[-b+(a x^2+Sqrt[b+a^2 x^4])^2]/Sqrt[b]])/(2 Sqrt[2] Sqrt[a]),Sqrt[a x^2+Sqrt[a^2 x^4+b]]]*)
+(*rewriteNestedRadicals[(I a x)/Sqrt[-a (-b+Sqrt[b^2+a x^2])],Sqrt[b+Sqrt[b^2+a x^2]],x]*)
 
 
 (* ::Input:: *)
-(*rewriteNestedRadicals[1/Sqrt[-1+Sqrt[1+x^2]]+ArcTan[Sqrt[-1+Sqrt[1+x^2]]/Sqrt[2]]/Sqrt[2],Sqrt[1+Sqrt[1+x^2]]]*)
+(*rewriteNestedRadicals[(Sqrt[-b+(a x^2+Sqrt[b+a^2 x^4])^2]+Sqrt[b] ArcTan[Sqrt[-b+(a x^2+Sqrt[b+a^2 x^4])^2]/Sqrt[b]])/(2 Sqrt[2] Sqrt[a]),Sqrt[a x^2+Sqrt[a^2 x^4+b]],x]*)
 
 
 (* ::Input:: *)
-(*rewriteNestedRadicals[(Sqrt[a] Sqrt[-b+Sqrt[b^2+a x^2]])/(b-Sqrt[b^2+a x^2])+(Sqrt[2] Sqrt[a] ArcTan[(Sqrt[-b+Sqrt[b^2+a x^2]]-Sqrt[b+Sqrt[b^2+a x^2]])/(Sqrt[2] Sqrt[b])])/Sqrt[b],Sqrt[b+Sqrt[b^2+a x^2]]]*)
+(*rewriteNestedRadicals[1/Sqrt[-1+Sqrt[1+x^2]]+ArcTan[Sqrt[-1+Sqrt[1+x^2]]/Sqrt[2]]/Sqrt[2],Sqrt[1+Sqrt[1+x^2]],x]*)
 
 
 (* ::Input:: *)
-(*rewriteNestedRadicals[(2 I ArcTanh[Sqrt[b-Sqrt[b^2+a x^2]]/Sqrt[b]])/(Sqrt[a] Sqrt[b]),Sqrt[b+Sqrt[b^2+a x^2]]]*)
+(*rewriteNestedRadicals[(Sqrt[a] Sqrt[-b+Sqrt[b^2+a x^2]])/(b-Sqrt[b^2+a x^2])+(Sqrt[2] Sqrt[a] ArcTan[(Sqrt[-b+Sqrt[b^2+a x^2]]-Sqrt[b+Sqrt[b^2+a x^2]])/(Sqrt[2] Sqrt[b])])/Sqrt[b],Sqrt[b+Sqrt[b^2+a x^2]],x]*)
+
+
+(* ::Input:: *)
+(*rewriteNestedRadicals[(2 I ArcTanh[Sqrt[b-Sqrt[b^2+a x^2]]/Sqrt[b]])/(Sqrt[a] Sqrt[b]),Sqrt[b+Sqrt[b^2+a x^2]],x]*)
 
 
 (* ::Subsection::Closed:: *)
@@ -3372,7 +3370,7 @@ Return[ {integrand /. u -> x, u -> x} ]];
 
 eqns = {
 Dt[y]==integrand Dt[x],
-u==sub//PowerExpand,
+u==sub(* // PowerExpand *),
 Dt[u==sub]//Together//Cancel(* // PowerExpand *)
 };
 
@@ -3411,7 +3409,7 @@ uintegrands = PowerExpand[Factor[uintegrands]] //. Power[a_,n_Rational]Power[b_,
 debugPrint2[uintegrands];
 
 (* Pick the correct substitution. *)
-gooduintegrands = Cases[uintegrands, {_ -> intU_} /; (PossibleZeroQ[integrand - rewriteNestedRadicals[Cancel @ Together[intU D[sub, x] /. u -> sub], sub]]), 1, 1];
+gooduintegrands = Cases[uintegrands, {_ -> intU_} /; (PossibleZeroQ[integrand - rewriteNestedRadicals[Cancel @ Together[intU D[sub, x] /. u -> sub], sub, x]]), 1, 1];
 
 If[gooduintegrands==={},
 gooduintegrands = Join[gooduintegrands,
@@ -3547,7 +3545,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[(x^6-x^4)^(1/6),x,"MaxDenominatorDegree"->6]*)
+(*int[(x^6-x^4)^(1/6),x]*)
 
 
 (* ::Input:: *)
@@ -3866,19 +3864,19 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[Sqrt[1-Sqrt[1-Sqrt[1-1/x]]]/x,x,"SingleStepTimeConstraint"->0.5]*)
+(*int[Sqrt[1-Sqrt[1-Sqrt[1-1/x]]]/x,x,"SingleStepTimeConstraint"->2]*)
 
 
 (* ::Input:: *)
-(*int[Sqrt[1-Sqrt[1-Sqrt[1-1/x]]]/x^2,x,"SingleStepTimeConstraint"->2.0]*)
+(*int[Sqrt[1-Sqrt[1-Sqrt[1-1/x]]]/x^2,x,"SingleStepTimeConstraint"->2]*)
 
 
 (* ::Input:: *)
-(*int[Sqrt[1-Sqrt[1-Sqrt[1-1/x^2]]]/x,x,"SingleStepTimeConstraint"->0.5]*)
+(*int[Sqrt[1-Sqrt[1-Sqrt[1-1/x^2]]]/x,x,"SingleStepTimeConstraint"->2]*)
 
 
 (* ::Input:: *)
-(*int[Sqrt[1+Sqrt[1-Sqrt[1+1/x^2]]]/x,x,"SingleStepTimeConstraint"->0.5]*)
+(*int[Sqrt[1+Sqrt[1-Sqrt[1+1/x^2]]]/x,x,"SingleStepTimeConstraint"->2]*)
 
 
 (* ::Input:: *)
@@ -4023,10 +4021,6 @@ EndPackage[];
 
 (* ::Input:: *)
 (*int[((-1+x^2) Sqrt[x+x^3])/((1+x^2) (1+x+x^2)^2),x]*)
-
-
-(* ::Input:: *)
-(*int[((-x+x^3)^(1/3) (-2+x^4))/(x^4 (1+x^2)),x]*)
 
 
 (* ::Input:: *)
@@ -4341,7 +4335,7 @@ EndPackage[];
 (*int[(1+x^2)/((1-x^2) Sqrt[1+x^4]),x]*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*regression testing*)
 
 
@@ -4354,19 +4348,19 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[(a+b x)/((2-x^2) Power[x^2-1, (4)^-1]),x,"Expansion" -> True]*)
+(*int[(a+b x)/((2-x^2) (x^2-1)^(1/4)),x,"Expansion"->True]*)
 
 
 (* ::Input:: *)
-(*int[1/((x^2-3)Power[1-3 x^2, (3)^-1]),x,"Expansion" -> True]*)
+(*int[1/((x^2-3) (1-3 x^2)^(1/3)),x,"Expansion"->True]*)
 
 
 (* ::Input:: *)
-(*int[(x+1)/((x^2-3) (x^2+1)^(1/3)),x,"Expansion" -> True]*)
+(*int[(x+1)/((x^2-3) (x^2+1)^(1/3)),x,"Expansion"->True]*)
 
 
 (* ::Input:: *)
-(*int[(x+1)/((x^2-3) Power[x^2+1, (3)^-1]),x,"Expansion"->True]*)
+(*int[(x+1)/((x^2-3) (x^2+1)^(1/3)),x,"Expansion"->True]*)
 
 
 (* ::Input:: *)
@@ -4378,11 +4372,11 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[((d+1) x-a)/(((e-1) x^2+2 a x-a^2)Power[x^2 (x-a), (3)^-1]),x]*)
+(*int[((d+1) x-a)/(((e-1) x^2+2 a x-a^2) (x^2 (x-a))^(1/3)),x]*)
 
 
 (* ::Input:: *)
-(*int[(x-a)/(((d-1) x^2-2 d a x+d a^2)Power[x^2 (x-a), (3)^-1]),x]*)
+(*int[(x-a)/(((d-1) x^2-2 d a x+d a^2) (x^2 (x-a))^(1/3)),x]*)
 
 
 (* ::Input:: *)
@@ -4438,7 +4432,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[(1+x^4)^2/((-1+x^4)^2 Sqrt[x^2+Sqrt[1+x^4]]),x]*)
+(*int[(1+x^4)^2/((-1+x^4)^2 Sqrt[x^2+Sqrt[1+x^4]]),x,"SingleStepTimeConstraint"->2]*)
 
 
 (* ::Input:: *)
@@ -4490,11 +4484,11 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[((b^2+a x^2)^2 Sqrt[b+Sqrt[b^2+a x^2]])/(-b^2+a x^2)^2,x]*)
+(*int[((b^2+a x^2)^2 Sqrt[b+Sqrt[b^2+a x^2]])/(-b^2+a x^2)^2,x,"SingleStepTimeConstraint"->2]*)
 
 
 (* ::Input:: *)
-(*int[((-b^2+a x^2) Sqrt[b+Sqrt[b^2+a x^2]])/(b^2+a x^2),x]*)
+(*int[((-b^2+a x^2) Sqrt[b+Sqrt[b^2+a x^2]])/(b^2+a x^2),x,"SingleStepTimeConstraint"->2]*)
 
 
 (* ::Input:: *)
@@ -5830,11 +5824,15 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[(-1+x^8)/((1+x^8) (1-4 x^4+x^8)^(1/4)),x]*)
+(*Timing[int[(-1+x^8)/((1+x^8) (1-4 x^4+x^8)^(1/4)),x]]*)
 
 
 (* ::Input:: *)
 (*int[(-1+x^8)/((1+x^8) (1+x^8)^(1/4)),x]*)
+
+
+(* ::Input:: *)
+(*int[(1+x^8)/((-1+x^8) (1+x^8)^(1/4)),x]*)
 
 
 (* ::Input:: *)
