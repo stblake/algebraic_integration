@@ -580,6 +580,17 @@ debugPrint1["Rational undetermined returned : ", {rationalPart, unintegratedPart
 
 If[! OptionValue["RationalUndeterminedOnly"],
 
+(* Direct rationalisation. *)
+
+debugPrint1["Trying direct rationalisation on ", unintegratedPart];
+result = directRationalise[unintegratedPart, x, opts];
+If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[result[[3]], unintegratedPart - result[[1]] - result[[2]]],
+	rationalPart    += result[[1]]; 
+	unintegratedPart = result[[2]];
+	integratedPart  += result[[3]]
+];
+debugPrint1["direct rationalisation returned : ", {rationalPart, unintegratedPart, integratedPart}];
+
 (* Linear rational substitution. *)
 
 If[TrueQ[OptionValue["LinearRational"]],
@@ -592,17 +603,6 @@ If[TrueQ[OptionValue["LinearRational"]],
 	];
 	debugPrint1["LinearRational returned : ", {rationalPart, unintegratedPart, integratedPart}];
 ];
-
-(* Direct rationalisation. *)
-
-debugPrint1["Trying direct rationalisation on ", unintegratedPart];
-result = directRationalise[unintegratedPart, x, opts];
-If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[result[[3]], unintegratedPart - result[[1]] - result[[2]]],
-	rationalPart    += result[[1]]; 
-	unintegratedPart = result[[2]];
-	integratedPart  += result[[3]]
-];
-debugPrint1["direct rationalisation returned : ", {rationalPart, unintegratedPart, integratedPart}];
 
 (* Solving for the logarithmic part with undetermined coefficients. *)
 
@@ -792,7 +792,7 @@ rationalUndeterminedIntegrate[integrand_, x_, opts : OptionsPattern[]] := Module
 							debugPrint3["solution to rational part is ", rationalFormU];
 	
 							integrandU = rationalFormU (radicand[u]^(1/r) /. radicandMatchRule /. {A[1]|A[2]|B[1]|B[2] -> 1, A[0]|B[0] -> 0});
-							debugPrint3["calling Integrate on ", integrandU];
+							debugPrint2["calling Integrate on ", integrandU];
 	
 							intU = integrate[integrandU, u];
 							debugPrint3["Integrate returned ", intU];
@@ -1209,7 +1209,11 @@ postProcess[e_, x_, OptionsPattern[]] := Module[{$function, simp, permutations, 
     we don't want to write Sqrt[x^4 - x^2] as x Sqrt[x^2 - 1.] *)
 	simp = simp // togetherAll;
 	simp = simp /. Power[p_, r_Rational] /; PolynomialQ[p, x] :> Expand[p]^r;
-	simp = simp // powerExpand // togetherAll;
+
+	If[OptionValue["CancelRadicalDenominators"],
+		simp = simp // powerExpand // togetherAll,
+		simp = simp // togetherAll
+	];
 
 	(* Some examples for the following rule:
 		int[((1 + x^6)*Sqrt[-x - x^4 + x^7])/(1 + 2*x^3 - 2*x^9 + x^12), x]
@@ -2507,7 +2511,7 @@ If[result =!= $Failed,
 ]
 
 
-(* ::Subsubsection:: *)
+(* ::Subsubsection::Closed:: *)
 (*directRationaliseSolve*)
 
 
@@ -2530,18 +2534,18 @@ Do[
 	If[ndeg == 0 && ddeg == 0(* || ndeg > ddeg *), 
 		Continue[]];
 
-	debugPrint2["numerator/denominator degree = ", ndeg, ", ", ddeg];
+	debugPrint3["numerator/denominator degree = ", ndeg, ", ", ddeg];
 
 	y = Sum[A[k] x^k, {k, 0, deg}]^n r^m;
 	(*y = y /. A[deg] \[Rule] 1;*)
-	debugPrint2["Substitution form is ", y];
+	debugPrint3["Substitution form is ", y];
 
 	formnum = c Sum[V[k] u^(Denominator[m] k), {k, 0, ndeg}];
 	formden = Sum[V[ndeg + 1 + k] u^(Denominator[m] k), {k, 0, ddeg}];
 	form = formnum/formden;
 	(* form = form /. V[ndeg|ndeg + 1 + ddeg] -> 1; *)
 	form = form /. V[ndeg + 1 + ddeg] -> 1;
-	debugPrint2["Rational integrand form is ", form];
+	debugPrint3["Rational integrand form is ", form];
 	yform = form /. u -> y;
 
 	TimeConstrained[
@@ -2595,7 +2599,7 @@ $Failed
 (*int[(b^2 (b^3+a^3 x^3)^(1/3))/(-b^3+a^3 x^3),x]*)
 
 
-(* ::Subsubsection:: *)
+(* ::Subsubsection::Closed:: *)
 (*directRationaliseQuadraticRationalSolve*)
 
 
@@ -2613,17 +2617,17 @@ Do[
 	If[ndeg == 0 && ddeg == 0(* || ndeg > ddeg *), 
 		Continue[]];
 
-	debugPrint2["numerator/denominator degree = ", ndeg, ", ", ddeg];
+	debugPrint3["numerator/denominator degree = ", ndeg, ", ", ddeg];
 
 	y = (1 + A[0] x + A[1] x^2)/(A[2] + A[3] x + A[4] x^2) r^m;
-	debugPrint2["Substitution form is ", y];
+	debugPrint3["Substitution form is ", y];
 
 	formnum = c Sum[V[k] u^(Denominator[m] k), {k, 0, ndeg}];
 	formden = Sum[V[ndeg + 1 + k] u^(Denominator[m] k), {k, 0, ddeg}];
 	form = formnum/formden;
 	(* form = form /. V[ndeg|ndeg + 1 + ddeg] -> 1; *)
 	form = form /. V[ndeg|ndeg + 1 + ddeg] -> 1;
-	debugPrint2["Rational integrand form is ", form];
+	debugPrint3["Rational integrand form is ", form];
 	yform = form /. u -> y;
 
 	TimeConstrained[
@@ -3024,7 +3028,7 @@ expandIntegrate1[e_, x_, opts:OptionsPattern[]] := Module[
 exnum = Expand @ Numerator[e];
 
 If[Head[exnum] === Plus, 
-	debugPrint2["Expanding integrand and integrating term-by-term."];
+	debugPrint2["Expanding integrand and integrating term-by-term: ", exnum];
 	lexnum = List @@ exnum;
 	rationalPart = 0;
 	unintegratedPart = 0;
@@ -3141,7 +3145,7 @@ apartIntegrate[0|0., x_, opts:OptionsPattern[]] := {0, 0, 0}
 
 
 apartIntegrate[e_, x_, opts:OptionsPattern[]] := apartIntegrate[e, x, opts] = Module[
-	{radicals, pf, y, exy, sf, rationalPart, unintegratedPart, integratedPart, integrated, den},
+	{radicals, pf, y, exy, sf, rationalPart, unintegratedPart, integratedPart, integrated, den, realsf, recuropts},
 
 radicals = Cases[e, Power[p_, n_Rational] /; (! FreeQ[p, x] && PolynomialQ[p, x]), {0, Infinity}];	
 
@@ -3149,11 +3153,15 @@ If[Length[radicals] > 1, Return[ {0, e, 0} ]];
 
 exy = e /. radicals[[1]] -> y;
 
-If[FreeQ[Denominator[exy], x], Return[ {0, e, 0} ]];
+If[FreeQ[Denominator[exy], x] || Complement[Flatten[Variables /@ Level[Denominator[exy], {-1}]], {x, y}] =!= {}, Return[ {0, e, 0} ]];
 
 If[OptionValue["FactorComplete"], 
 	sf = x /. Solve[Denominator[exy] == 0 /. y -> 1, x];
-	den = Factor[Denominator[exy], Extension -> Re[sf]];
+	realsf = Re[sf];
+
+	If[FreeQ[realsf, Re],
+		den = Factor[Denominator[exy], Extension -> realsf],
+		den = Denominator[exy]];
 	If[den === Denominator[exy], 
 		den = Factor[Denominator[exy], Extension -> sf]];
 	exy = Numerator[exy]/den
@@ -3166,7 +3174,7 @@ If[Head[pf] === Plus,
 ];
 
 debugPrint2["Using partial fractions and integrating term-by-term."];
-debugPrint3["Partial fraction expansion is: ", Plus @@ pf];
+debugPrint2["Partial fraction expansion is: ", Plus @@ pf];
 rationalPart = 0;
 unintegratedPart = 0;
 integratedPart = 0;
@@ -3183,6 +3191,10 @@ Do[
 	], 
 {term, pf}];
 
+recuropts = Append[
+		DeleteCases[{opts}, HoldPattern["Expansion" -> True]], 
+		"Expansion" -> False];
+
 If[integratedPart === 0,
 	unintegratedPart = e;
 	integratedPart = 0;
@@ -3190,7 +3202,7 @@ If[integratedPart === 0,
 	(* Recursively try to integrate all the unintegrated terms together. *)
 	unintegratedPart = Cancel @ Together @ unintegratedPart;
 	debugPrint2["Recursively calling solveAlgebraicIntegral on all unintegrated terms: ", unintegratedPart];
-	integrated = solveAlgebraicIntegral[unintegratedPart, x, opts];
+	integrated = solveAlgebraicIntegral[unintegratedPart, x, Sequence @@ recuropts];
 	rationalPart += integrated[[1]];
 	unintegratedPart = integrated[[2]];
 	integratedPart += integrated[[3]]
@@ -3237,8 +3249,7 @@ terms = Union @ DeleteCases[
    Flatten[Level[e, {0, \[Infinity]}]], _Symbol | _?NumericQ | _?NumericQ _Symbol];
 
 terms = Cases[terms, s_ /; !FreeQ[s, Power[p_, _Rational] /; !FreeQ[p, x]]];
-terms = SortBy[terms, LeafCount];
-
+terms = Reverse @ SortBy[terms, LeafCount];
 debugPrint2[terms];
 
 If[terms === {}, 
@@ -3553,11 +3564,15 @@ EndPackage[];
 
 
 (* ::Text:: *)
-(*An integral with an enormous solution:*)
+(*Two integrals with enormous solutions:*)
 
 
 (* ::Input:: *)
 (*int[(-2+x)/((x+2) (x^3+x^2-x-1)^(1/3)),x]*)
+
+
+(* ::Input:: *)
+(*int[(x-1)/((-3+x) (x^3-x^2-x+1)^(1/3)),x]*)
 
 
 (* ::Text:: *)
@@ -3676,7 +3691,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[1/((x+1) (x^3+2)^(1/3)),x]*)
+(*int[1/((x+1) (x^3+2)^(1/3)),x,"Expansion"->True]*)
 
 
 (* ::Input:: *)
@@ -3824,7 +3839,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*$verboseLevel=3;*)
+(*IntegrateAlgebraic[(a x^2-2 b)/((a x^2+c x^4-b) (a x^2-b)^(1/4)),x]*)
 
 
 (* ::Input:: *)
@@ -3865,18 +3880,22 @@ EndPackage[];
 
 (* ::Input:: *)
 (*int[Sqrt[1-Sqrt[1-Sqrt[1-1/x]]]/x,x,"SingleStepTimeConstraint"->2]*)
+(*D[%,x]-Sqrt[1-Sqrt[1-Sqrt[1-1/x]]]/x//Simplify*)
 
 
 (* ::Input:: *)
 (*int[Sqrt[1-Sqrt[1-Sqrt[1-1/x]]]/x^2,x,"SingleStepTimeConstraint"->2]*)
+(*D[%,x]-Sqrt[1-Sqrt[1-Sqrt[1-1/x]]]/x^2//Simplify*)
 
 
 (* ::Input:: *)
 (*int[Sqrt[1-Sqrt[1-Sqrt[1-1/x^2]]]/x,x,"SingleStepTimeConstraint"->2]*)
+(*D[%,x]-Sqrt[1-Sqrt[1-Sqrt[1-1/x^2]]]/x//Simplify*)
 
 
 (* ::Input:: *)
 (*int[Sqrt[1+Sqrt[1-Sqrt[1+1/x^2]]]/x,x,"SingleStepTimeConstraint"->2]*)
+(*D[%,x]-Sqrt[1+Sqrt[1-Sqrt[1+1/x^2]]]/x//Simplify*)
 
 
 (* ::Input:: *)
