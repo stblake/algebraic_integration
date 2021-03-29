@@ -9,6 +9,10 @@
 
 
 (* ::Text:: *)
+(*samuel.thomas.blake@gmail.com*)
+
+
+(* ::Text:: *)
 (*Started on 16 March 2020.*)
 
 
@@ -499,7 +503,7 @@ If[ListQ @ linearRadicalToRational[unintegratedPart, x, u],
 	]
 ];
 
-(* Integrand is in Q(x, (a x + b x + c)^(n[1]/2), (a x + b x + c)^(n[2]/2), \[Ellipsis]) *)
+(* Integrand is in Q(x, (a x^2 + b x + c)^(n[1]/2), (a x^2 + b x + c)^(n[2]/2), \[Ellipsis]) *)
 
 If[ListQ @ quadraticRadicalToRational[unintegratedPart, x, u],
 	debugPrint1["Integrand is in Q(x, (a x^2 + b x + c)^(n[1]/2), (a x^2 + b x + c)^(n[2]/2), \[Ellipsis]): ", unintegratedPart];
@@ -837,13 +841,6 @@ rationalUndeterminedIntegrate[integrand_, x_, opts : OptionsPattern[]] := Module
 ]
 
 
-(* ::Input:: *)
-(*uu=substitutionTable[2, x][[10]]*)
-(*uu= uu /. {C[0]->1,C[1]->-1}*)
-(*Sqrt[u]/u du /. {u->uu, du->D[uu,x]} // togetherAll // PowerExpand*)
-(*solveAlgebraicIntegral[%, x]*)
-
-
 (* ::Subsection::Closed:: *)
 (*solveRational*)
 
@@ -968,34 +965,6 @@ solveRadicand[poly_, form_, x_] := Module[{rules},
 		{False, {}}
 	]
 ]
-
-
-(* ::Input:: *)
-(*DeleteCases[CoefficientRules[C[0]+x^3 C[1]+x^6 C[2],x][[All,1]], {0}]*)
-(*Most[CoefficientRules[x^6-x^3,x][[All,1]]]*)
-
-
-(* ::Input:: *)
-(*substitutionTable[2, x][[50]]*)
-(*solveRadicand[x^6-x^3, Numerator[%], x]*)
-
-
-(* ::Input:: *)
-(*substitutionTable[2, x][[250]]*)
-(*solveRadicand[2x^5-x^4, Numerator[%], x]*)
-
-
-(* ::Input:: *)
-(*substitutionTable[2, x][[2]]*)
-(*solveRadicand[2x^5-x^4, Numerator[%], x]*)
-
-
-(* ::Input:: *)
-(*substitutionTable[2, x][[2]]*)
-(*((C[0]+x^2 C[1])/x^4)^2-V[0]((C[0]+x^2 C[1])/x^4)+V[1]//Expand//Together*)
-(*((1-x^2)/x^4)^2-4((1-x^2)/x^4)+9//Expand//Together*)
-(*solveRadicand[Numerator[%], Numerator[%%], x]*)
-(*%%%/.%[[2]]*)
 
 
 (* ::Input:: *)
@@ -1206,7 +1175,7 @@ postProcess[e_, x_, OptionsPattern[]] := Module[{$function, simp, permutations, 
 			
 	(* The order of the next three lines is important, for example 
 		int[(x Sqrt[x^4 - x^2])/(-3 + 2 x^2), x]
-    we don't want to write Sqrt[x^4 - x^2] as x Sqrt[x^2 - 1.] *)
+    we don't want to write Sqrt[x^4 - x^2] as x Sqrt[x^2 - 1]. *)
 	simp = simp // togetherAll;
 	simp = simp /. Power[p_, r_Rational] /; PolynomialQ[p, x] :> Expand[p]^r;
 
@@ -1958,7 +1927,7 @@ False
 ]
 
 
-(* ::Subsubsection::Closed:: *)
+(* ::Subsubsection:: *)
 (*goursatQuartic*)
 
 
@@ -2519,7 +2488,7 @@ ClearAll[directRationaliseSolve];
 
 directRationaliseSolve[p_, q_, r_, l_, m_, n_, x_, u_] := Catch @ Module[
 {degp, degq, degMax, y, formnum, formden, form, yform, 
-unparameterised, eqn, vars, soln, solnre},
+unparameterised, eqn, vars, soln, solnre, A, V},
 
 debugPrint2["Trying directRationaliseSolve ", {p,q,r,l,m,n,x,u}];
 
@@ -2606,7 +2575,8 @@ $Failed
 ClearAll[directRationaliseQuadraticRationalSolve];
 
 directRationaliseQuadraticRationalSolve[p_, q_, r_, l_, m_, x_, u_] := Catch @ Module[
-{degp, degq, y, formnum, formden, form, yform, unparameterised, eqn, vars, soln, solnre},
+{degp, degq, y, formnum, formden, form, yform, unparameterised, eqn, vars, 
+soln, solnre, A, V},
 
 debugPrint2["Trying directRationaliseQuadraticRationalSolve ", {p,q,r,l,m,x,u}];
 
@@ -2625,7 +2595,6 @@ Do[
 	formnum = c Sum[V[k] u^(Denominator[m] k), {k, 0, ndeg}];
 	formden = Sum[V[ndeg + 1 + k] u^(Denominator[m] k), {k, 0, ddeg}];
 	form = formnum/formden;
-	(* form = form /. V[ndeg|ndeg + 1 + ddeg] -> 1; *)
 	form = form /. V[ndeg|ndeg + 1 + ddeg] -> 1;
 	debugPrint3["Rational integrand form is ", form];
 	yform = form /. u -> y;
@@ -2970,6 +2939,13 @@ Do[
 (*a=2+x-x^3;*)
 (*b=1+x-x^2+x^3;*)
 (*r=1+x+x^3;*)
+(*logPartSolve2[a,b,r,x]//Timing; $MessageList*)
+
+
+(* ::Input:: *)
+(*a=2+x-x^3;*)
+(*b=1+x-x^2+x^3;*)
+(*r=1+x+x^3;*)
 (*logPartSolve2[a,b,r,x]//Timing*)
 (*D[%//Last,x]-a/(b Sqrt[r])//Simplify*)
 (*Clear[a,b,r]*)
@@ -3216,7 +3192,7 @@ If[integratedPart === 0,
 (*apartIntegrate[1/((x^2-3)Power[1-3 x^2, (3)^-1]),x,"FactorComplete"->True]*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Integrating nested radicals*)
 
 
@@ -3248,7 +3224,8 @@ If[nestedCount[e, x] == 0,
 terms = Union @ DeleteCases[
    Flatten[Level[e, {0, \[Infinity]}]], _Symbol | _?NumericQ | _?NumericQ _Symbol];
 
-terms = Cases[terms, s_ /; !FreeQ[s, Power[p_, _Rational] /; !FreeQ[p, x]]];
+terms = Cases[terms, s_Power /; !FreeQ[s, Power[p_, _Rational] /; !FreeQ[p, x]]];
+terms = terms /. p_^n_Rational /; n < 0 && ! PolynomialQ[p, x] :> p^(-n);
 terms = Reverse @ SortBy[terms, LeafCount];
 debugPrint2[terms];
 
@@ -3615,8 +3592,20 @@ EndPackage[];
 (*int[((x^3+1) Sqrt[x^6-x^3-2])/(x^4 (x^6-2 x^3-1)),x]*)
 
 
+(* ::Text:: *)
+(*An example that AXIOM (August, 2014) claims is not elementary.*)
+
+
+(* ::Input:: *)
+(*int[(x^12-1)/((x^12+1) Sqrt[x^4+1]),x]*)
+
+
 (* ::Subsection::Closed:: *)
 (*current bugs and deficiencies*)
+
+
+(* ::Input:: *)
+(*int[1/Sqrt[b+Sqrt[b^2+a x^2]],x]*)
 
 
 (* ::Text:: *)
@@ -3750,6 +3739,30 @@ EndPackage[];
 
 
 (* ::Input:: *)
+(*int[1/((1+x) (-2+3 x-2 x^2+3 x^3-2 x^4)^(3/2)),x]*)
+
+
+(* ::Input:: *)
+(*int[1/((1+x) (-2+2 x+x^2-x^4)^(3/2)),x]*)
+
+
+(* ::Input:: *)
+(*int[((1+x^2) (-1-x^2+x^4+x^6)^(1/3))/x,x]*)
+
+
+(* ::Input:: *)
+(*int[(1+2 x+x^2)^(1/3)/(3+x^2),x]*)
+
+
+(* ::Input:: *)
+(*int[(1+2 x+x^2)^(1/3)/(4+x+x^2+x^3),x]*)
+
+
+(* ::Input:: *)
+(*int[(1-2 x+x^2)^(1/3)/(2+x^2),x]*)
+
+
+(* ::Input:: *)
 (*int[Sqrt[b+a x]/Sqrt[a b x+Sqrt[b+a x]],x]*)
 
 
@@ -3836,6 +3849,10 @@ EndPackage[];
 
 (* ::Subsection::Closed:: *)
 (*previously bugs, deficiencies or edge cases*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(x-1)/(x (x^3+2 x^2+2 x+1)^(1/3)),x]*)
 
 
 (* ::Input:: *)
@@ -4227,10 +4244,6 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*$verboseLevel=2;*)
-
-
-(* ::Input:: *)
 (*IntegrateAlgebraic[x/Sqrt[-71-96 x+10 x^2+x^4],x]*)
 
 
@@ -4356,6 +4369,34 @@ EndPackage[];
 
 (* ::Subsection::Closed:: *)
 (*regression testing*)
+
+
+(* ::Input:: *)
+(*int[1/((-1+x) (-2 x^2-3 x^3+x^4)^(3/2)),x]*)
+
+
+(* ::Input:: *)
+(*int[(x^2-x+1)/((x^2-1) Sqrt[x^4-x^3+x^2-x+1]),x]*)
+
+
+(* ::Input:: *)
+(*int[(x^2-1)/((x^2+1) Sqrt[x^4-x^3-x^2-x+1]),x]*)
+
+
+(* ::Input:: *)
+(*int[x/(x^3+x^2-x-1)^(1/3),x]*)
+
+
+(* ::Input:: *)
+(*int[(2+x)/((x-1) Sqrt[x^3+3 x-1]),x]*)
+
+
+(* ::Input:: *)
+(*int[x/Sqrt[x^4+2 x^3-3 x^2+3 x-3],x]*)
+
+
+(* ::Input:: *)
+(*int[(-1+x)/(x^3-x^2-x+1)^(1/3),x]*)
 
 
 (* ::Input:: *)
