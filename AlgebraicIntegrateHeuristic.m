@@ -494,7 +494,7 @@ If[PolynomialQ[unintegratedPart, x] || rationalQ[unintegratedPart, x],
 
 (* Simple derivative divides. *)
 
-dd = derivdivides[unintegratedPart, x, u]; (* TODO: add time constraint.  *)
+dd = derivdivides[unintegratedPart, x, u]; (* TODO: add time constraint. However, there is already a fixed time constraint in the routine. SAMB 0421 *)
 
 If[ListQ[dd], 
 	debugPrint1["Derivative-divides produced a simplification: ", dd];
@@ -2514,7 +2514,7 @@ debugPrint2["Trying directRationaliseSolve ", {p,q,r,l,m,n,x,u}];
 degp = Exponent[p,x];
 degq = Exponent[q,x];
 
-degMax = Min[Max[3, degq - degp + Exponent[r,x] - 1(* + 2*)], 8];
+degMax = Min[Max[3, degq - degp + Exponent[r,x] - 1], 8];
 
 debugPrint2["Degree bound = ", degMax];
 
@@ -3513,8 +3513,9 @@ derivdivides[e_, x_, u_] := Module[
 
 (* Create a list of candidate substitutions. *)
 
-candidates = Cases[Level[e,{0,\[Infinity]}], s_ /; !FreeQ[s,x]];
+candidates = Level[e,{0,\[Infinity]}];
 candidates = If[MatchQ[#, a_ b_ /; FreeQ[a,x]], Last[#], #]& /@ candidates;
+candidates = Cases[candidates, s_ /; !FreeQ[s,x]];
 candidates = DeleteCases[candidates, x | x^_?Negative];
 candidates = SortBy[DeleteDuplicates[candidates], LeafCount];
 candidates = Select[candidates, LeafCount[#] < LeafCount[e]/2&]; (* Only try _small_ substitution (relative to the integrand) *)
@@ -3523,7 +3524,7 @@ candidates = Select[candidates, LeafCount[#] < LeafCount[e]/2&]; (* Only try _sm
 
 Do[
 	diff = D[sub,x];
-	eu = (Cancel[e/diff] /. {sub -> u, 1/sub -> 1/u});
+	eu = (Cancel[e/diff] /. Table[sub^n -> u^n, {n, -16, 16}] (* This is a hack, but speedy compared to Eliminate/Solve below. *));
 	ratio = Cancel[Together[D[eu,x]]];
 	If[LeafCount[eu] < 1.25 LeafCount[e] && (FreeQ[eu, x] || PossibleZeroQ[ratio]),
 		Return[{eu, u -> sub}, Module]
@@ -3579,6 +3580,14 @@ False
 
 (* ::Input:: *)
 (*derivdivides[((-2+x^3) Sqrt[1-x^2+x^3])/(1+x^3)^2,x,u]//Timing(* This one should fail (quickly). *)*)
+
+
+(* ::Input:: *)
+(*derivdivides[(3-9 x^4+2 x^6)/( x (1+x^2)^2 (-1+2 x^2) Sqrt[(1-2 x^2)/(1+2 x^2)] (1+2 x^2)),x,u]//Timing*)
+
+
+(* ::Input:: *)
+(*derivdivides[1/((C[2]x^2+C[3])Sqrt[(C[4]x+C[5])/(C[6]x+C[7])]),x,u]//Timing*)
 
 
 (* ::Subsection::Closed:: *)
@@ -3701,6 +3710,14 @@ EndPackage[];
 
 (* ::Subsection::Closed:: *)
 (*current bugs and deficiencies*)
+
+
+(* ::Text:: *)
+(*Why does postProcess hang here? This should be fixed!*)
+
+
+(* ::Input:: *)
+(*postProcess[1/3 ArcTan[(1-x^2)/((1+x+x^2) (1-x^4)^(1/3))]+1/6 (-1+Sqrt[3]) ArcTan[Sqrt[3]-(2 (1-x^2))/((1+x+x^2) (1-x^4)^(1/3))]+1/6 (1+Sqrt[3]) ArcTan[Sqrt[3]+(2 (1-x^2))/((1+x+x^2) (1-x^4)^(1/3))]+1/6 Log[1+(1-x^2)^2/((1+x+x^2)^2 (1-x^4)^(2/3))]-1/12 (1+Sqrt[3]) Log[1+(1-x^2)^2/((1+x+x^2)^2 (1-x^4)^(2/3))-(Sqrt[3] (1-x^2))/((1+x+x^2) (1-x^4)^(1/3))]+1/12 (-1+Sqrt[3]) Log[1+(1-x^2)^2/((1+x+x^2)^2 (1-x^4)^(2/3))+(Sqrt[3] (1-x^2))/((1+x+x^2) (1-x^4)^(1/3))],x]//Timing*)
 
 
 (* ::Text:: *)
@@ -3847,6 +3864,14 @@ EndPackage[];
 
 (* ::Subsection::Closed:: *)
 (*wish list*)
+
+
+(* ::Text:: *)
+(*We would like to do this with the substitution u == (x^2 - 1)/x, then the integral is reduced to 1/((u^2 + 1)*((2*u - 1)/(u + 1))^(1/2))*)
+
+
+(* ::Input:: *)
+(*int[(1+x^2)/(Sqrt[(-2-x+2 x^2)/(-1+x+x^2)] (1-x^2+x^4)),x]*)
 
 
 (* ::Text:: *)
@@ -4500,6 +4525,10 @@ EndPackage[];
 
 (* ::Subsection::Closed:: *)
 (*regression testing*)
+
+
+(* ::InheritFromParent:: *)
+(*int[(3-9 x^4+2 x^6)/( x (1+x^2)^2 (-1+2 x^2) Sqrt[(1-2 x^2)/(1+2 x^2)] (1+2 x^2)),x]*)
 
 
 (* ::Input:: *)
