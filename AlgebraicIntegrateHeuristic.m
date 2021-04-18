@@ -123,7 +123,7 @@ singleEllipticRadicalQ[e_, x_] :=
 
 
 singleRadicalQ[e_, x_] := 
-	Length[Union[Cases[e, Power[p_, r_Rational] /; (! FreeQ[p, x] && PolynomialQ[p, x]), {0, Infinity}]]] === 1
+	Length[Union[Cases[e, Power[p_, r_Rational] /; (! FreeQ[p, x] && (PolynomialQ[p, x] || rationalQ[p, x])), {0, Infinity}]]] === 1
 
 
 (* ::Subsection::Closed:: *)
@@ -2391,7 +2391,7 @@ If[Not[algebraicQ[e, x] && singleRadicalQ[e, x]],
 	Return[ {0, e, 0} ]
 ];
 
-{{r,n}} = Cases[e, Power[p_, n_Rational] /; (! FreeQ[p, x] && PolynomialQ[p, x]) :> {p,n}, {0, Infinity}];
+{{r,n}} = Cases[e, Power[p_, n_Rational] /; (! FreeQ[p, x] && (PolynomialQ[p, x] || rationalQ[p, x])) :> {p,n}, {0, Infinity}];
 
 Which[
 PolynomialQ[Numerator[e], x] && PolynomialQ[Denominator[e]/r^Abs[n], x],
@@ -2514,7 +2514,7 @@ debugPrint2["Trying directRationaliseSolve ", {p,q,r,l,m,n,x,u}];
 degp = Exponent[p,x];
 degq = Exponent[q,x];
 
-degMax = Min[Max[3, degq - degp + Exponent[r,x] - 1], 8];
+degMax = Min[Max[3, degq - degp + Max[Exponent[Numerator @ r, x], Exponent[Denominator @ r, x]] - 1], 8];
 
 debugPrint2["Degree bound = ", degMax];
 
@@ -2541,7 +2541,7 @@ Do[
 		$timeConstraint/8.0, 
 		Continue[]];
 	
-	If[Cases[unparameterised, pp_^nn_Rational /; PolynomialQ[pp, x] && !FreeQ[pp, x], {0, \[Infinity]}] =!= {}, 
+	If[Cases[unparameterised, pp_^nn_Rational /; (PolynomialQ[pp, x] || rationalQ[pp,x]) && !FreeQ[pp, x], {0, \[Infinity]}] =!= {}, 
 		Continue[]];
 
 	(*
@@ -2624,7 +2624,7 @@ Do[
 		Continue[]];
 	
 	(* We should now have an unparameterised rational function of x.  *)
-	If[Cases[unparameterised, pp_^nn_Rational /; PolynomialQ[pp, x] && !FreeQ[pp, x], {0, \[Infinity]}] =!= {}, 
+	If[Cases[unparameterised, pp_^nn_Rational /; (PolynomialQ[pp, x] || rationalQ[pp, x]) && !FreeQ[pp, x], {0, \[Infinity]}] =!= {}, 
 		Continue[]];
 
 	(*
@@ -4525,6 +4525,18 @@ EndPackage[];
 
 (* ::Subsection::Closed:: *)
 (*regression testing*)
+
+
+(* ::Input:: *)
+(*int[((-1+x)^2 (x-2 x^2+2 x^3))/((-1+2 x)(-2+4 x+3 x^2-4 x^3+2 x^4)Sqrt[(1-2 x)/(1+2 x^2)]),x]*)
+
+
+(* ::Input:: *)
+(*int[(-1+4 x-4 x^2+4 x^4)/((1+2 x^2) (-1-4 x+12 x^2-8 x^3+4 x^4)Sqrt[(1-2 x^2)/(1+2 x^2)]),x]*)
+
+
+(* ::Input:: *)
+(*int[((-1+2 x^2) (-1+4 x-4 x^2+4 x^4))/((1+2 x^2) (-1-8 x+32 x^2-40 x^3+46 x^4-64 x^5+56 x^6-32 x^7+8 x^8)Sqrt[(1-2 x^2)/(1+2 x^2)]),x]*)
 
 
 (* ::InheritFromParent:: *)
