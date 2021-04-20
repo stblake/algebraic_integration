@@ -462,7 +462,7 @@ IntegrateAlgebraic[e_, x_, opts:OptionsPattern[]] := Module[
 ]
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*solveAlgebraicIntegral*)
 
 
@@ -552,6 +552,24 @@ If[ListQ @ linearRatioRadicalToRational[unintegratedPart, x, u],
 	]
 ];
 
+(* Multiple distinct radicals? See if we can split them and integrate term-by-term using existing methods. 
+	For example: IntegrateAlgebraic[((x^4 + 1)*Sqrt[x^4 - 1] + (x^4 - 1)*Sqrt[x^4 + 1])/(x^8 + 1), x] SAMB 0421 *)
+
+If[multipleRadicalsQ[unintegratedPart, x] && nestedCount[unintegratedPart, x] == 0,
+	debugPrint1["Integrand contains multiple radicals: ", unintegratedPart];
+	result = integrateMultipleRadicals[unintegratedPart, x, opts];
+	If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[result[[3]], unintegratedPart - result[[1]] - result[[2]]],
+		rationalPart    += result[[1]]; 
+		unintegratedPart = result[[2]];
+		integratedPart  += result[[3]],
+		Return[{0, integrand, 0}, Module](* As no further methods deal with multiple radicals. *)
+	]
+];
+
+If[multipleRadicalsQ[unintegratedPart, x] && nestedCount[unintegratedPart, x] == 0,
+	Return[{rationalPart, unintegratedPart, integratedPart}, Module] (* As no further methods deal with multiple radicals. *)
+];
+
 (* Nested radicals. *)
 
 If[nestedCount[unintegratedPart, x] > 0,
@@ -569,7 +587,7 @@ If[nestedCount[unintegratedPart, x] > 0,
 ];
 
 If[nestedCount[unintegratedPart, x] > 0, 
-	Return[{0, integrand, 0}, Module](* As no further methods deal with nested radicals. *)
+	Return[{rationalPart, unintegratedPart, integratedPart}, Module](* As no further methods deal with nested radicals. *)
 ];
 
 (* Goursat pseudo-elliptic integral. *)
@@ -3067,7 +3085,7 @@ If[Head[pf] === Plus,
 	Return[{e}]
 ];
 
-pf = GatherBy[pf, Union[Cases[#, Power[p_, n_Rational] /; (! FreeQ[p, x] && PolynomialQ[p, x]) :> p^Abs[n],{0,Infinity}]]&];
+pf = GatherBy[pf, Union[Cases[#, Power[p_, n_Rational] /; (! FreeQ[p, x] && (PolynomialQ[p, x] || rationalQ[p, x])) :> p^Abs[n],{0,Infinity}]]&];
 
 Simplify[ Cancel[Together[Total[#]]]& /@ pf ]
 ]
@@ -3591,6 +3609,58 @@ False
 
 
 (* ::Subsection::Closed:: *)
+(*Multiple radicals*)
+
+
+multipleRadicalsQ[e_, x_] := Length[Union[Cases[e, Power[r_, _Rational] /; ! FreeQ[r, x], {0, \[Infinity]}]]] > 1
+
+
+(* ::Input:: *)
+(*multipleRadicalsQ[((x^4+1) Sqrt[x^4-1]+(x^4-1) Sqrt[x^4+1])/(x^8+1),x]*)
+
+
+ClearAll[integrateMultipleRadicals];
+
+Options[integrateMultipleRadicals] = Options[solveAlgebraicIntegral];
+
+integrateMultipleRadicals[0|0., x_, opts:OptionsPattern[]] := {0, 0, 0}
+
+integrateMultipleRadicals[e_, x_, opts:OptionsPattern[]] := Module[
+	{expanded, rationalPart, unintegratedPart, integratedPart, integrated},
+
+	expanded = apartList[e, x];
+
+	If[Length[expanded] == 1 || Apply[Or, multipleRadicalsQ[#, x]& /@ expanded], 
+		Return[{0, e, 0}, Module]
+	];
+	
+	rationalPart = 0;
+	unintegratedPart = 0;
+	integratedPart = 0;
+		
+	Do[
+		If[rationalQ[term, x], 
+			rationalPart += term,
+			debugPrint2["Integrating ", term, " wrt ", x];
+			integrated = solveAlgebraicIntegral[term, x, opts];
+			debugPrint2["Recursive call to solveAlgebraicIntegral returned ", integrated];
+			rationalPart += integrated[[1]];
+			unintegratedPart += integrated[[2]];
+			integratedPart += integrated[[3]]		
+		],
+	{term, expanded}];
+	
+	If[integratedPart === 0,
+		unintegratedPart = e;
+		integratedPart = 0;
+		rationalPart = 0;
+	];
+	
+	{rationalPart, unintegratedPart, postProcess[integratedPart // Expand, x]}
+]
+
+
+(* ::Subsection::Closed:: *)
 (*End Package*)
 
 
@@ -3706,6 +3776,22 @@ EndPackage[];
 
 (* ::Input:: *)
 (*int[(x^12-1)/((x^12+1) Sqrt[x^4+1]),x]*)
+
+
+(* ::Text:: *)
+(*We can now handle some integrals with rational radicands. The following example is computed with the generalised Gunther substitution method:*)
+
+
+(* ::Input:: *)
+(*int[(t^2+1)/((t^4-m t^2+1) Sqrt[(2 t^2-t-2)/(t^2+t-1)]),t]//Timing*)
+
+
+(* ::Text:: *)
+(*We can now handle some integrals with multiple distinct radicals. For example*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[((x^4+1) Sqrt[x^4-1]+(x^4-1) Sqrt[x^4+1])/(x^8+1),x]*)
 
 
 (* ::Subsection::Closed:: *)
@@ -3997,6 +4083,10 @@ EndPackage[];
 
 (* ::Subsection::Closed:: *)
 (*previously bugs, deficiencies or edge cases*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[((x^4+1) Sqrt[x^4-1]+(x^4-1) Sqrt[x^4+1])/(x^8+1),x]*)
 
 
 (* ::Input:: *)
