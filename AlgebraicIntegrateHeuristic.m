@@ -487,7 +487,7 @@ goursat, simplified},
 
 start = AbsoluteTime[];
 
-{rationalPart, unintegratedPart, integratedPart} = {0, Together[integrand], 0};
+{rationalPart, unintegratedPart, integratedPart} = {0, integrand, 0};
 
 (* Integrand is a rational function of x (needed for recursive integration). *)
 
@@ -2559,7 +2559,7 @@ If[result =!= $Failed,
 ]
 
 
-(* ::Subsubsection::Closed:: *)
+(* ::Subsubsection:: *)
 (*directRationaliseSolve*)
 
 
@@ -3562,14 +3562,15 @@ If[usub === {},
 (*subst[(x^3 Exp[ArcSin[x]])/Sqrt[1-x^2],u->ArcSin[x],x]//Timing*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Derivative divides pre-processing*)
 
 
 (* Simple derivative-divides heuristic. *)
+ClearAll[derivdivides];
 
 derivdivides[e_, x_, u_] := Module[
-{candidates, diff, eu, ratio, y, sys, eus},
+{candidates, diff, eu, ratio, y, sys, eus, subs},
 
 (* Create a list of candidate substitutions. *)
 
@@ -3583,8 +3584,10 @@ candidates = Select[candidates, LeafCount[#] < LeafCount[e]/2&]; (* Only try _sm
 (* Computationally cheap checks first. *)
 
 Do[
+	subs = Table[sub^n -> u^n, {n, -16, 16}]; (* This is a hack, but speedy compared to Eliminate/Solve below. *)
 	diff = D[sub,x];
-	eu = (Cancel[e/diff] /. Table[sub^n -> u^n, {n, -16, 16}] (* This is a hack, but speedy compared to Eliminate/Solve below. *));
+	eu = e //. subs;
+	eu = (Cancel[eu/diff] //. subs);
 	ratio = Cancel[Together[D[eu,x]]];
 	If[LeafCount[eu] < 1.25 LeafCount[e] && (FreeQ[eu, x] || PossibleZeroQ[ratio]),
 		Return[{eu, u -> sub}, Module]
@@ -3648,6 +3651,10 @@ False
 
 (* ::Input:: *)
 (*derivdivides[1/((C[2]x^2+C[3])Sqrt[(C[4]x+C[5])/(C[6]x+C[7])]),x,u]//Timing*)
+
+
+(* ::Input:: *)
+(*derivdivides[1/ Sqrt[1+4/3 (x/(x^2+1))^2+Sqrt[1+4/3 (x/(x^2+1))^2]] (x (-1+x^2))/(1+x^2)^3, x, u]//Timing*)
 
 
 (* ::Subsection::Closed:: *)
