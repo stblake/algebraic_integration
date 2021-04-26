@@ -3566,11 +3566,19 @@ If[usub === {},
 (*Derivative divides pre-processing*)
 
 
+linearPolynomialQ[p_, x_] := PolynomialQ[p, x] && Exponent[p,x] == 1
+
+
+linearRationalPolynomialQ[p_, x_] := 
+	linearPolynomialQ[Numerator[p], x] && linearPolynomialQ[Denominator[p], x]
+
+
 (* Simple derivative-divides heuristic. *)
 ClearAll[derivdivides];
 
 derivdivides[e_, x_, u_] := Module[
-{candidates, diff, eu, ratio, y, sys, eus, subs},
+{candidates, diff, eu, ratio, y, sys, eus, subs, a, b, eqns, 
+special1, special2, special3, special, subx},
 
 (* Create a list of candidate substitutions. *)
 
@@ -3589,18 +3597,43 @@ Do[
 	eu = e //. subs;
 	eu = (Cancel[eu/diff] //. subs);
 	ratio = Cancel[Together[D[eu,x]]];
-	If[LeafCount[eu] < 1.25 LeafCount[e] && (FreeQ[eu, x] || PossibleZeroQ[ratio]),
+	If[LeafCount[eu] < If[linearPolynomialQ[sub, x], 1.0, 1.25] LeafCount[e] && (FreeQ[eu, x] || PossibleZeroQ[ratio]),
 		Return[{eu, u -> sub}, Module]
 	],
 {sub, candidates}];
+
+(* Some special cases that we handle separately: u \[Rule] a x + b, u \[Rule] (a x + b)/(c x + d), 
+	u \[Rule] (a x + b)^(1/n), u \[Rule] ((a x + b)/(c x + d))^(1/n). We handle these separately *)
+
+special1 = Cases[candidates, p_ /; (linearPolynomialQ[p,x] || linearRationalPolynomialQ[p,x])];
+special2 = Cases[candidates, p_^n_Rational /; (Numerator[n] == 1 && (linearPolynomialQ[p,x] || linearRationalPolynomialQ[p,x]))];
+special3 = Cases[candidates, p_^n_Rational q_^m_Rational /; (Numerator[n] == 1 && n + m == 0 && linearPolynomialQ[p,x] && linearPolynomialQ[q,x])];
+special  = Join[special3, special2, special1];
+
+Do[
+	subs = Table[sub^n -> u^n, {n, -16, 16}]; (* This is a hack, but speedy compared to Eliminate/Solve below. *)
+	diff = D[sub,x];
+	eu = e //. subs;
+	subx = Solve[u == sub, x]; (* Inverse function for the candidate substitution. *)
+	eu = eu //. subx;
+	eu = (Cancel[eu/diff] //. subs);
+	ratio = Cancel[Together[D[eu,x]]];
+	If[LeafCount[eu] < LeafCount[e] && (FreeQ[eu, x] || PossibleZeroQ[ratio]),
+		Return[{eu, u -> sub}, Module]
+	],
+{sub, special}];
 
 (* Try using Eliminate, with a tight time constraint. *)
 
 Do[
 	TimeConstrained[
-		sys = Eliminate[{Dt[y] == e Dt[x], u == sub, Dt[u == sub]}, {x, Dt[x]}];
-		eus = Solve[sys, Dt[y]] // Factor;
-		eus = Cancel[(Dt[y] /. eus) /. Dt[u] -> 1];
+		subs = Table[sub^n -> u^n, {n, -16, 16}];
+		eu = e //. u -> subs;
+		eqns = {Dt[y] == eu Dt[x], u == sub, Dt[u == sub]} /. HoldPattern[Dt][Except[y|x|u]] -> 0;
+		sys = Eliminate[eqns, {x, Dt[x]}] /. HoldPattern[Unequal][_,_] -> True;
+		eus = Solve[sys, Dt[y]];
+		eus = Factor[eus /. Dt[u] -> 1];
+		eus = Cancel[(Dt[y] /. eus)];
 		Do[
 			If[LeafCount[eu] < 1.25 LeafCount[e] && PossibleZeroQ[Cancel[Together[e - (eu D[sub,x] /. u -> sub)]]],
 				Return[{eu, u -> sub}, Module]
@@ -3650,11 +3683,33 @@ False
 
 
 (* ::Input:: *)
-(*derivdivides[1/((C[2]x^2+C[3])Sqrt[(C[4]x+C[5])/(C[6]x+C[7])]),x,u]//Timing*)
+(*derivdivides[1/((C[2] x^2+C[3]) Sqrt[(C[4] x+C[5])/(C[6] x+C[7])]),x,u]//Timing*)
 
 
 (* ::Input:: *)
 (*derivdivides[1/ Sqrt[1+4/3 (x/(x^2+1))^2+Sqrt[1+4/3 (x/(x^2+1))^2]] (x (-1+x^2))/(1+x^2)^3, x, u]//Timing*)
+
+
+(* ::Input:: *)
+(*derivdivides[3/(8 Sqrt[Sqrt[u]+u]),u,t] //Timing*)
+
+
+(* ::Input:: *)
+(*derivdivides[Sqrt[1+Sqrt[a x+b]]/(a x-b),x,u] //Timing*)
+
+
+(* ::Input:: *)
+(*derivdivides[1/Sqrt[Sqrt[(a x+b)/(c x+d)]-(a x+b)/(c x+d)] (-b c+a d)/(d+c x)^2,x,u]*)
+
+
+(* ::Input:: *)
+(*derivdivides[1/((a x+b)^2 Sqrt[1-Power[a x+b, (3)^-1]]) a/(3 (b+a x)^(2/3)),x,u]*)
+
+
+(* ::Input:: *)
+(*(* A nice example where we call derivdivides multiple times. *)*)
+(*derivdivides[Sqrt[1+Sqrt[a x^2+b]]/(a x^2-b)/x,x,u]*)
+(*derivdivides[%[[1]], u, t]*)
 
 
 (* ::Subsection::Closed:: *)
@@ -4677,6 +4732,10 @@ EndPackage[];
 
 (* ::Subsection::Closed:: *)
 (*regression testing*)
+
+
+(* ::Input:: *)
+(*int[1/ Sqrt[1+4/3 (x/(x^2+1))^2+Sqrt[1+4/3 (x/(x^2+1))^2]] (x (-1+x^2))/(1+x^2)^3,x]//Timing*)
 
 
 (* ::Input:: *)
