@@ -3562,7 +3562,7 @@ If[usub === {},
 (*subst[(x^3 Exp[ArcSin[x]])/Sqrt[1-x^2],u->ArcSin[x],x]//Timing*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Derivative divides pre-processing*)
 
 
@@ -3597,13 +3597,14 @@ Do[
 	eu = e //. subs;
 	eu = (Cancel[eu/diff] //. subs);
 	ratio = Cancel[Together[D[eu,x]]];
-	If[LeafCount[eu] < If[linearPolynomialQ[sub, x], 1.0, 1.25] LeafCount[e] && (FreeQ[eu, x] || PossibleZeroQ[ratio]),
+	If[(LeafCount[eu] < If[linearPolynomialQ[sub, x], 1.0, 1.25] LeafCount[e] || 
+			nestedCount[eu, u] < nestedCount[e, x]) && (FreeQ[eu, x] || PossibleZeroQ[ratio]),
 		Return[{eu, u -> sub}, Module]
 	],
 {sub, candidates}];
 
 (* Some special cases that we handle separately: u \[Rule] a x + b, u \[Rule] (a x + b)/(c x + d), 
-	u \[Rule] (a x + b)^(1/n), u \[Rule] ((a x + b)/(c x + d))^(1/n). We handle these separately *)
+	u \[Rule] (a x + b)^(1/n), u \[Rule] ((a x + b)/(c x + d))^(1/n). *)
 
 special1 = Cases[candidates, p_ /; (linearPolynomialQ[p,x] || linearRationalPolynomialQ[p,x])];
 special2 = Cases[candidates, p_^n_Rational /; (Numerator[n] == 1 && (linearPolynomialQ[p,x] || linearRationalPolynomialQ[p,x]))];
@@ -3614,11 +3615,12 @@ Do[
 	subs = Table[sub^n -> u^n, {n, -16, 16}]; (* This is a hack, but speedy compared to Eliminate/Solve below. *)
 	diff = D[sub,x];
 	eu = e //. subs;
-	subx = Solve[u == sub, x]; (* Inverse function for the candidate substitution. *)
+	subx = Solve[u == sub, x][[1]]; (* Inverse function for the candidate substitution. *)
 	eu = eu //. subx;
 	eu = (Cancel[eu/diff] //. subs);
 	ratio = Cancel[Together[D[eu,x]]];
-	If[LeafCount[eu] < LeafCount[e] && (FreeQ[eu, x] || PossibleZeroQ[ratio]),
+	If[(LeafCount[eu] < LeafCount[e] || nestedCount[eu, u] < nestedCount[e, x]) && 
+			(FreeQ[eu, x] || PossibleZeroQ[ratio]),
 		Return[{eu, u -> sub}, Module]
 	],
 {sub, special}];
@@ -3635,7 +3637,8 @@ Do[
 		eus = Factor[eus /. Dt[u] -> 1];
 		eus = Cancel[(Dt[y] /. eus)];
 		Do[
-			If[LeafCount[eu] < 1.25 LeafCount[e] && PossibleZeroQ[Cancel[Together[e - (eu D[sub,x] /. u -> sub)]]],
+			If[(LeafCount[eu] < 1.25 LeafCount[e] || nestedCount[eu, u] < nestedCount[e, x]) && 
+					PossibleZeroQ[Cancel[Together[e - (eu D[sub,x] /. u -> sub)]]],
 				Return[{eu, u -> sub}, Module]
 		],{eu, eus}],
 	0.0125
@@ -3652,6 +3655,10 @@ False
 
 (* ::Input:: *)
 (*derivdivides[Sqrt[1+Sqrt[a x+b]]/(a x+b),x,u]//Timing*)
+
+
+(* ::Input:: *)
+(*derivdivides[Sqrt[1+Sqrt[a x+b]]/(a^2 x^2-b^2),x,u]//Timing*)
 
 
 (* ::Input:: *)
@@ -3679,7 +3686,7 @@ False
 
 
 (* ::Input:: *)
-(*derivdivides[(3-9 x^4+2 x^6)/( x (1+x^2)^2 (-1+2 x^2) Sqrt[(1-2 x^2)/(1+2 x^2)] (1+2 x^2)),x,u]//Timing*)
+(*derivdivides[(3-9 x^4+2 x^6)/(x (1+x^2)^2 (-1+2 x^2) Sqrt[(1-2 x^2)/(1+2 x^2)] (1+2 x^2)),x,u]//Timing*)
 
 
 (* ::Input:: *)
@@ -3687,7 +3694,7 @@ False
 
 
 (* ::Input:: *)
-(*derivdivides[1/ Sqrt[1+4/3 (x/(x^2+1))^2+Sqrt[1+4/3 (x/(x^2+1))^2]] (x (-1+x^2))/(1+x^2)^3, x, u]//Timing*)
+(*derivdivides[(x (-1+x^2))/((1+x^2)^3 Sqrt[1+4/3 (x/(x^2+1))^2+Sqrt[1+4/3 (x/(x^2+1))^2]]),x,u]//Timing*)
 
 
 (* ::Input:: *)
@@ -3710,6 +3717,10 @@ False
 (*(* A nice example where we call derivdivides multiple times. *)*)
 (*derivdivides[Sqrt[1+Sqrt[a x^2+b]]/(a x^2-b)/x,x,u]*)
 (*derivdivides[%[[1]], u, t]*)
+
+
+(* ::Input:: *)
+(*derivdivides[Sqrt[1+Sqrt[a x+b]]/(a^2 x^2-b^2),x,u]*)
 
 
 (* ::Subsection::Closed:: *)
