@@ -1248,7 +1248,11 @@ Clear[postProcess];
 
 Options[postProcess] = {"Integrand" -> None, "CancelRadicalDenominators" -> True};
 
-postProcess[e_, x_, OptionsPattern[]] := Module[{$function, simp, permutations, denomP, rad},
+postProcess[l_List, x_, opts:OptionsPattern[]] := Map[postProcess[#, x, opts]&, l]
+
+postProcess[e_, x_, OptionsPattern[]] := Module[
+	{$function, simp, permutations, denomP, rad, rationalTerms, nonRationalTerms, 
+	rationalTermsMerged},
 
 	(* Remove constants. *)
 	simp = stripConst[simp, x];
@@ -1333,11 +1337,25 @@ postProcess[e_, x_, OptionsPattern[]] := Module[{$function, simp, permutations, 
 	
 	simp = simp /. {$rootSum -> RootSum, $function -> Function};
 
+	(* Convert to radicals, if the resulting expression is reasonable. *)
 	rad = ToRadicals[simp];
 	If[LeafCount[rad] < LeafCount[simp], 
 		simp = rad
 	];
 	
+	(* Try merging the rational part of the integral. *)
+	If[Head[simp] === Plus, 
+		simp = List @@ simp;
+		rationalTerms = Cases[simp, expr_ /; FreeQ[expr, Log | ArcTan | ArcTanh], {1}];
+		nonRationalTerms = Plus @@ Complement[simp, rationalTerms];
+		rationalTerms = Plus @@ rationalTerms;
+		rationalTermsMerged = Together[rationalTerms];
+		simp = nonRationalTerms + If[LeafCount[rationalTermsMerged] < LeafCount[rationalTerms],
+			rationalTermsMerged,
+			rationalTerms + nonRationalTerms
+		]
+	];
+
 	simp
 ]
 
@@ -3288,7 +3306,10 @@ integrateNestedRadicals[e_, x_, u_] := Module[{integrand, subst, result},
 	result = result /. Factor -> Identity;
 	result = result /. {$rootSum -> RootSum, $function -> Function};
 
-	rewriteNestedRadicals[postProcess[result // Apart // Expand, x, "CancelRadicalDenominators" -> False], Last @ subst, x]	
+	rewriteNestedRadicals[
+		postProcess[result // Apart // Expand, x, "CancelRadicalDenominators" -> False], 
+		Last @ subst, 
+		x]
 ]
 
 
@@ -3562,7 +3583,7 @@ If[usub === {},
 (*subst[(x^3 Exp[ArcSin[x]])/Sqrt[1-x^2],u->ArcSin[x],x]//Timing*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Derivative divides pre-processing*)
 
 
@@ -3576,7 +3597,9 @@ linearRationalPolynomialQ[p_, x_] :=
 (* Simple derivative-divides heuristic. *)
 ClearAll[derivdivides];
 
-derivdivides[e_, x_, u_] := Module[
+Options[derivdivides] = {"SingleStepTimeConstraint" -> 0.25};
+
+derivdivides[e_, x_, u_, OptionsPattern[]] := Module[
 {candidates, diff, eu, ratio, y, sys, eus, subs, a, b, eqns, 
 special1, special2, special3, special, subx},
 
@@ -3599,6 +3622,7 @@ Do[
 	ratio = Cancel[Together[D[eu,x]]];
 	If[(LeafCount[eu] < If[linearPolynomialQ[sub, x], 1.0, 1.25] LeafCount[e] || 
 			nestedCount[eu, u] < nestedCount[e, x]) && (FreeQ[eu, x] || PossibleZeroQ[ratio]),
+		debugPrint2["derivdivides level 1 returned: ", {eu, u -> sub}];
 		Return[{eu, u -> sub}, Module]
 	],
 {sub, candidates}];
@@ -3621,6 +3645,7 @@ Do[
 	ratio = Cancel[Together[D[eu,x]]];
 	If[(LeafCount[eu] < LeafCount[e] || nestedCount[eu, u] < nestedCount[e, x]) && 
 			(FreeQ[eu, x] || PossibleZeroQ[ratio]),
+		debugPrint2["derivdivides level 2 returned: ", {eu, u -> sub}];
 		Return[{eu, u -> sub}, Module]
 	],
 {sub, special}];
@@ -3633,16 +3658,21 @@ Do[
 		eu = e //. u -> subs;
 		eqns = {Dt[y] == eu Dt[x], u == sub, Dt[u == sub]} /. HoldPattern[Dt][Except[y|x|u]] -> 0;
 		sys = Eliminate[eqns, {x, Dt[x]}] /. HoldPattern[Unequal][_,_] -> True;
-		eus = Solve[sys, Dt[y]];
+		sys = GroebnerBasis[eqns, {Dt[u],u}, {Dt[x],x}, MonomialOrder -> EliminationOrder, Method -> "Buchberger"] // Factor;
+		If[sys === {}, 
+			Continue[]];
+		eus = Solve[sys[[1]] == 0, Dt[y]];
+		(* Print[{sub, eqns, sys, eus}]; *)
 		eus = Factor[eus /. Dt[u] -> 1];
 		eus = Cancel[(Dt[y] /. eus)];
 		Do[
 			If[(LeafCount[eu] < 1.25 LeafCount[e] || nestedCount[eu, u] < nestedCount[e, x]) && 
 					PossibleZeroQ[Cancel[Together[e - (eu D[sub,x] /. u -> sub)]]],
+				debugPrint2["derivdivides level 3 returned: ", {eu, u -> sub}];
 				Return[{eu, u -> sub}, Module]
 		],{eu, eus}],
-	0.0125
-],
+		OptionValue["SingleStepTimeConstraint"]/Length[candidates]
+	],
 {sub, candidates}];
 
 False
