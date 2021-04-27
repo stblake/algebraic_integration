@@ -3583,7 +3583,7 @@ If[usub === {},
 (*subst[(x^3 Exp[ArcSin[x]])/Sqrt[1-x^2],u->ArcSin[x],x]//Timing*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Derivative divides pre-processing*)
 
 
@@ -3639,9 +3639,10 @@ Do[
 	subs = Table[sub^n -> u^n, {n, -16, 16}]; (* This is a hack, but speedy compared to Eliminate/Solve below. *)
 	diff = D[sub,x];
 	eu = e //. subs;
-	subx = Solve[u == sub, x][[1]]; (* Inverse function for the candidate substitution. *)
-	eu = eu //. subx;
-	eu = (Cancel[eu/diff] //. subs);
+	subx = Solve[u == sub, x]; (* Inverse function for the candidate substitution. *)
+	If[Length[subx] > 1, Continue[]]; (* Something went wrong. *)
+	eu = eu //. subx[[1]];
+	eu = (Cancel[eu/diff] //. subs //. subx);
 	ratio = Cancel[Together[D[eu,x]]];
 	If[(LeafCount[eu] < LeafCount[e] || nestedCount[eu, u] < nestedCount[e, x]) && 
 			(FreeQ[eu, x] || PossibleZeroQ[ratio]),
@@ -3657,7 +3658,7 @@ Do[
 		subs = Table[sub^n -> u^n, {n, -16, 16}];
 		eu = e //. u -> subs;
 		eqns = {Dt[y] == eu Dt[x], u == sub, Dt[u == sub]} /. HoldPattern[Dt][Except[y|x|u]] -> 0;
-		sys = Eliminate[eqns, {x, Dt[x]}] /. HoldPattern[Unequal][_,_] -> True;
+		(* sys = Eliminate[eqns, {x, Dt[x]}] /. HoldPattern[Unequal][_,_] -> True; *)
 		sys = GroebnerBasis[eqns, {Dt[u],u}, {Dt[x],x}, MonomialOrder -> EliminationOrder, Method -> "Buchberger"] // Factor;
 		If[sys === {}, 
 			Continue[]];
@@ -3720,7 +3721,7 @@ False
 
 
 (* ::Input:: *)
-(*derivdivides[1/((C[2] x^2+C[3]) Sqrt[(C[4] x+C[5])/(C[6] x+C[7])]),x,u]//Timing*)
+(*derivdivides[1/((C[2] x^2+C[3]) Sqrt[(C[4] x+C[5])/(C[6] x+C[7])]),x,u]//Timing(* Should fail. *)*)
 
 
 (* ::Input:: *)
@@ -3736,11 +3737,15 @@ False
 
 
 (* ::Input:: *)
-(*derivdivides[1/Sqrt[Sqrt[(a x+b)/(c x+d)]-(a x+b)/(c x+d)] (-b c+a d)/(d+c x)^2,x,u]*)
+(*derivdivides[Sqrt[b - a x+Sqrt[a x+b]]/(a x-b),x,u] //Timing*)
 
 
 (* ::Input:: *)
-(*derivdivides[1/((a x+b)^2 Sqrt[1-Power[a x+b, (3)^-1]]) a/(3 (b+a x)^(2/3)),x,u]*)
+(*derivdivides[1/Sqrt[Sqrt[(a x+b)/(c x+d)]-(a x+b)/(c x+d)] (-b c+a d)/(d+c x)^2,x,u]//Timing*)
+
+
+(* ::Input:: *)
+(*derivdivides[1/((a x+b)^2 Sqrt[1-Power[a x+b, (3)^-1]]) a/(3 (b+a x)^(2/3)),x,u]//Timing*)
 
 
 (* ::Input:: *)
@@ -3750,7 +3755,11 @@ False
 
 
 (* ::Input:: *)
-(*derivdivides[Sqrt[1+Sqrt[a x+b]]/(a^2 x^2-b^2),x,u]*)
+(*derivdivides[Sqrt[1+Sqrt[a x+b]]/(a^2 x^2-b^2),x,u]//Timing*)
+
+
+(* ::Input:: *)
+(*derivdivides[((Sqrt[-1+x+Sqrt[x-Log[x]]]+Sqrt[1+x+Sqrt[x-Log[x]]]) (-1+x+2 x Sqrt[x-Log[x]]))/(x Sqrt[-1+x+Sqrt[x-Log[x]]] Sqrt[1+x+Sqrt[x-Log[x]]] Sqrt[x-Log[x]]),x,u]//Timing*)
 
 
 (* ::Subsection::Closed:: *)
