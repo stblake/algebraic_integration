@@ -991,7 +991,7 @@ normalise[e_, {x_, y_}] := Module[
 (*%[[5]]+%[[1]]/%[[2]]-f /. %[[4]]//Together//Simplify*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Direct rationalisation*)
 
 
@@ -2278,6 +2278,10 @@ linearRationalIntegrate[e_, x_, opts : OptionsPattern[]] := Module[
 
 (* ::Input:: *)
 (*linearRationalIntegrate[1/((x+1) (x^4+6 x^2+1)^(1/4)),x]*)
+
+
+(* ::Input:: *)
+(*linearRationalIntegrate[(-1+x)/(x^3-x^2-x+1)^(1/3),x]*)
 
 
 ClearAll[semiRationalise];
@@ -3740,10 +3744,10 @@ togetherAll[e_] /; FreeQ[e, RootSum] := Map[Together, e, {2, Infinity}]
 togetherAll[e_] := e
 
 
-Clear[powerExpand];
+Clear[lessAggressivePowerExpand];
 
-powerExpand[e_] := e //. Power[a_ b_^n_Integer, r_Rational] /; 
-	(*! NumericQ[a] && ! NumericQ[b] && n < 0 && *) Mod[n, Denominator[r]] == 0 :> (a^r) (b^(n r)) 
+lessAggressivePowerExpand[e_] := e //. Power[a_ b_^n_Integer, r_Rational] /; 
+	n < 0 && Mod[n, Denominator[r]] == 0 :> (a^r) (b^(n r)) 
 
 
 ClearAll[continuousQ];
@@ -3851,7 +3855,7 @@ intrad = Cases[integrand, Power[p_,r_Rational] /; (! FreeQ[p, x] && PolynomialQ[
 reps = {};
 Do[
 	Do[
-		If[Denominator[Last[rad]] == Denominator[Last[match]],
+		If[! CoprimeQ[Denominator[Last[rad]], Denominator[Last[match]]],
 			rem = PolynomialRemainder[First[match],First[rad],x];
 			If[rem // zeroQ,
 				quot = PolynomialQuotient[First[match],First[rad],x];
@@ -3920,17 +3924,16 @@ simplify[e_, x_, OptionsPattern[]] := Module[
 	simp = simp // togetherAll;
 	simp = simp /. Power[p_, r_Rational] /; PolynomialQ[p, x] :> Expand[p]^r;
 	simp = simp // togetherAll;
-	(*
-	(* powerExpand below was causing a bug in int[((-1 + x^2)*(x^2 + x^6)^(1/4))/(x^2*(1 + x^2)), x]. SAMB 0521 *)
+	
 	If[OptionValue["CancelRadicalDenominators"],
-		simp = simp(* // powerExpand*) // togetherAll,
+		simp = simp // lessAggressivePowerExpand // togetherAll,
 		simp = simp // togetherAll
 	];
-	*)
 	
 	(* Some examples for the following rule:
 		int[((1 + x^6)*Sqrt[-x - x^4 + x^7])/(1 + 2*x^3 - 2*x^9 + x^12), x]
-		int[((-x + x^3)^(1/3)*(-2 + x^4))/(x^4*(1 + x^2)), x] *)
+		int[((-x + x^3)^(1/3)*(-2 + x^4))/(x^4*(1 + x^2)), x]
+		int[((-1 + x^2)*(x^2 + x^6)^(1/4))/(x^2*(1 + x^2)), x] *)
 
 	If[OptionValue["CancelRadicalDenominators"],
 		denomP = Cases[simp, (p_ x^m_Integer)^n_Rational /; PolynomialQ[p, x] :> Denominator[n], {0,\[Infinity]}] /. {} -> {1};
@@ -4006,6 +4009,10 @@ simplify[e_, x_, OptionsPattern[]] := Module[
 	simp = stripConst[simp, x];
 	simp
 ]
+
+
+(* ::Input:: *)
+(*simplify[((1+2 x^2) Sqrt[-1+(1+2 x^2)^2/(-1+2 x)^2])/(8 (-1+2 x))-1/4 ArcTanh[Sqrt[-1+(1+2 x^2)^2/(-1+2 x)^2]/(1+(1+2 x^2)/(-1+2 x))],x,"Integrand"->((-1-2 x+2 x^2) Sqrt[x+x^4])/(-1+2 x)^3]*)
 
 
 (* ::Input:: *)
@@ -4310,7 +4317,7 @@ End[];
 EndPackage[];
 
 
-(* ::Section::Closed:: *)
+(* ::Section:: *)
 (*Examples, wish list, bugs/deficiencies, regression tests, ...*)
 
 
@@ -4397,7 +4404,7 @@ EndPackage[];
 
 
 (* ::Text:: *)
-(*An example which Maple (with RootOf conversion) cannot compute as the radicand factors.*)
+(*An example which Maple 2018 (with RootOf conversion) cannot compute as the radicand factors.*)
 
 
 (* ::Input:: *)
@@ -4454,9 +4461,10 @@ EndPackage[];
 
 (* ::Input:: *)
 (*int[Sqrt[u]/Sqrt[-1-u+u^2+u^3],u]*)
-(*int[Sqrt[u]/(Sqrt[-1-u+u^2+u^3//Factor]//PowerExpand),u]*)
-(*%/.Sqrt[-1+u]->Sqrt[-1-u+u^2+u^3]/(1+u)*)
-(*D[%,u]-Sqrt[u]/Sqrt[-1-u+u^2+u^3]//Simplify*)
+(*int[Sqrt[u]/PowerExpand[Sqrt[Factor[-1-u+u^2+u^3]]],u]*)
+(*%/. Sqrt[-1+u]->Sqrt[-1-u+u^2+u^3]/(1+u)*)
+(*Simplify[\!\( *)
+(*\*SubscriptBox[\(\[PartialD]\), \(u\)]%\)-Sqrt[u]/Sqrt[-1-u+u^2+u^3]]*)
 
 
 (* ::Text:: *)
@@ -4464,7 +4472,17 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*D[1/2 (2 Log[1-2 Sqrt[-1+u] Sqrt[u]-2 u]-Sqrt[2] Log[1/(1+u) (1173906914046495345451785813489+Sqrt[2] (830077539250899754299105351860-2490232617752699262897316055580 u)+(-3320310157003599017196421407440-2347813828092990690903571626978 Sqrt[2]) Sqrt[-1+u] Sqrt[u]-3521720742139486036355357440467 u)]),u]-Sqrt[u]/Sqrt[-1-u+u^2+u^3]//Simplify*)
+(*Simplify[\!\( *)
+(*\*SubscriptBox[\(\[PartialD]\), \(u\)]\(( *)
+(*\*FractionBox[\(1\), \(2\)]\ \((2\ Log[1 - 2\ *)
+(*\*SqrtBox[\(\(-1\) + u\)]\ *)
+(*\*SqrtBox[\(u\)] - 2\ u] - *)
+(*\*SqrtBox[\(2\)]\ Log[*)
+(*\*FractionBox[\(1\), \(1 + u\)]\((1173906914046495345451785813489 + *)
+(*\*SqrtBox[\(2\)]\ \((830077539250899754299105351860 - 2490232617752699262897316055580\ u)\) + \((\(-3320310157003599017196421407440\) - 2347813828092990690903571626978\ *)
+(*\*SqrtBox[\(2\)])\)\ *)
+(*\*SqrtBox[\(\(-1\) + u\)]\ *)
+(*\*SqrtBox[\(u\)] - 3521720742139486036355357440467\ u)\)])\))\)\)-Sqrt[u]/Sqrt[-1-u+u^2+u^3]]*)
 
 
 (* ::Text:: *)
@@ -4472,7 +4490,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[1/((1+Sqrt[x])Sqrt[x-Sqrt[x]]),x]*)
+(*int[1/((1+Sqrt[x]) Sqrt[x-Sqrt[x]]),x]*)
 
 
 (* ::Text:: *)
@@ -5386,6 +5404,10 @@ EndPackage[];
 
 
 (* ::Input:: *)
+(*int[((x^3+b) (x^3-b) (x^3-c))/(x^3+a x^2)^(1/3),x]*)
+
+
+(* ::Input:: *)
 (*int[1/((-b+a x) (b^2 x+a^2 x^3)^(1/4)),x]*)
 
 
@@ -5814,11 +5836,11 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[(x^2+1)/((1+x) Sqrt[x^4+x^2+1]),x,"Expansion"->True]//Timing*)
+(*Timing[int[(x^2+1)/((1+x) Sqrt[x^4+x^2+1]),x,"Expansion"->True]]*)
 
 
 (* ::Input:: *)
-(*int[1/((x^2-3) (1-3 x^2)^(1/3)),x,"Expansion"->True]//Timing*)
+(*Timing[int[1/((x^2-3) (1-3 x^2)^(1/3)),x,"Expansion"->True]]*)
 
 
 (* ::Input:: *)
