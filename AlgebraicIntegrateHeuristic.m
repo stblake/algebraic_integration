@@ -3382,15 +3382,18 @@ False
 
 (* ::Input:: *)
 (*derivdivides[E^(x^4/(-1+x)) (1-E^((2 x^4)/(-1+x))/Sqrt[1+E^((2 x^4)/(-1+x))]) ((4 x^3)/(-1+x)-x^4/(-1+x)^2),x,u]*)
-(*derivdivides[%[[1]],u,t]*)
 
 
 (* ::Input:: *)
-(*derivdivides[x/Sqrt[x^4-1],x,u](* It is highly unfortunate that this one doesn't work with u \[Equal] x^2 *)*)
+(*derivdivides[x/Sqrt[x^4-1],x,u]*)
 
 
 (* ::Input:: *)
-(*derivdivides[(2r)/c^2 Exp[-((Sqrt[a^2-r^2]-Sqrt[b^2-r^2])/\[Lambda])],r,u]*)
+(*derivdivides[((2 r) Exp[-((Sqrt[a^2-r^2]-Sqrt[b^2-r^2])/\[Lambda])])/c^2,r,u]*)
+
+
+(* ::Input:: *)
+(*derivdivides[Sqrt[1+x^2]/(x Sqrt[1-ArcSinh[x]]),x,u]*)
 
 
 (* ::Subsubsection::Closed:: *)
@@ -3579,14 +3582,15 @@ fns = Union @ Cases[et,
 		(h_[args__] /; ! FreeQ[{args}, x] && MemberQ[$allowableFunctions, h]) | (Power[E,arg_] /; ! FreeQ[arg, x]), 
 		{0, Infinity}];(* Collect all distinct functions. *)
 vs = With[{sym = Unique["V"]}, {sym, #}]& /@ fns;(* Assign each function with a unique internal variable. *)
+rules = Rule @@@ Map[Reverse,vs];
 ddvs = Dt[Equal @@@ vs]; (* Construct a system of differentials associated with the functions. *)
+ddvs = ddvs //. {subt -> u, 1/subt -> 1/u};
 eqns = {
 	u == subt, 
 	Dt[y] == et Dt[x] //. {subt -> u, 1/subt -> 1/u}, 
 	Dt[u] == (D[subt,x] //. {subt -> u, 1/subt -> 1/u}) Dt[x]
 	};
 eqns = Join[eqns, ddvs];
-rules = Rule @@@ Map[Reverse,vs];
 eqns = eqns //. Join[rules];
 allvars = Join[{x,u,y}, vs[[All,1]]];
 eqns = eqns/. HoldPattern[Dt][Except[Alternatives @@ allvars]] -> 0; (* Constants/parameters. *)
@@ -3604,7 +3608,7 @@ ufns = Factor[ufns /. Dt[u] -> 1]; (* This is faster than dividing by Dt[u] and 
 ufns = Cancel @ Together[(Dt[y] /. ufns)];
 debugPrint3["Candidate integrands in ", u, " are ",ufns];
 Do[
-If[PossibleZeroQ[Cancel[Together[et - (ufn D[subt,x] /. u -> subt)]]],
+If[FreeQ[ufn, x] && PossibleZeroQ[Cancel[Together[et - (ufn D[subt,x] /. u -> subt)]]],
 	Return[{ufn, u -> sub}, Module]
 ],{ufn, ufns}];
 
@@ -3612,7 +3616,7 @@ If[PossibleZeroQ[Cancel[Together[et - (ufn D[subt,x] /. u -> subt)]]],
 ufns = PowerExpand[Factor //@ ufns];
 debugPrint3["Candidate integrands in ", u, " are ",ufns];
 Do[
-If[PossibleZeroQ[Cancel[Together[et - (ufn D[subt,x] /. u -> subt)]]],
+If[FreeQ[ufn, x] && PossibleZeroQ[Cancel[Together[et - (ufn D[subt,x] /. u -> subt)]]],
 	Return[{ufn, u -> sub}, Module]
 ],{ufn, ufns}];
 
@@ -3621,7 +3625,7 @@ sort this out, so we do not require 3 attempts to verify the substitution. *)
 ufns = PowerExpand[Factor //@ ufns];
 debugPrint3["Candidate integrands in ", u, " are ",ufns];
 Do[
-If[PossibleZeroQ[Cancel[Together[et - (ufn D[subt,x] /. u -> subt)]]],
+If[FreeQ[ufn, x] && PossibleZeroQ[Cancel[Together[et - (ufn D[subt,x] /. u -> subt)]]],
 	Return[{ufn, u -> subt}, Module]
 ],{ufn,ufns}];
 
