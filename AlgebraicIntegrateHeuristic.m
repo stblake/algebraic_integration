@@ -24,7 +24,7 @@
 (*IntegrateAlgebraic*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*BeginPackage*)
 
 
@@ -3181,7 +3181,7 @@ Mean[ranks] // N
 (* Simple derivative-divides heuristic. *)
 ClearAll[derivdivides];
 
-Options[derivdivides] = {"SingleStepTimeConstraint" -> 0.25};
+Options[derivdivides] = {"SingleStepTimeConstraint" -> 0.25, "Candidates" -> Automatic};
 
 derivdivides[e_, x_, u_, opts:OptionsPattern[]] := Module[
 {candidates, diff, eu, euu, y, sys, eus, subs1, subs2, 
@@ -3189,7 +3189,9 @@ derivdivides[e_, x_, u_, opts:OptionsPattern[]] := Module[
 
 (* Create a list of candidate substitutions. *)
 
-candidates = candidateSubstitutions[e, x, opts];
+If[OptionValue["Candidates"] === Automatic,
+	candidates = candidateSubstitutions[e, x, opts],
+	candidates = OptionValue["Candidates"]];
 debugPrint3["Candidates for derivative-divides are ", candidates];
 
 (* Computationally cheap checks first. *)
