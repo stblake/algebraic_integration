@@ -229,6 +229,19 @@ If[nestedCount[unintegratedPart, x] > 0,
 ];
 *)
 
+(* Factoring the radicand (s) and taking branch cuts. *)
+
+If[! OptionValue["RationalUndeterminedOnly"] && nestedCount[unintegratedPart, x] == 0,
+	debugPrint1["Trying factorisation of the radicand and taking branch cuts on ", unintegratedPart];
+	result = decreasePolynomialRadicandDegreeIntegrate[unintegratedPart, x, opts];
+	If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[result[[3]], unintegratedPart - result[[1]] - result[[2]], x],
+		rationalPart    += result[[1]]; 
+		unintegratedPart = result[[2]];
+		integratedPart  += result[[3]]
+	];
+	debugPrint1["decreasePolynomialRadicandDegreeIntegrate returned : ", {rationalPart, unintegratedPart, integratedPart}]
+];
+
 (* Goursat pseudo-elliptic integral. *)
 
 If[! OptionValue["RationalUndeterminedOnly"] && ! multipleRadicalsQ[unintegratedPart, x] && nestedCount[unintegratedPart, x] == 0,
@@ -2134,6 +2147,180 @@ PolynomialQ[num,x] && PolynomialQ[den,x] && nex<2 && dex<2 && nex+dex>0
 (*linearRatioQ[4/5,x]*)
 
 
+(* ::Subsection:: *)
+(*Integrating by factorisation and taking branch cuts*)
+
+
+(* ::Text:: *)
+(*This method is motivated by solving integrals like *)
+
+
+(* ::Input:: *)
+(*Integrate[Sqrt[-1-11 x-36 x^2-27 x^3+16 x^4+9 x^5+x^6],x]*)
+
+
+(* ::Text:: *)
+(*in terms of the radicals present in the integrand and to avoid the use of piecewise constants. Here's the result from mathematica version 12.1: *)
+
+
+(* ::Input:: *)
+(*Simplify[D[(Sqrt[-1 - x + x^2]*(1 + 5*x + x^2)**)
+(*     (2*Sqrt[-1 - x + x^2]*(-185 - 6*x + 104*x^2 + 16*x^3) + *)
+(*      325*ArcTanh[(1 - 2*x)/(2*Sqrt[-1 - x + x^2])]))/*)
+(*    (128*Sqrt[(-1 - x + x^2)*(1 + 5*x + x^2)^2]), x]]*)
+
+
+(* ::Text:: *)
+(*It is interesting that AXIOM (2014) gets these types of integrals wrong:*)
+
+
+(* ::Input:: *)
+(*D[(75023 + 66080*x - 646304*x^2 - 183040*x^3 + 1189248*x^4 - 163840*x^5 - *)
+(*    524288*x^6 + 131072*x^7 + 32768*x^8 + Sqrt[-1 - x + x^2]**)
+(*     (-7064 + 292592*x + 6336*x^2 - 839808*x^3 + 276480*x^4 + *)
+(*      430080*x^5 - 147456*x^6 - 32768*x^7) + *)
+(*    (18200 - 249600*x - 83200*x^2 + 665600*x^3 - 332800*x^4 + *)
+(*      Sqrt[-1 - x + x^2]*(62400 + 41600*x - 499200*x^2 + 332800*x^3))**)
+(*     Log[1 - 2*x + 2*Sqrt[-1 - x + x^2]])/(7168 - 98304*x - 32768*x^2 + *)
+(*    262144*x^3 - 131072*x^4 + Sqrt[-1 - x + x^2]**)
+(*     (24576 + 16384*x - 196608*x^2 + 131072*x^3)), x] - *)
+(*Sqrt[-1 - 11*x - 36*x^2 - 27*x^3 + 16*x^4 + 9*x^5 + x^6] // Simplify*)
+
+
+(* ::Text:: *)
+(*This method is presently only implemented for polynomial radicands. However, it generalises easily to rational radicands. *)
+
+
+partiallyRemovableQ[listOfFactors_, r_, x_] := 
+	Cases[listOfFactors, {p_,n_} /; !FreeQ[p,x] && n >= Denominator[r]] =!= {}
+
+
+(* ::Code::Initialization:: *)
+ClearAll[decreasePolynomialRadicandDegreeIntegrate];
+
+Options[decreasePolynomialRadicandDegreeIntegrate] = Options[IntegrateAlgebraic];
+
+decreasePolynomialRadicandDegreeIntegrate[e_, x_, opts:OptionsPattern[]] := Module[
+{fp, flist, fl, qr, fo, fi,ep,fot, rules, epint, invrules},
+(* Find radicands, p^(m/n), such that the polynomial, p, factors 
+into p = r*q^(v n), for integer v > 0 and polynomials q and r. *)
+
+fp = Union @ Cases[e,Power[p_, r_Rational] /; PolynomialQ[p,x], {0, Infinity}];
+If[Length[fp] != 1, Return[ {0, e, 0} ]];(* No radicals or multiple distinct radicals. *)
+flist = {FactorList[#1],#1, #2}& @@@ fp;
+flist = Cases[flist,{facs_, _, r_} /; partiallyRemovableQ[facs, r, x], {1}];
+If[flist === {}, Return[ {0, e, 0} ]];(* Radicands do not partially factor out. *)
+debugPrint2["Radicand is partially factorable ",flist];
+(* Factor out terms from all radicals. *)
+rules = Table[
+	With[{factors = fl[[1]], p = fl[[2]], r = fl[[3]], radical = fl[[2]]^fl[[3]]},
+	qr = {#1,Quotient[#2,Denominator[r]],Mod[#2,Denominator[r]]}& @@@ factors;
+	fo = Select[qr, #[[2]] != 0&];(* Partially factored-out terms. *)
+	fi = Select[qr, #[[2]] == 0&];(* Factored terms that stay in the radical. *)
+	fi = Apply[Times, Power[#1,#3]& @@@ fi];
+	fot = 1;(* Factored-out terms. *)
+	Do[
+		fot *= ft[[1]]^(ft[[2]] Numerator[r]); (* Quotient factors out. *)
+		fi *= ft[[1]]^(ft[[3]] Numerator[r]),(* Remainder stays inside the radical. *)
+	{ft, fo}];
+	{
+		{radical -> fot fi^r, 1/radical -> 1/(fot fi^r)}, 
+		{Expand[fi]^r -> radical/fot, 1/Expand[fi]^r -> fot/radical}
+	}
+],
+{fl, flist}];
+
+ep = e /. Flatten[ rules[[All,1]] ];
+
+debugPrint2["Reduced integrand for recursive integration is ", ep];
+epint = solveAlgebraicIntegral[ep, x, opts];
+debugPrint2["Recursive integration returned ", epint];
+If[epint[[2]] =!= 0, 
+	Return[ {0, e, 0} ], 
+	epint = epint[[1]] + epint[[3]]
+];
+
+(* The creation of inverse rules is a hack and should be completely rewritten. SAMB 0521 *)
+invrules = Join @@ Table[
+	Which[
+		n == 0, 
+			Sequence @@ {}, 
+		n == 1, 
+			rule, 
+		True, 
+			Distribute[(rule)^n,Rule]
+	],
+{rule, Flatten[ rules[[All,-1]] ]},
+{n, -16, 16}];
+
+{0, 0, simplify[epint /. invrules, x]}
+]
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[Sqrt[1+10 x+27 x^2+10 x^3+x^4],x](* We cannot currently do this one, which is a shame. SAMB 0621 *)*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[Sqrt[-1-11 x-36 x^2-27 x^3+16 x^4+9 x^5+x^6],x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[Sqrt[u]/Sqrt[-1-u+u^2+u^3],u]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[1/((1+Sqrt[x])Sqrt[x-Sqrt[x]]),x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(x^4+b)^2/(a b^4+4 a b^3 x^4+b^4 x^4+6 a b^2 x^8+4 b^3 x^8+4 a b x^12+6 b^2 x^12+a x^16+4 b x^16+x^20)^(1/4),x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[1/(1-3 x+3 x^3-9 x^4+3 x^6-9 x^7+x^9-3 x^10)^(1/3),x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(1-3 x+3 x^3-9 x^4+3 x^6-9 x^7+x^9-3 x^10)^(1/3),x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(1-(1-3 x+3 x^3-9 x^4+3 x^6-9 x^7+x^9-3 x^10)^(1/3))/(x^2+(1-3 x+3 x^3-9 x^4+3 x^6-9 x^7+x^9-3 x^10)^(1/3)),x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(x+Sqrt[1+4 x+7 x^2+8 x^3+5 x^4+2 x^5])/(1-Sqrt[1+4 x+7 x^2+8 x^3+5 x^4+2 x^5]),x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[1/(-1-3 x^4-2 x^8+2 x^12+3 x^16+x^20)^(1/4),x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[((1-x^4)(1-x-4 x^2+4 x^3+6 x^4-6 x^5-4 x^6+4 x^7+x^8-x^9)^(1/4))/(1+x^4),x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[1/(-8+12 x+54 x^2-135 x^3+81 x^4)^(1/3),x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[Sqrt[-81+27 x+135 x^2-150 x^3+65 x^4-13 x^5+x^6]/(x-1),x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[Sqrt[(-81+27 x+135 x^2-150 x^3+65 x^4-13 x^5+x^6)^3]/(x-1),x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[((-3+x)^6 (-1-x+x^2)^(3/2))/(-1+x),x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[Sqrt[1-12 u^4+16 u^6]/((-2+u^2) (1+4 u^2)),u]*)
+
+
 (* ::Subsection::Closed:: *)
 (*Goursat pseudo-elliptic rationalisations*)
 
@@ -3123,279 +3310,6 @@ If[usub === {},
 (*Derivative divides*)
 
 
-ClearAll[candidateSubstitutions];
-
-Options[candidateSubstitutions] = {"SingleStepTimeConstraint" -> 0.25};
-
-candidateSubstitutions[e_, x_, OptionsPattern[]] := Module[
-{candidates, sorted, scores},
-
-(* TODO. If it's cheap to Factor and Decompose the integrand, or 
-subsets of the integrand, then we should probably do so and add 
-these to the list of candidate substitutions. SAMB 0521 *)
-
-candidates = Union @ Level[e, {0,\[Infinity]}];
-candidates = If[MatchQ[#, a_ b_ /; FreeQ[a,x]], Last[#], #]& /@ candidates; (* Remove constant multiples. *)
-candidates = If[MatchQ[#, x^n_Rational /; n < 0], 1/#, #]& /@ candidates;
-candidates = Flatten[ 
-		If[MatchQ[#, px_^_Rational /; polynomialOrRationalQ[px, x]], 
-			{#, # /. px_^n_Rational :> px^(1/Denominator[n]),
-				# /. px_^n_Rational :> px^(-1/Denominator[n])}, #]& /@ candidates ];
-candidates = DeleteCases[candidates, x^n_Integer /; n < 0];
-candidates = Cases[candidates, s_ /; !FreeQ[s,x]];
-candidates = DeleteCases[candidates, x];
-candidates = Select[candidates, LeafCount[#] < 4/5 LeafCount[e]&]; (* Only try _small_ substitutions (relative to the integrand) *)
-candidates = Union[candidates, SameTest -> (FreeQ[#1/#2, x]&)];
-
-scores = scoreCandidate[e, #, x] - 10^-3 LeafCount[#]& /@ Union[candidates]; (* Use LeafCount to break ties. *)
-candidates = Transpose[{candidates, scores}];
-sorted = ReverseSortBy[candidates, Last];
-debugPrint3["Ranked/sorted candidates = ", sorted];
-sorted[[All, 1]]
-]
-
-
-(* ::Input:: *)
-(*candidateSubstitutions[(3-9 x^4+2 x^6)/(x (1+x^2)^2 (-1+2 x^2) Sqrt[(1-2 x^2)/(1+2 x^2)] (1+2 x^2)),x]//Timing*)
-
-
-(* ::Text:: *)
-(*We would like a fast heuristic for sorting candidate substitutions for the derivative-divides routine so that more likely candidates are tried before others. scoreCandidate is a prototype that seems to perform reasonably. *)
-
-
-scoreCandidate[e_, sub_, x_] := Module[{dd, splits, ranks},
-dd = D[sub,x] // Together // Cancel;
-If[FreeQ[dd, x], Return[0, Module]];(* We don't assign a score for linear polynomials. *)
-splits = Union @ DeleteCases[Level[dd,{0,\[Infinity]}], x| (a_ x /; FreeQ[a,x]) |(a_ /; FreeQ[a,x])]; (* Remove x, a x and constants *)
-splits = Union[splits, SameTest -> (FreeQ[#1/#2,x]&)];(* Remove copies of constant multiples. *)
-If[splits === {}, Return[0, Module]];
-ranks = (LeafCount[#]^2 (Count[e, #|1/#,{0,\[Infinity]}] /. 0 -> -1))& /@ splits; (* Many tests suggest this is a reasonable scoring function. *)
-Mean[ranks] // N
-]
-
-
-(* ::Input:: *)
-(*scoreCandidate[x^2/((1-2 x^3)^(1/3) (1+x^3)),x^3,x]//Timing*)
-
-
-(* Simple derivative-divides heuristic. *)
-ClearAll[derivdivides];
-
-Options[derivdivides] = {"SingleStepTimeConstraint" -> 0.25, "Candidates" -> Automatic};
-
-derivdivides[e_, x_, u_, opts:OptionsPattern[]] := Module[
-{candidates, diff, eu, euu, y, sys, eus, subs1, subs2, 
-	a, b, eqns, special1, special2, special3, special, subx, gs},
-
-(* Create a list of candidate substitutions. *)
-
-If[OptionValue["Candidates"] === Automatic,
-	candidates = candidateSubstitutions[e, x, opts],
-	candidates = OptionValue["Candidates"]];
-debugPrint3["Candidates for derivative-divides are ", candidates];
-
-(* Computationally cheap checks first. *)
-
-Do[
-	TimeConstrained[
-		subs1 = Table[sub^n -> u^n, {n, -16, 16}]; (* This is a hack, but speedy compared to Eliminate/Solve below. *)
-		subs2 = Table[n sub -> n u, {n, -16, 16}]; (* Hack! *)
-		diff = Cancel @ Together[D[sub,x]];
-		eu = e //. subs1;
-		eu = eu //. subs2; 
-		eu = Cancel[Together[eu/diff]] //. subs1 //. subs2;
-		debugPrint3["Trying sub = ", sub, ", giving ", eu, ", rank in = ", 
-			rank[e, x],", rank out = ", rank[eu, u], ", size ratio = ", LeafCount[eu]/LeafCount[e] // N];
-		If[FreeQ[eu, x] && (simpleQ[eu, u] || LeafCount[eu]/LeafCount[e] < 0.75 || rank[eu, u]/rank[e, x] < 0.9),
-			debugPrint2["derivdivides level 1 returned: ", {eu, u -> sub}];
-			Return[{eu, u -> sub}, Module]
-		],
-		OptionValue["SingleStepTimeConstraint"]
-	],
-{sub, candidates}];
-
-(* Some special cases that we handle separately: u \[Rule] a x + b, u \[Rule] (a x + b)/(c x + d), 
-	u \[Rule] (a x + b)^(1/n), u \[Rule] ((a x + b)/(c x + d))^(1/n). 
-
-	TODO: u \[Rule] a x^(1/n) + b, u \[Rule] (a x^(1/n) + b)/(c x^(1/n) + d), 
-			u \[Rule] (a x^(1/n) + b)^(1/m), u \[Rule] ((a x^(1/n) + b)/(c x^(1/n) + d))^(1/m) *)
-
-special1 = Cases[candidates, p_ /; 
-	(linearPolynomialQ[p,x] || linearRationalPolynomialQ[p,x])];
-special2 = Cases[candidates, p_^n_Rational /; 
-	(Numerator[n] == 1 && (linearPolynomialQ[p,x] || linearRationalPolynomialQ[p,x]))];
-special3 = Cases[candidates, p_^n_Rational q_^m_Rational /; 
-	(Numerator[n] == 1 && n + m == 0 && linearPolynomialQ[p,x] && linearPolynomialQ[q,x])];
-special  = Join[special3, special2, special1];
-
-Do[
-	TimeConstrained[
-		subs1 = Table[sub^n -> u^n, {n, -16, 16}]; 
-		subs2 = Table[n sub -> n u, {n, -16, 16}];
-		diff = Cancel @ Together[D[sub,x]];
-		eu = e //. subs1 //. subs2;
-		subx = Solve[u == sub, x]; (* Inverse function for the candidate substitution. *)
-		If[Length[subx] > 1, Continue[]]; (* Something went wrong. (Special candidates should only have a single solution.) *)
-		eu = eu //. subx[[1]];
-		eu = (Cancel[Together[eu/diff]] //. subs1 //. subs2 //. subx[[1]]);
-		debugPrint3["Trying sub = ", sub, ", giving ", eu, ", rank in = ", 
-			rank[e, x],", rank out = ", rank[eu, u], ", size ratio = ", LeafCount[eu]/LeafCount[e] // N];
-		If[FreeQ[eu, x] && (simpleQ[eu, u] || 
-				LeafCount[eu]/LeafCount[e] < 0.75 || 
-				rank[eu, u]/rank[e, x] < 0.9),
-			debugPrint2["derivdivides level 2 returned: ", {eu, u -> sub}];
-			Return[{eu, u -> sub}, Module]
-		],
-		OptionValue["SingleStepTimeConstraint"]
-	],
-{sub, special}];
-
-(* Try the GroebnerBasis-based elimination method, with a tight time constraint. *)
-
-Do[
-	TimeConstrained[
-		gs = groebnerSubstitute[e, u -> sub, x];
-		If[ListQ[gs], 
-			eu = First[gs];
-			debugPrint3["sub = ", sub, ", giving ", eu, ", rank in = ", 
-				rank[e, x],", rank out = ", rank[eu, u], ", size ratio = ", LeafCount[eu]/LeafCount[e] // N];
-			If[simpleQ[eu, u] || LeafCount[eu]/LeafCount[e] < 0.75 || rank[eu, u]/rank[e, x] < 0.9,
-				debugPrint2["derivdivides level 3 returned: ", {eu, u -> sub}];
-				Return[{eu, u -> sub}, Module]
-			]
-		],
-		OptionValue["SingleStepTimeConstraint"]
-	],
-{sub, candidates}];
-
-False
-]
-
-
-(* ::Input:: *)
-(*Timing[derivdivides[x^2/((1-2 x^3)^(1/3) (1+x^3)),x,u]]*)
-
-
-(* ::Input:: *)
-(*Timing[derivdivides[Sqrt[1+Sqrt[a x+b]]/(a x+b),x,u]]*)
-
-
-(* ::Input:: *)
-(*Timing[derivdivides[Sqrt[1+Sqrt[a x+b]]/(a^2 x^2-b^2),x,u]]*)
-
-
-(* ::Input:: *)
-(*Timing[derivdivides[x/(1-a x^2),x,u]]*)
-
-
-(* ::Input:: *)
-(*Timing[derivdivides[Log[x]/(x (1-a Log[x]^2)),x,u]]*)
-
-
-(* ::Input:: *)
-(*Timing[derivdivides[((-27+x^3) (27+x^3)^(1/3))/(81 x),x,u]]*)
-
-
-(* ::Input:: *)
-(*Timing[derivdivides[1/(x (1-2 x^4)^(1/4) (1+x^4)),x,u]]*)
-
-
-(* ::Input:: *)
-(*Timing[derivdivides[Sqrt[x]/Sqrt[Sqrt[x]+1],x,u]]*)
-
-
-(* ::Input:: *)
-(*Timing[derivdivides[((-2+x^3) Sqrt[1-x^2+x^3])/(1+x^3)^2,x,u]]*)
-
-
-(* ::Input:: *)
-(*Timing[derivdivides[(3-9 x^4+2 x^6)/(x (1+x^2)^2 (-1+2 x^2) Sqrt[(1-2 x^2)/(1+2 x^2)] (1+2 x^2)),x,u]]*)
-
-
-(* ::Input:: *)
-(*Timing[derivdivides[1/((C[2] x^2+C[3]) Sqrt[(C[4] x+C[5])/(C[6] x+C[7])]),x,u]]*)
-
-
-(* ::Input:: *)
-(*Timing[derivdivides[(x (-1+x^2))/((1+x^2)^3 Sqrt[1+4/3 (x/(x^2+1))^2+Sqrt[1+4/3 (x/(x^2+1))^2]]),x,u]]*)
-
-
-(* ::Input:: *)
-(*Timing[derivdivides[3/(8 Sqrt[Sqrt[u]+u]),u,t]]*)
-
-
-(* ::Input:: *)
-(*Timing[derivdivides[Sqrt[1+Sqrt[a x+b]]/(a x-b),x,u]]*)
-
-
-(* ::Input:: *)
-(*Timing[derivdivides[Sqrt[b-a x+Sqrt[a x+b]]/(a x-b),x,u]]*)
-
-
-(* ::Input:: *)
-(*Timing[derivdivides[(-b c+a d)/(Sqrt[Sqrt[(a x+b)/(c x+d)]-(a x+b)/(c x+d)] (d+c x)^2),x,u]]*)
-
-
-(* ::Input:: *)
-(*derivdivides[a/(((a x+b)^2 Sqrt[1-(a x+b)^(1/3)]) (3 (b+a x)^(2/3))),x,u]*)
-(*derivdivides[%[[1]],u,t]*)
-
-
-(* ::Input:: *)
-(*derivdivides[Sqrt[1+Sqrt[a x^2+b]]/((a x^2-b) x),x,u]*)
-(*derivdivides[%[[1]],u,t]*)
-
-
-(* ::Input:: *)
-(*Timing[derivdivides[Sqrt[1+Sqrt[a x+b]]/(a^2 x^2-b^2),x,u]]*)
-
-
-(* ::Input:: *)
-(*Timing[derivdivides[((Sqrt[-1+x+Sqrt[x-Log[x]]]+Sqrt[1+x+Sqrt[x-Log[x]]]) (-1+x+2 x Sqrt[x-Log[x]]))/(x Sqrt[-1+x+Sqrt[x-Log[x]]] Sqrt[1+x+Sqrt[x-Log[x]]] Sqrt[x-Log[x]]),x,u]]*)
-
-
-(* ::Input:: *)
-(*derivdivides[(1+x^2)/(2 x^(5/2)),x,u]*)
-
-
-(* ::Input:: *)
-(*Timing[derivdivides[(Sqrt[x-Sqrt[Log[x]]]-Sqrt[1-x-Sqrt[x-Sqrt[Log[x]]]+Sqrt[Log[x]]]) (1-1/(2 x Sqrt[Log[x]])),x,u]]*)
-
-
-(* ::Input:: *)
-(*Timing[derivdivides[(1/Sqrt[1-Sqrt[x Cos[x]-Sqrt[Sin[x]]]]-Sqrt[1-x Cos[x]-Sqrt[x Cos[x]-Sqrt[Sin[x]]]+Sqrt[Sin[x]]]) (Cos[x]-Cos[x]/(2 Sqrt[Sin[x]])-x Sin[x]),x,u]]*)
-
-
-(* ::Input:: *)
-(*derivdivides[(1-3 x^4)^(1/3)/x,x,u]*)
-(*derivdivides[%[[1]],u,t]*)
-
-
-(* ::Input:: *)
-(*derivdivides[((x-Sqrt[Log[1+x^4]]) (-2 x^3+Sqrt[Log[1+x^4]]+x^4 Sqrt[Log[1+x^4]]))/((1+x^4) Sqrt[Log[1+x^4]] (-1+x^3-3 x^2 Sqrt[Log[1+x^4]]+3 x Log[1+x^4]-Log[1+x^4]^(3/2))),x,u]*)
-
-
-(* ::Input:: *)
-(*derivdivides[x^3/((1+x^4) (-1+Sqrt[Log[1+x^4]]) (1+Sqrt[Log[1+x^4]]) Sqrt[Log[1+x^4]]),x,u]*)
-(*derivdivides[First[%],u,t]*)
-
-
-(* ::Input:: *)
-(*derivdivides[E^(x^4/(-1+x)) (1-E^((2 x^4)/(-1+x))/Sqrt[1+E^((2 x^4)/(-1+x))]) ((4 x^3)/(-1+x)-x^4/(-1+x)^2),x,u]*)
-
-
-(* ::Input:: *)
-(*derivdivides[x/Sqrt[x^4-1],x,u]*)
-
-
-(* ::Input:: *)
-(*derivdivides[((2 r) Exp[-((Sqrt[a^2-r^2]-Sqrt[b^2-r^2])/\[Lambda])])/c^2,r,u]*)
-
-
-(* ::Input:: *)
-(*derivdivides[Sqrt[1+x^2]/(x Sqrt[1-ArcSinh[x]]),x,u]*)
-
-
 (* ::Subsubsection::Closed:: *)
 (*ranking integrands*)
 
@@ -3557,6 +3471,296 @@ rank[e_, x_] := 10^20 LeafCount[e]
 
 (* ::Input:: *)
 (*rank[(3-9 u^2+2 u^3)/(2 u (1+u)^2 (-1+2 u) (1+2 u)Sqrt[(1-2 u^4)/(1+2 Sqrt[u])]),u]*)
+
+
+(* ::Subsubsection::Closed:: *)
+(*candidateSubstitutions*)
+
+
+ClearAll[candidateSubstitutions];
+
+Options[candidateSubstitutions] = {"SingleStepTimeConstraint" -> 0.25};
+
+candidateSubstitutions[e_, x_, OptionsPattern[]] := Module[
+{candidates, sorted, scores},
+
+(* TODO. If it's cheap to Factor and Decompose the integrand, or 
+subsets of the integrand, then we should probably do so and add 
+these to the list of candidate substitutions. SAMB 0521 *)
+
+candidates = Union @ Level[e, {0,\[Infinity]}];
+candidates = If[MatchQ[#, a_ b_ /; FreeQ[a,x]], Last[#], #]& /@ candidates; (* Remove constant multiples. *)
+candidates = If[MatchQ[#, x^n_Rational /; n < 0], 1/#, #]& /@ candidates;
+candidates = Flatten[ 
+		If[MatchQ[#, px_^_Rational /; polynomialOrRationalQ[px, x]], 
+			{#, # /. px_^n_Rational :> px^(1/Denominator[n]),
+				# /. px_^n_Rational :> px^(-1/Denominator[n])}, #]& /@ candidates ];
+candidates = DeleteCases[candidates, x^n_Integer /; n < 0];
+candidates = Cases[candidates, s_ /; !FreeQ[s,x]];
+candidates = DeleteCases[candidates, x];
+candidates = Select[candidates, LeafCount[#] < 4/5 LeafCount[e]&]; (* Only try _small_ substitutions (relative to the integrand) *)
+candidates = Union[candidates, SameTest -> (FreeQ[#1/#2, x]&)];
+
+scores = scoreCandidate[e, #, x] - 10^-3 LeafCount[#]& /@ Union[candidates]; (* Use LeafCount to break ties. *)
+candidates = Transpose[{candidates, scores}];
+sorted = ReverseSortBy[candidates, Last];
+debugPrint3["Ranked/sorted candidates = ", sorted];
+sorted[[All, 1]]
+]
+
+
+(* ::Input:: *)
+(*candidateSubstitutions[(3-9 x^4+2 x^6)/(x (1+x^2)^2 (-1+2 x^2) Sqrt[(1-2 x^2)/(1+2 x^2)] (1+2 x^2)),x]//Timing*)
+
+
+(* ::Subsubsection::Closed:: *)
+(*scoreCandidate*)
+
+
+(* ::Text:: *)
+(*We would like a fast heuristic for sorting candidate substitutions for the derivative-divides routine so that more likely candidates are tried before others. scoreCandidate is a prototype that seems to perform reasonably. *)
+
+
+scoreCandidate[e_, sub_, x_] := Module[{dd, splits, ranks},
+dd = D[sub,x] // Together // Cancel;
+If[FreeQ[dd, x], Return[0, Module]];(* We don't assign a score for linear polynomials. *)
+splits = Union @ DeleteCases[Level[dd,{0,\[Infinity]}], x| (a_ x /; FreeQ[a,x]) |(a_ /; FreeQ[a,x])]; (* Remove x, a x and constants *)
+splits = Union[splits, SameTest -> (FreeQ[#1/#2,x]&)];(* Remove copies of constant multiples. *)
+If[splits === {}, Return[0, Module]];
+ranks = (LeafCount[#]^2 (Count[e, #|1/#,{0,\[Infinity]}] /. 0 -> -1))& /@ splits; (* Many tests suggest this is a reasonable scoring function. *)
+Mean[ranks] // N
+]
+
+
+(* ::Input:: *)
+(*scoreCandidate[x^2/((1-2 x^3)^(1/3) (1+x^3)),x^3,x]//Timing*)
+
+
+(* ::Subsubsection::Closed:: *)
+(*derivdivides*)
+
+
+(* Simple derivative-divides heuristic. *)
+ClearAll[derivdivides];
+
+Options[derivdivides] = {"SingleStepTimeConstraint" -> 0.25, "Candidates" -> Automatic};
+
+derivdivides[e_, x_, u_, opts:OptionsPattern[]] := Module[
+{candidates, diff, eu, euu, y, sys, eus, subs1, subs2, 
+	a, b, eqns, special1, special2, special3, special, subx, gs},
+
+(* Create a list of candidate substitutions. *)
+
+If[OptionValue["Candidates"] === Automatic,
+	candidates = candidateSubstitutions[e, x, opts],
+	candidates = OptionValue["Candidates"]];
+debugPrint3["Candidates for derivative-divides are ", candidates];
+
+(* Computationally cheap checks first. *)
+
+Do[
+	TimeConstrained[
+		subs1 = Table[sub^n -> u^n, {n, -16, 16}]; (* This is a hack, but speedy compared to Eliminate/Solve below. *)
+		subs2 = Table[n sub -> n u, {n, -16, 16}]; (* Hack! *)
+		diff = Cancel @ Together[D[sub,x]];
+		eu = e //. subs1;
+		eu = eu //. subs2; 
+		eu = Cancel[Together[eu/diff]] //. subs1 //. subs2;
+		debugPrint3["Trying sub = ", sub, ", giving ", eu, ", rank in = ", 
+			rank[e, x],", rank out = ", rank[eu, u], ", size ratio = ", LeafCount[eu]/LeafCount[e] // N];
+		If[FreeQ[eu, x] && (simpleQ[eu, u] || LeafCount[eu]/LeafCount[e] < 0.75 || rank[eu, u]/rank[e, x] < 0.9),
+			debugPrint2["derivdivides level 1 returned: ", {eu, u -> sub}];
+			Return[{eu, u -> sub}, Module]
+		],
+		OptionValue["SingleStepTimeConstraint"]
+	],
+{sub, candidates}];
+
+(* Some special cases that we handle separately: u \[Rule] a x + b, u \[Rule] (a x + b)/(c x + d), 
+	u \[Rule] (a x + b)^(1/n), u \[Rule] ((a x + b)/(c x + d))^(1/n). 
+
+	TODO: u \[Rule] a x^(1/n) + b, u \[Rule] (a x^(1/n) + b)/(c x^(1/n) + d), 
+			u \[Rule] (a x^(1/n) + b)^(1/m), u \[Rule] ((a x^(1/n) + b)/(c x^(1/n) + d))^(1/m) *)
+
+special1 = Cases[candidates, p_ /; 
+	(linearPolynomialQ[p,x] || linearRationalPolynomialQ[p,x])];
+special2 = Cases[candidates, p_^n_Rational /; 
+	(Numerator[n] == 1 && (linearPolynomialQ[p,x] || linearRationalPolynomialQ[p,x]))];
+special3 = Cases[candidates, p_^n_Rational q_^m_Rational /; 
+	(Numerator[n] == 1 && n + m == 0 && linearPolynomialQ[p,x] && linearPolynomialQ[q,x])];
+special  = Join[special3, special2, special1];
+
+Do[
+	TimeConstrained[
+		subs1 = Table[sub^n -> u^n, {n, -16, 16}]; 
+		subs2 = Table[n sub -> n u, {n, -16, 16}];
+		diff = Cancel @ Together[D[sub,x]];
+		eu = e //. subs1 //. subs2;
+		subx = Solve[u == sub, x]; (* Inverse function for the candidate substitution. *)
+		If[Length[subx] > 1, Continue[]]; (* Something went wrong. (Special candidates should only have a single solution.) *)
+		eu = eu //. subx[[1]];
+		eu = (Cancel[Together[eu/diff]] //. subs1 //. subs2 //. subx[[1]]);
+		debugPrint3["Trying sub = ", sub, ", giving ", eu, ", rank in = ", 
+			rank[e, x],", rank out = ", rank[eu, u], ", size ratio = ", LeafCount[eu]/LeafCount[e] // N];
+		If[FreeQ[eu, x] && (simpleQ[eu, u] || 
+				LeafCount[eu]/LeafCount[e] < 0.75 || 
+				rank[eu, u]/rank[e, x] < 0.9),
+			debugPrint2["derivdivides level 2 returned: ", {eu, u -> sub}];
+			Return[{eu, u -> sub}, Module]
+		],
+		OptionValue["SingleStepTimeConstraint"]
+	],
+{sub, special}];
+
+(* TODO: Should we try computing all inverse functions of the u-substitution with Solve and 
+test them one-by-one? Are there (reasonable) examples where that approach succeeds and the 
+Groebner basis-based elimination methods below fails? Perhaps for functions which are not 
+in $allowableFunctions, but invertible nonetheless. SAMB 0621 *)
+
+(* Try the GroebnerBasis-based elimination method, with a tight time constraint. *)
+
+Do[
+	TimeConstrained[
+		gs = groebnerSubstitute[e, u -> sub, x];
+		If[ListQ[gs], 
+			eu = First[gs];
+			debugPrint3["sub = ", sub, ", giving ", eu, ", rank in = ", 
+				rank[e, x],", rank out = ", rank[eu, u], ", size ratio = ", LeafCount[eu]/LeafCount[e] // N];
+			If[simpleQ[eu, u] || LeafCount[eu]/LeafCount[e] < 0.75 || rank[eu, u]/rank[e, x] < 0.9,
+				debugPrint2["derivdivides level 3 returned: ", {eu, u -> sub}];
+				Return[{eu, u -> sub}, Module]
+			]
+		],
+		OptionValue["SingleStepTimeConstraint"]
+	],
+{sub, candidates}];
+
+False
+]
+
+
+(* ::Input:: *)
+(*Timing[derivdivides[x^2/((1-2 x^3)^(1/3) (1+x^3)),x,u]]*)
+
+
+(* ::Input:: *)
+(*Timing[derivdivides[Sqrt[1+Sqrt[a x+b]]/(a x+b),x,u]]*)
+
+
+(* ::Input:: *)
+(*Timing[derivdivides[Sqrt[1+Sqrt[a x+b]]/(a^2 x^2-b^2),x,u]]*)
+
+
+(* ::Input:: *)
+(*Timing[derivdivides[x/(1-a x^2),x,u]]*)
+
+
+(* ::Input:: *)
+(*Timing[derivdivides[Log[x]/(x (1-a Log[x]^2)),x,u]]*)
+
+
+(* ::Input:: *)
+(*Timing[derivdivides[((-27+x^3) (27+x^3)^(1/3))/(81 x),x,u]]*)
+
+
+(* ::Input:: *)
+(*Timing[derivdivides[1/(x (1-2 x^4)^(1/4) (1+x^4)),x,u]]*)
+
+
+(* ::Input:: *)
+(*Timing[derivdivides[Sqrt[x]/Sqrt[Sqrt[x]+1],x,u]]*)
+
+
+(* ::Input:: *)
+(*Timing[derivdivides[((-2+x^3) Sqrt[1-x^2+x^3])/(1+x^3)^2,x,u]]*)
+
+
+(* ::Input:: *)
+(*Timing[derivdivides[(3-9 x^4+2 x^6)/(x (1+x^2)^2 (-1+2 x^2) Sqrt[(1-2 x^2)/(1+2 x^2)] (1+2 x^2)),x,u]]*)
+
+
+(* ::Input:: *)
+(*Timing[derivdivides[1/((C[2] x^2+C[3]) Sqrt[(C[4] x+C[5])/(C[6] x+C[7])]),x,u]]*)
+
+
+(* ::Input:: *)
+(*Timing[derivdivides[(x (-1+x^2))/((1+x^2)^3 Sqrt[1+4/3 (x/(x^2+1))^2+Sqrt[1+4/3 (x/(x^2+1))^2]]),x,u]]*)
+
+
+(* ::Input:: *)
+(*Timing[derivdivides[3/(8 Sqrt[Sqrt[u]+u]),u,t]]*)
+
+
+(* ::Input:: *)
+(*Timing[derivdivides[Sqrt[1+Sqrt[a x+b]]/(a x-b),x,u]]*)
+
+
+(* ::Input:: *)
+(*Timing[derivdivides[Sqrt[b-a x+Sqrt[a x+b]]/(a x-b),x,u]]*)
+
+
+(* ::Input:: *)
+(*Timing[derivdivides[(-b c+a d)/(Sqrt[Sqrt[(a x+b)/(c x+d)]-(a x+b)/(c x+d)] (d+c x)^2),x,u]]*)
+
+
+(* ::Input:: *)
+(*derivdivides[a/(((a x+b)^2 Sqrt[1-(a x+b)^(1/3)]) (3 (b+a x)^(2/3))),x,u]*)
+(*derivdivides[%[[1]],u,t]*)
+
+
+(* ::Input:: *)
+(*derivdivides[Sqrt[1+Sqrt[a x^2+b]]/((a x^2-b) x),x,u]*)
+(*derivdivides[%[[1]],u,t]*)
+
+
+(* ::Input:: *)
+(*Timing[derivdivides[Sqrt[1+Sqrt[a x+b]]/(a^2 x^2-b^2),x,u]]*)
+
+
+(* ::Input:: *)
+(*Timing[derivdivides[((Sqrt[-1+x+Sqrt[x-Log[x]]]+Sqrt[1+x+Sqrt[x-Log[x]]]) (-1+x+2 x Sqrt[x-Log[x]]))/(x Sqrt[-1+x+Sqrt[x-Log[x]]] Sqrt[1+x+Sqrt[x-Log[x]]] Sqrt[x-Log[x]]),x,u]]*)
+
+
+(* ::Input:: *)
+(*derivdivides[(1+x^2)/(2 x^(5/2)),x,u]*)
+
+
+(* ::Input:: *)
+(*Timing[derivdivides[(Sqrt[x-Sqrt[Log[x]]]-Sqrt[1-x-Sqrt[x-Sqrt[Log[x]]]+Sqrt[Log[x]]]) (1-1/(2 x Sqrt[Log[x]])),x,u]]*)
+
+
+(* ::Input:: *)
+(*Timing[derivdivides[(1/Sqrt[1-Sqrt[x Cos[x]-Sqrt[Sin[x]]]]-Sqrt[1-x Cos[x]-Sqrt[x Cos[x]-Sqrt[Sin[x]]]+Sqrt[Sin[x]]]) (Cos[x]-Cos[x]/(2 Sqrt[Sin[x]])-x Sin[x]),x,u]]*)
+
+
+(* ::Input:: *)
+(*derivdivides[(1-3 x^4)^(1/3)/x,x,u]*)
+(*derivdivides[%[[1]],u,t]*)
+
+
+(* ::Input:: *)
+(*derivdivides[((x-Sqrt[Log[1+x^4]]) (-2 x^3+Sqrt[Log[1+x^4]]+x^4 Sqrt[Log[1+x^4]]))/((1+x^4) Sqrt[Log[1+x^4]] (-1+x^3-3 x^2 Sqrt[Log[1+x^4]]+3 x Log[1+x^4]-Log[1+x^4]^(3/2))),x,u]*)
+
+
+(* ::Input:: *)
+(*derivdivides[x^3/((1+x^4) (-1+Sqrt[Log[1+x^4]]) (1+Sqrt[Log[1+x^4]]) Sqrt[Log[1+x^4]]),x,u]*)
+(*derivdivides[First[%],u,t]*)
+
+
+(* ::Input:: *)
+(*derivdivides[E^(x^4/(-1+x)) (1-E^((2 x^4)/(-1+x))/Sqrt[1+E^((2 x^4)/(-1+x))]) ((4 x^3)/(-1+x)-x^4/(-1+x)^2),x,u]*)
+
+
+(* ::Input:: *)
+(*derivdivides[x/Sqrt[x^4-1],x,u]*)
+
+
+(* ::Input:: *)
+(*derivdivides[((2 r) Exp[-((Sqrt[a^2-r^2]-Sqrt[b^2-r^2])/\[Lambda])])/c^2,r,u]*)
+
+
+(* ::Input:: *)
+(*derivdivides[Sqrt[1+x^2]/(x Sqrt[1-ArcSinh[x]]),x,u]*)
 
 
 (* ::Subsection::Closed:: *)
@@ -4007,6 +4211,7 @@ simplify[e_, x_, OptionsPattern[]] := Module[
 		nonRationalTerms = Plus @@ Complement[simp, rationalTerms];
 		rationalTerms = Plus @@ rationalTerms;
 		rationalTermsMerged = collectnumden[ Simplify[ rationalTerms ] ]; (* Simplify added. SAMB 0521 *)
+		rationalTermsMerged = rationalTermsMerged /. Power[p_, r_Rational] /; PolynomialQ[p, x] :> Expand[p]^r;
 		simp = nonRationalTerms + If[LeafCount[rationalTermsMerged] < LeafCount[rationalTerms],
 			rationalTermsMerged,
 			rationalTerms
@@ -4468,6 +4673,14 @@ EndPackage[];
 (*int[((-1+8 Sqrt[1-x] x^3+x^4) Sqrt[1-Sqrt[1-x]+Log[1-x^4]])/(2 Sqrt[1-x] (-1+x^4) Sqrt[1+Sqrt[1-x]-Log[1-x^4]]),x]*)
 
 
+(* ::Text:: *)
+(*We can now compute integrals which require factoring the radicand, integrating after introducing branch cuts, then correcting for these branch cuts without resorting to piecewise constants. For example*)
+
+
+(* ::Input:: *)
+(*int[Sqrt[-1-11 x-36 x^2-27 x^3+16 x^4+9 x^5+x^6],x]*)
+
+
 (* ::Subsection::Closed:: *)
 (*current bugs and deficiencies*)
 
@@ -4498,55 +4711,6 @@ EndPackage[];
 (* ::Input:: *)
 (*int[x/(x^3+x^2-x-1)^(1/3),x]*)
 (*int[1/(3 (x^3+x^2-x-1)^(1/3)),x]*)
-
-
-(* ::Text:: *)
-(*We need to factor and split the radical, then repair it after computing the resulting integral:*)
-
-
-(* ::Input:: *)
-(*int[Sqrt[u]/Sqrt[-1-u+u^2+u^3],u]*)
-(*int[Sqrt[u]/PowerExpand[Sqrt[Factor[-1-u+u^2+u^3]]],u]*)
-(*%/. Sqrt[-1+u]->Sqrt[-1-u+u^2+u^3]/(1+u)*)
-(*Simplify[\!\( *)
-(*\*SubscriptBox[\(\[PartialD]\), \(u\)]%\)-Sqrt[u]/Sqrt[-1-u+u^2+u^3]]*)
-
-
-(* ::Text:: *)
-(*Note that AXIOM gets this one wrong:*)
-
-
-(* ::Input:: *)
-(*Simplify[\!\( *)
-(*\*SubscriptBox[\(\[PartialD]\), \(u\)]\(( *)
-(*\*FractionBox[\(1\), \(2\)]\ \((2\ Log[1 - 2\ *)
-(*\*SqrtBox[\(\(-1\) + u\)]\ *)
-(*\*SqrtBox[\(u\)] - 2\ u] - *)
-(*\*SqrtBox[\(2\)]\ Log[*)
-(*\*FractionBox[\(1\), \(1 + u\)] \((1173906914046495345451785813489 + *)
-(*\*SqrtBox[\(2\)]\ \((830077539250899754299105351860 - 2490232617752699262897316055580\ u)\) + \((\(-3320310157003599017196421407440\) - 2347813828092990690903571626978\ *)
-(*\*SqrtBox[\(2\)])\)\ *)
-(*\*SqrtBox[\(\(-1\) + u\)]\ *)
-(*\*SqrtBox[\(u\)] - 3521720742139486036355357440467\ u)\)])\))\)\)-Sqrt[u]/Sqrt[-1-u+u^2+u^3]]*)
-
-
-(* ::Text:: *)
-(*To compute this one we need the one below:*)
-
-
-(* ::Input:: *)
-(*int[1/((1+Sqrt[x]) Sqrt[x-Sqrt[x]]),x]*)
-
-
-(* ::Text:: *)
-(*Same as the previous example*)
-
-
-(* ::Input:: *)
-(*int[Sqrt[1-12 u^4+16 u^6]/((-2+u^2) (1+4 u^2)),u]*)
-(*int[PowerExpand[Sqrt[Factor[1-12 u^4+16 u^6]]]/((-2+u^2) (1+4 u^2)),u]/. Sqrt[1+4 u^2]->Sqrt[1-12 u^4+16 u^6]/(-1+2 u^2)*)
-(*Simplify[\!\( *)
-(*\*SubscriptBox[\(\[PartialD]\), \(u\)]%\)-Sqrt[1-12 u^4+16 u^6]/((-2+u^2) (1+4 u^2))]*)
 
 
 (* ::Text:: *)
@@ -4704,7 +4868,8 @@ EndPackage[];
 
 (* ::Input:: *)
 (*(Sqrt[Sqrt[1-x^2]+x Sqrt[1/x^2-1]] int[x Sqrt[2 Sqrt[1-x^2]],x])/Sqrt[2 Sqrt[1-x^2]]*)
-(*D[%,x]-x Sqrt[Sqrt[1-x^2]+x Sqrt[1/x^2-1]]//Simplify*)
+(*Simplify[\!\( *)
+(*\*SubscriptBox[\(\[PartialD]\), \(x\)]%\)-x Sqrt[Sqrt[1-x^2]+x Sqrt[1/x^2-1]]]*)
 
 
 (* ::Text:: *)
@@ -4868,6 +5033,18 @@ EndPackage[];
 
 
 (* ::Input:: *)
+(*int[1/((1+Sqrt[x]) Sqrt[x-Sqrt[x]]),x]*)
+
+
+(* ::Input:: *)
+(*int[Sqrt[1-12 u^4+16 u^6]/((-2+u^2) (1+4 u^2)),u]*)
+
+
+(* ::Input:: *)
+(*int[Sqrt[u]/Sqrt[-1-u+u^2+u^3],u]*)
+
+
+(* ::Input:: *)
 (*int[Sqrt[-Sqrt[u]+u]/u,u]*)
 
 
@@ -4972,7 +5149,7 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[x/Sqrt[1-Sqrt[1-Sqrt[1-1/x]]],x,"SingleStepTimeConstraint"->2](* Mathematica seemingly gets this one wrong, with branch cut issues. *)*)
+(*int[x/Sqrt[1-Sqrt[1-Sqrt[1-1/x]]],x,"SingleStepTimeConstraint"->2]*)
 (*FullSimplify[\!\( *)
 (*\*SubscriptBox[\(\[PartialD]\), \(x\)]%\)-x/Sqrt[1-Sqrt[1-Sqrt[1-1/x]]]]*)
 
@@ -5452,20 +5629,81 @@ EndPackage[];
 
 
 (* ::Input:: *)
-(*int[1/((-1+x)Sqrt[x-Sqrt[x]]),x]*)
+(*int[Sqrt[-1-11 x-36 x^2-27 x^3+16 x^4+9 x^5+x^6],x]*)
 
 
 (* ::Input:: *)
-(*int[Sqrt[x]/((-1+x)Sqrt[x-Sqrt[x]]),x]*)
+(*int[Sqrt[u]/Sqrt[-1-u+u^2+u^3],u]*)
+
+
+(* ::Input:: *)
+(*int[1/((1+Sqrt[x]) Sqrt[x-Sqrt[x]]),x]*)
+
+
+(* ::Input:: *)
+(*int[(x^4+b)^2/(a b^4+4 a b^3 x^4+b^4 x^4+6 a b^2 x^8+4 b^3 x^8+4 a b x^12+6 b^2 x^12+a x^16+4 b x^16+x^20)^(1/4),x]*)
+
+
+(* ::Input:: *)
+(*int[1/(1-3 x+3 x^3-9 x^4+3 x^6-9 x^7+x^9-3 x^10)^(1/3),x]*)
+
+
+(* ::Input:: *)
+(*int[(1-3 x+3 x^3-9 x^4+3 x^6-9 x^7+x^9-3 x^10)^(1/3),x]*)
+
+
+(* ::Input:: *)
+(*int[(1-(1-3 x+3 x^3-9 x^4+3 x^6-9 x^7+x^9-3 x^10)^(1/3))/(x^2+(1-3 x+3 x^3-9 x^4+3 x^6-9 x^7+x^9-3 x^10)^(1/3)),x]*)
+
+
+(* ::Input:: *)
+(*int[(x+Sqrt[1+4 x+7 x^2+8 x^3+5 x^4+2 x^5])/(1-Sqrt[1+4 x+7 x^2+8 x^3+5 x^4+2 x^5]),x]*)
+
+
+(* ::Input:: *)
+(*int[1/(-1-3 x^4-2 x^8+2 x^12+3 x^16+x^20)^(1/4),x]*)
+
+
+(* ::Input:: *)
+(*int[((1-x^4) (1-x-4 x^2+4 x^3+6 x^4-6 x^5-4 x^6+4 x^7+x^8-x^9)^(1/4))/(1+x^4),x]*)
+
+
+(* ::Input:: *)
+(*int[1/(-8+12 x+54 x^2-135 x^3+81 x^4)^(1/3),x]*)
+
+
+(* ::Input:: *)
+(*int[Sqrt[-81+27 x+135 x^2-150 x^3+65 x^4-13 x^5+x^6]/(x-1),x]*)
+
+
+(* ::Input:: *)
+(*int[Sqrt[(-81+27 x+135 x^2-150 x^3+65 x^4-13 x^5+x^6)^3]/(x-1),x]*)
+
+
+(* ::Input:: *)
+(*int[((-3+x)^6 (-1-x+x^2)^(3/2))/(-1+x),x]*)
+
+
+(* ::Input:: *)
+(*int[Sqrt[1-12 u^4+16 u^6]/((-2+u^2) (1+4 u^2)),u]*)
+
+
+(* ::Input:: *)
+(*int[1/((-1+x) Sqrt[x-Sqrt[x]]),x]*)
+
+
+(* ::Input:: *)
+(*int[Sqrt[x]/((-1+x) Sqrt[x-Sqrt[x]]),x]*)
 
 
 (* ::Input:: *)
 (*int[x^2/Sqrt[1-Sqrt[1-Sqrt[1-1/x]]],x]*)
-(*D[%,x]-x^2/Sqrt[1-Sqrt[1-Sqrt[1-1/x]]]//FullSimplify*)
+(*FullSimplify[\!\( *)
+(*\*SubscriptBox[\(\[PartialD]\), \(x\)]%\)-x^2/Sqrt[1-Sqrt[1-Sqrt[1-1/x]]]]*)
 
 
 (* ::Input:: *)
-(*int[1/(x^3+x^2-x-1)^(1/3), x]//Timing*)
+(*Timing[int[1/(x^3+x^2-x-1)^(1/3),x]]*)
 
 
 (* ::Input:: *)
