@@ -16,7 +16,7 @@
 (*Started on 16 March 2020.*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Implementation details*)
 
 
@@ -224,6 +224,106 @@
 
 (* ::Input:: *)
 (*IntegrateAlgebraic[(Sqrt[a^2 x^4+b] Sqrt[a x^2+Sqrt[a^2 x^4+b]])/(c x^2+d),x]*)
+
+
+(* ::Subsubsection::Closed:: *)
+(*integrateMultipleRadicals*)
+
+
+(* ::Text:: *)
+(*IntegrateAlgebraic can integrate both *)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(Sqrt[x^4+1] Sqrt[x^2+Sqrt[x^4+1]])/(x^2+1),x]*)
+
+
+(* ::Text:: *)
+(*and *)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(x^2+1)/((x^2-1) Sqrt[x^4+1]),x]*)
+
+
+(* ::Text:: *)
+(*however, we would also like it to integrate *)
+
+
+(* ::Input:: *)
+(*(x^2+1)/((x^2-1) Sqrt[x^4+1])+(Sqrt[x^4+1] Sqrt[x^2+Sqrt[x^4+1]])/(x^2+1)//Together*)
+
+
+(* ::Text:: *)
+(*integrateMultipleRadicals attempts to split the integrand into a sum of terms in a clever way. Note that it uses undocumented functionality of Apart. *)
+
+
+(* ::Subsubsection::Closed:: *)
+(*linearRationalIntegrate*)
+
+
+(* ::Text:: *)
+(*This routine tries a substitution of the form u == (x + a)/(x + b). For example, for the following integral*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(-1+x)/(x^3-x^2-x+1)^(1/3),x]*)
+
+
+(* ::Text:: *)
+(*IntegrateAlgebraic uses the substitution u == (x - 1)/(x + 1) to transform the integral to IntegrateAlgebraic[(2*u^(1/3))/(-1 + u)^2, u].*)
+
+
+(* ::Subsubsection::Closed:: *)
+(*integrateMultipleLinearRadical*)
+
+
+(* ::Text:: *)
+(*This method integrates any integrand in Q(x, (a x + b)^m1/2, (a x + b)^m2/2) using the substitution u == (Sqrt[a x + b] - Sqrt[a \alpha + b])/(Sqrt[c x + d] - Sqrt[c \alpha + d]). We go to some effort to pick a nice \alpha, but this could possibly be improved. *)
+
+
+(* ::Subsubsection::Closed:: *)
+(*integrateLinearRatioRadical*)
+
+
+(* ::Text:: *)
+(*This method integrates any integrand in Q(x, ((a x + b)/(c x + d))^(m1/n1), ((a x + b)/(c x + d))^(m2/n2), ...) with the substitution u^n == (a x + b)/(c x + d), where u = LCM[n1, n2, ...].*)
+
+
+(* ::Subsubsection::Closed:: *)
+(*integrateLinearRadical*)
+
+
+(* ::Text:: *)
+(*This method integrates any integrand in Q(x, (a x + b)^m1/n1, (a x + b)^m2/n2, ...) with the substitution u^n == (a x + b), where n = LCM[n1, n2, ...]. This method should work regardless of the size/complexity of the integrand (just like for rational function integration). For example *)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(1-x^3 (4x+5)^(2/3)-x^5 (4x+5)^(1/5))/(1-x (4x+5)^(1/2)),x]*)
+
+
+(* ::Subsubsection::Closed:: *)
+(*integrateQuadraticRadical*)
+
+
+(* ::Text:: *)
+(*We can integrate all integrands in Q(x, (a x^2 + b x + c)^(m1/2), (a x^2 + b x + c)^(m2/2), ...) using Euler's substitution. Sometimes the Euler substitution method will produce integrals which are larger than necessary. *)
+
+
+(* ::Subsubsection::Closed:: *)
+(*expandIntegrate*)
+
+
+(* ::Text:: *)
+(*After all the methods in IntegrateAlgebraic fail we try expanding the integrand and integrating term-by-term. This method is only used if "Expansion" -> True. The default is "Expansion" -> False, as this method can drastically increase the time it takes to compute an integral. *)
+
+
+(* ::Subsubsection::Closed:: *)
+(*apartIntegrate*)
+
+
+(* ::Text:: *)
+(*Like expandIntegrate, apartIntegrate is only used if all other methods in IntegrateAlgebraic have failed. This method can take even longer than expandIntegrate, however it means we can compute some really nice integrals. This method is only used if "Expansion" -> True.*)
 
 
 (* ::Subsubsection::Closed:: *)
@@ -463,7 +563,7 @@ ClearAll[solveAlgebraicIntegral];
 Options[solveAlgebraicIntegral] = Options[IntegrateAlgebraic];
 
 solveAlgebraicIntegral[integrand_, x_, opts : OptionsPattern[]] := 
-	(* solveAlgebraicIntegral[integrand, x, opts] = *) Module[
+	solveAlgebraicIntegral[integrand, x, opts] = Module[
 {start, u, dd, rationalPart, unintegratedPart, integratedPart, 
 rationalIntegrand, substitution, integral, linRat, result, 
 goursat, simplified, split},
@@ -711,15 +811,6 @@ If[OptionValue["Expansion"],
 		integratedPart  += result[[3]]
 	];
 	debugPrint1["expandIntegrate0 returned : ", {rationalPart, unintegratedPart, integratedPart}];
-		
-	debugPrint1["Trying expansion into sum of terms with Apart on ", unintegratedPart];
-	result = expandIntegrate2[unintegratedPart, x, opts];
-	If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[result[[3]], unintegratedPart - result[[1]] - result[[2]], x],
-		rationalPart    += result[[1]]; 
-		unintegratedPart = result[[2]];
-		integratedPart  += result[[3]]
-	];
-	debugPrint1["partialFractionIntegrate returned : ", {rationalPart, unintegratedPart, integratedPart}];
 
 	debugPrint1["Trying expansion into sum of terms with Expand on ", unintegratedPart];
 	result = expandIntegrate1[unintegratedPart, x, opts];
@@ -2056,7 +2147,7 @@ partiallyRemovableQ[listOfFactors_, r_, x_] :=
 	Cases[listOfFactors, {p_,n_} /; !FreeQ[p,x] && n >= Denominator[r]] =!= {}
 
 
-(* ::Subsubsection:: *)
+(* ::Subsubsection::Closed:: *)
 (*decreasePolynomialRadicandDegreeIntegrate*)
 
 
@@ -2185,70 +2276,8 @@ invrules = Join @@ Table[
 (*IntegrateAlgebraic[Sqrt[1-12 u^4+16 u^6]/((-2+u^2) (1+4 u^2)),u]*)
 
 
-(* ::Subsubsection::Closed:: *)
+(* ::Subsubsection:: *)
 (*decreaseRationalRadicandDegreeIntegrate*)
-
-
-ClearAll[decreaseRationalRadicandDegreeIntegrate];
-
-Options[decreaseRationalRadicandDegreeIntegrate] = Options[IntegrateAlgebraic];
-
-decreaseRationalRadicandDegreeIntegrate[e_, x_, opts:OptionsPattern[]] := Module[
-{fp, flist, fl, qr, fo, fi, ep, fot, rules, epint, invrules},
-(* Find radicands, (p1/p2)^(m/n), such that the polynomial, p1, p2, factors 
-into p1 = r1*q1^(v1 n), p2 = r2*q2^(v2 n), for integers v1,v2 > 0 and 
-polynomials q1, q2, r1, r2. *)
-
-fp = Union @ Cases[e,Power[p_, r_Rational] /; ! FreeQ[Denominator[p],x] && rationalQ[p,x], {0, Infinity}];
-If[Length[fp] != 1, Return[ {0, e, 0} ]];(* No radicals or multiple distinct radicals. *)
-flist = {FactorList[#1],#1, #2}& @@@ fp;
-flist = Cases[flist,{facs_, _, r_} /; partiallyRemovableQ[facs, r, x], {1}];
-If[flist === {}, Return[ {0, e, 0} ]];(* Radicands do not partially factor out. *)
-debugPrint2["Radicand is partially factorable ",flist];
-(* Factor out terms from all radicals. *)
-rules = Table[
-	With[{factors = fl[[1]], p = fl[[2]], r = fl[[3]], radical = fl[[2]]^fl[[3]]},
-	qr = {#1, Quotient[#2,Denominator[r]], Mod[#2,Denominator[r]]}& @@@ factors;
-	fo = Select[qr, #[[2]] != 0&];(* Partially factored-out terms. *)
-	fi = Select[qr, #[[2]] == 0&];(* Factored terms that stay in the radical. *)
-	fi = Apply[Times, Power[#1,#3]& @@@ fi];
-	fot = 1;(* Factored-out terms. *)
-	Do[
-		fot *= ft[[1]]^(ft[[2]] Numerator[r]); (* Quotient factors out. *)
-		fi *= ft[[1]]^(ft[[3]] Numerator[r]),(* Remainder stays inside the radical. *)
-	{ft, fo}];
-	{
-		{radical -> fot fi^r, 1/radical -> 1/(fot fi^r)}, 
-		{Expand[fi]^r -> radical/fot, 1/Expand[fi]^r -> fot/radical}
-	}
-],
-{fl, flist}];
-
-ep = e /. Flatten[ rules[[All,1]] ];
-
-debugPrint2["Reduced integrand for recursive integration is ", ep];
-epint = solveAlgebraicIntegral[ep, x, opts];
-debugPrint2["Recursive integration returned ", epint];
-If[epint[[2]] =!= 0, 
-	Return[ {0, e, 0} ], 
-	epint = epint[[1]] + epint[[3]]
-];
-
-(* The creation of inverse rules is a hack and should be completely rewritten. SAMB 0521 *)
-invrules = Join @@ Table[
-	Which[
-		n == 0, 
-			Sequence @@ {}, 
-		n == 1, 
-			rule, 
-		True, 
-			Distribute[(rule)^n,Rule]
-	],
-{rule, Flatten[ rules[[All,-1]] ]},
-{n, -16, 16}];
-
-{0, 0, simplify[epint /. invrules, x]}
-]
 
 
 (* ::Subsection::Closed:: *)
@@ -2697,7 +2726,7 @@ If[LeafCount[uradicals] < LeafCount[radicals],
 
 
 (* ::Subsection::Closed:: *)
-(*Integrating linear and quadratic radicals *)
+(*integrateLinearRadical, integrateQuadraticRadical - Integrating linear and quadratic radicals *)
 
 
 (* ::Text:: *)
@@ -2951,7 +2980,7 @@ If[transformed === {},
 
 
 (* ::Subsection::Closed:: *)
-(*Integrating multiple linear radicals*)
+(*integrateMultipleLinearRadical - Integrating multiple linear radicals*)
 
 
 ClearAll[integrateMultipleLinearRadical];
@@ -3097,7 +3126,7 @@ Return[ \[Alpha] /. inst /. {e_} :> e ]
 
 
 (* ::Subsection::Closed:: *)
-(*Integrating multiple ratios of linear radicals*)
+(*integrateLinearRatioRadical - Integrating multiple ratios of linear radicals*)
 
 
 ClearAll[integrateLinearRatioRadical];
@@ -3198,6 +3227,104 @@ PolynomialQ[num,x] && PolynomialQ[den,x] && nex<2 && dex<2 && nex+dex>0
 
 
 (* ::Subsection::Closed:: *)
+(*integrateMultipleRadicals - integrating distinct radicals term-by-term*)
+
+
+(* ::Text:: *)
+(*IntegrateAlgebraic can integrate both *)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(Sqrt[x^4+1] Sqrt[x^2+Sqrt[x^4+1]])/(x^2+1),x]*)
+
+
+(* ::Text:: *)
+(*and *)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(x^2+1)/((x^2-1) Sqrt[x^4+1]),x]*)
+
+
+(* ::Text:: *)
+(*however, we would also like it to integrate *)
+
+
+(* ::Input:: *)
+(*(x^2+1)/((x^2-1) Sqrt[x^4+1])+(Sqrt[x^4+1] Sqrt[x^2+Sqrt[x^4+1]])/(x^2+1)//Together*)
+
+
+(* ::Text:: *)
+(*integrateMultipleRadicals attempts to split the integrand into a sum of terms in a clever way. Note that it uses undocumented functionality of Apart. *)
+
+
+multipleRadicalsQ[e_,x_] := Length[Union[Cases[e, r_^_Rational /; ! FreeQ[r,x], {0,\[Infinity]}]]] > 1
+
+
+ClearAll[integrateMultipleRadicals];
+
+Options[integrateMultipleRadicals] = Options[solveAlgebraicIntegral];
+
+integrateMultipleRadicals[0|0., x_, opts:OptionsPattern[]] := {0, 0, 0}
+
+integrateMultipleRadicals[e_, x_, opts:OptionsPattern[]] := Module[
+	{expanded, rationalPart, unintegratedPart, integratedPart, integrated},
+
+	expanded = splitIntegrand[e, x];
+	If[!ListQ[expanded], Return[ {0, e, 0} ]];
+	
+	rationalPart = 0;
+	unintegratedPart = 0;
+	integratedPart = 0;
+
+	Do[
+		If[rationalQ[term, x], 
+			rationalPart += term,
+			debugPrint2["Integrating ", term, " wrt ", x];
+			integrated = solveAlgebraicIntegral[term, x, opts];
+			debugPrint2["Recursive call to solveAlgebraicIntegral returned ", integrated];
+			rationalPart += integrated[[1]];
+			unintegratedPart += integrated[[2]];
+			integratedPart += integrated[[3]]
+		],
+	{term, expanded}];
+	
+	If[integratedPart === 0,
+		unintegratedPart = e;
+		integratedPart = 0;
+		rationalPart = 0;
+	];
+	
+	{rationalPart, unintegratedPart, simplify[integratedPart // Expand, x]}
+]
+
+
+ClearAll[splitIntegrand];
+
+splitIntegrand[e_, x_] := splitIntegrand[e, x] = Module[{terms, rationalPart},
+
+terms = apartSquareFreeList[e];
+If[Length[terms] == 1, 
+	Return[ False ]];
+
+(* Rational part. *)
+rationalPart = Cases[terms, s_ /; PolynomialQ[s,x] || rationalQ[s, x]];
+terms = Complement[terms, rationalPart];
+rationalPart = Together @ Total[rationalPart];
+
+(* Gather each term by the radicals present. *)
+terms = GatherBy[terms, Union[Cases[#, Power[p_, r_Rational] /; !FreeQ[p,x] :> {p, Denominator @ r},{0,\[Infinity]}]]&];
+
+(* Combine radical like terms with Together. *)
+terms = Cancel[Together[Total[#]]]& /@ terms;
+If[rationalPart === 0 && Length[terms] === 1,
+	False,
+	{rationalPart, terms} // Flatten
+]
+]
+
+
+(* ::Subsection::Closed:: *)
 (*Expand integrate*)
 
 
@@ -3284,82 +3411,6 @@ If[Head[exnum] === Plus,
 
 (* ::Input:: *)
 (*expandIntegrate1[-((2 2^(3/4) (-1+u) u^2)/((-1+u^4) (1+u^4)^(3/4))),u]*)
-
-
-ClearAll[apartList];
-
-apartList[e_, x_] := Module[{pf},
-
-pf = Apart[e, x];
-
-If[Head[pf] === Plus,
-	pf = List @@ pf,
-	Return[{e}]
-];
-
-pf = GatherBy[pf, Union[Cases[#, Power[p_, n_Rational] /; (! FreeQ[p, x] && (PolynomialQ[p, x] || rationalQ[p, x] || ! FreeQ[p, Power[r_, _Rational] /; !FreeQ[r,x]])) :> p^Abs[n],{0,Infinity}]]&];
-
-Simplify[ Cancel[Together[Total[#]]]& /@ pf ]
-]
-
-
-(* ::Input:: *)
-(*apartList[Sqrt[1-x]/(8 (1+x)^(7/2)),x]*)
-
-
-(* ::Input:: *)
-(*apartList[(2 x^(5/2))/((-1+x)^4 (1+x)^(7/2)),x]*)
-
-
-(* ::Input:: *)
-(*apartList[((-8 x^3+7 x^4) (-1+x^2-Sqrt[1+(Sqrt[2] x^4)/Sqrt[-1+x]]))/(2 2^(3/4) (-1+x)^(5/2) Sqrt[x^4/Sqrt[-1+x]] (1+x) Sqrt[1+(Sqrt[2] x^4)/Sqrt[-1+x]]),x](* This is suboptimal. *)*)
-
-
-ClearAll[expandIntegrate2];
-
-Options[expandIntegrate2] = Options[solveAlgebraicIntegral];
-
-expandIntegrate2[0|0., x_, opts:OptionsPattern[]] := {0, 0, 0}
-
-
-expandIntegrate2[e_, x_, opts:OptionsPattern[]] := Module[
-{exy, pf, unintegratedPart, integratedPart, integrated, rationalPart},
-
-If[MatchQ[e, 0|0.], 
-	Return[ {0, 0, 0} ]];
-
-If[! algebraicQ[e, x], 
-	Return[ {0, e, 0} ]
-];
-
-pf = apartList[e, x];
-
-If[Length[pf] > 1, 
-	debugPrint2["Expanding integrand and integrating like terms, term-by-term."];
-	rationalPart = 0;
-	unintegratedPart = 0;
-	integratedPart = 0;
-	Do[
-		If[rationalQ[term, x], 
-			rationalPart += term,
-			debugPrint2["Integrating ", term, " wrt ", x];
-			integrated = solveAlgebraicIntegral[term, x, opts];
-			debugPrint2["Recursive call to solveAlgebraicIntegral returned ", integrated];
-			rationalPart += integrated[[1]];
-			unintegratedPart += integrated[[2]];
-			integratedPart += integrated[[3]]
-		], 
-	{term, pf}];
-
-	If[integratedPart === 0,
-		unintegratedPart = e;
-		integratedPart = 0;
-		rationalPart = 0;
-	];
-	{rationalPart, unintegratedPart, simplify[integratedPart // Expand, x]}, 
-	{0, e, 0}
-]
-]
 
 
 (* ::Subsection::Closed:: *)
@@ -4334,103 +4385,6 @@ False
 
 
 (* ::Subsection::Closed:: *)
-(*Multiple radicals*)
-
-
-(* ::Text:: *)
-(*IntegrateAlgebraic can integrate both *)
-
-
-(* ::Input:: *)
-(*IntegrateAlgebraic[(Sqrt[x^4+1] Sqrt[x^2+Sqrt[x^4+1]])/(x^2+1),x]*)
-
-
-(* ::Text:: *)
-(*and *)
-
-
-(* ::Input:: *)
-(*IntegrateAlgebraic[(x^2+1)/((x^2-1) Sqrt[x^4+1]),x]*)
-
-
-(* ::Text:: *)
-(*however, we would also like it to integrate *)
-
-
-(* ::Input:: *)
-(*(x^2+1)/((x^2-1) Sqrt[x^4+1])+(Sqrt[x^4+1] Sqrt[x^2+Sqrt[x^4+1]])/(x^2+1)//Together*)
-
-
-(* ::Text:: *)
-(*integrateMultipleRadicals attempts to break the integrand into a sum of terms in a clever way. Note that it uses undocumented functionality of Apart. *)
-
-
-multipleRadicalsQ[e_,x_] := Length[Union[Cases[e, r_^_Rational /; ! FreeQ[r,x], {0,\[Infinity]}]]] > 1
-
-
-ClearAll[integrateMultipleRadicals];
-
-Options[integrateMultipleRadicals] = Options[solveAlgebraicIntegral];
-
-integrateMultipleRadicals[0|0., x_, opts:OptionsPattern[]] := {0, 0, 0}
-
-integrateMultipleRadicals[e_, x_, opts:OptionsPattern[]] := Module[
-	{expanded, rationalPart, unintegratedPart, integratedPart, integrated},
-
-	expanded = splitIntegrand[e, x];
-	
-	rationalPart = 0;
-	unintegratedPart = 0;
-	integratedPart = 0;
-
-	Do[
-		If[rationalQ[term, x], 
-			rationalPart += term,
-			debugPrint2["Integrating ", term, " wrt ", x];
-			integrated = solveAlgebraicIntegral[term, x, opts];
-			debugPrint2["Recursive call to solveAlgebraicIntegral returned ", integrated];
-			rationalPart += integrated[[1]];
-			unintegratedPart += integrated[[2]];
-			integratedPart += integrated[[3]]
-		],
-	{term, expanded}];
-	
-	If[integratedPart === 0,
-		unintegratedPart = e;
-		integratedPart = 0;
-		rationalPart = 0;
-	];
-	
-	{rationalPart, unintegratedPart, simplify[integratedPart // Expand, x]}
-]
-
-
-ClearAll[splitIntegrand];
-
-splitIntegrand[e_, x_] := splitIntegrand[e, x] = Module[{terms, rationalPart},
-
-terms = apartSquareFreeList[e];
-If[Length[terms] == 1, 
-	Return[ False ]];
-
-(* Rational part. *)
-rationalPart = Cases[terms, s_ /; PolynomialQ[s,x] || rationalQ[s, x]];
-terms = Complement[terms, rationalPart];
-rationalPart = Together @ Total[rationalPart];
-
-(* Gather each term by the radicals present. *)
-terms = GatherBy[terms, Union[Cases[#, Power[p_, r_Rational] /; !FreeQ[p,x] :> {p, Denominator @ r},{0,\[Infinity]}]]&];
-
-(* Combine radical like terms with Together. *)
-terms = Together[Total[#]]& /@ terms;
-If[rationalPart === 0 && Length[terms] === 1,
-	False,
-	{rationalPart, terms} // Flatten
-]
-]
-
-
-(* ::Subsection::Closed:: *)
 (*simplify*)
 
 
@@ -4766,12 +4720,12 @@ ClearAll[verifySolution];
 
 verifySolution[integral_, integrand_, x_] := Module[
 	{dd, tdd},
-	debugPrint2["Verifying the integrand, integral: ", integrand, ",", integral];
+	debugPrint3["Verifying the integrand, integral: ", integrand, ",", integral];
 	If[TrueQ[integral == 0] || TrueQ[integrand == 0], Return[ False ]];
 	dd = D[integral, x];
 	tdd = Cancel @ Together[dd - integrand];
 	(* Order tests from fastest to slowest. *)
-	debugPrint2["Result of verification is ", tdd];
+	debugPrint3["Result of verification is ", tdd];
 	TrueQ[
 		tdd === 0 ||
 		numericZeroQ[tdd] ||
@@ -4781,7 +4735,7 @@ verifySolution[integral_, integrand_, x_] := Module[
 ]
 
 
-(* ::Subsubsection::Closed:: *)
+(* ::Subsubsection:: *)
 (*numericZeroQ*)
 
 
@@ -4812,7 +4766,8 @@ numericZeroQ[e_, OptionsPattern[]] := Module[
 
 	(* TODO: test using Compile? *)
 	
-	numericeval = Table[
+	(* BlockRandom *)
+		numericeval = Table[
 					Quiet[
 						ef @@ SetPrecision[Table[r Random[] Exp[2.0 Pi I k/12], {Length @ v}], OptionValue[Precision]]
 						],
