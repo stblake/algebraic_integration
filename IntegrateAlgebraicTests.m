@@ -21,16 +21,20 @@
 (*int=IntegrateAlgebraic;*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*current bugs and deficiencies*)
 
 
-(* ::Input:: *)
-(*int[((-7+x) (1+x-5 x^2+3 x^3)^(1/3))/((-5+x) (-1+x)^3),x]*)
+(* ::Text:: *)
+(*This should be fixed in post processing of linearRationalIntegrate:*)
 
 
 (* ::Input:: *)
 (*int[x/(x^3+x^2-x-1)^(1/3),x]*)
+
+
+(* ::Input:: *)
+(*int[((-7+x) (1+x-5 x^2+3 x^3)^(1/3))/((-5+x) (-1+x)^3),x]*)
 
 
 (* ::Text:: *)

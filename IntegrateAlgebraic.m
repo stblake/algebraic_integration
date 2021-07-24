@@ -327,6 +327,22 @@
 
 
 (* ::Subsubsection::Closed:: *)
+(*derivdivides*)
+
+
+(* ::Text:: *)
+(*The derivdivides method implemented the usual derivative divides heuristic and a Groebner basis-based method that seemingly outperforms CAS on many difficult integrals. For example*)
+
+
+(* ::Input:: *)
+(*int[(((4 x)/(-1+2 x^2)-(E^x-1/x)/(2 Sqrt[E^x-Log[x]])) Sqrt[Sqrt[-Sqrt[E^x-Log[x]]+Log[-1+2 x^2]]-Sqrt[1-Sqrt[E^x-Log[x]]+Log[-1+2 x^2]]])/(2 Sqrt[-Sqrt[E^x-Log[x]]+Log[-1+2 x^2]]),x]*)
+
+
+(* ::Input:: *)
+(*int[((E^x+ExpIntegralEi[x]) Sqrt[1+x ExpIntegralEi[x]-x^2 ExpIntegralEi[x]^2])/(x ExpIntegralEi[x]),x]*)
+
+
+(* ::Subsubsection::Closed:: *)
 (*Polynomial & rational functions*)
 
 
@@ -652,20 +668,6 @@ If[ListQ @ linearRatioRadicalToRational[unintegratedPart, x, u],
 	]
 ];
 
-(* Multiple distinct radicals? See if we can split them and integrate term-by-term using existing methods. 
-	For example: IntegrateAlgebraic[((x^4 + 1)*Sqrt[x^4 - 1] + (x^4 - 1)*Sqrt[x^4 + 1])/(x^8 + 1), x] SAMB 0421 *)
-
-If[ListQ @ splitIntegrand[unintegratedPart, x],
-	debugPrint1["Integrand contains multiple radicals: ", unintegratedPart];
-	result = integrateMultipleRadicals[unintegratedPart, x, opts];
-	If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[result[[3]], unintegratedPart - result[[1]] - result[[2]], x],
-		rationalPart    += result[[1]]; 
-		unintegratedPart = result[[2]];
-		integratedPart  += result[[3]]
-	];
-	debugPrint1["integrateMultipleRadicals returned : ", {rationalPart, unintegratedPart, integratedPart}]
-];
-
 (*
 If[multipleRadicalsQ[unintegratedPart, x] && nestedCount[unintegratedPart, x] == 0,
 	Return[{Integrate[rationalPart, x], unintegratedPart, integratedPart}, Module] (* As no further methods deal with multiple radicals. *)
@@ -822,7 +824,7 @@ If[OptionValue["Expansion"],
 	debugPrint1["expandIntegrate1 returned : ", {rationalPart, unintegratedPart, integratedPart}];
 ];
 
-(* Everything else has failed, so try derivative-divides on the algebraic integral. *)
+(* Try derivative-divides on the algebraic integral. *)
 
 debugPrint1["Trying derivative-divides..."];
 dd = derivdivides[unintegratedPart, x, u];
@@ -840,6 +842,21 @@ If[ListQ[dd],
 		integratedPart  += result[[3]]
 	]
 ];
+
+(* Multiple distinct radicals? See if we can split them and integrate term-by-term using existing methods. 
+	For example: IntegrateAlgebraic[((x^4 + 1)*Sqrt[x^4 - 1] + (x^4 - 1)*Sqrt[x^4 + 1])/(x^8 + 1), x] SAMB 0421 *)
+
+If[ListQ @ splitIntegrand[unintegratedPart, x],
+	debugPrint1["Integrand contains multiple radicals: ", unintegratedPart];
+	result = integrateMultipleRadicals[unintegratedPart, x, opts];
+	If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[result[[3]], unintegratedPart - result[[1]] - result[[2]], x],
+		rationalPart    += result[[1]]; 
+		unintegratedPart = result[[2]];
+		integratedPart  += result[[3]]
+	];
+	debugPrint1["integrateMultipleRadicals returned : ", {rationalPart, unintegratedPart, integratedPart}]
+];
+
 
 {Integrate[rationalPart, x], unintegratedPart, integratedPart}
 ]
@@ -2178,6 +2195,7 @@ rules = Table[
 		fot *= ft[[1]]^(ft[[2]] Numerator[r]); (* Quotient factors out. *)
 		fi *= ft[[1]]^(ft[[3]] Numerator[r]),(* Remainder stays inside the radical. *)
 	{ft, fo}];
+	If[fi === 1, Return[{0, e, 0}, Module]]; (* Handle these in the future. SAMB 0721 *)
 	{
 		{radical -> fot fi^r, 1/radical -> 1/(fot fi^r)}, 
 		{Expand[fi]^r -> radical/fot, 1/Expand[fi]^r -> fot/radical}
@@ -2411,6 +2429,9 @@ linearRationalIntegrate[e_, x_, opts : OptionsPattern[]] := Module[
 	If[MatchQ[result, {_, 0, _}],
 	
 		(* Fix for int[(3 - x^2)/((1 - x^2)*(1 - 6*x^2 + x^4)^(1/4)), x, "Expansion" -> True] *)
+		Print[result];
+		Print[result /. Last[linRat]];
+		Print[powerReduce1[MapAll[Together,result /. Last[linRat]], x]];
 		integral = simplify[powerReduce1[MapAll[Together,result /. Last[linRat]], x], x];
 		const = Simplify[e/(integral[[1]] + D[integral[[3]], x])];
 		If[Cancel[D[const, x]] == 0, integral[[3]] *= const];
@@ -3429,11 +3450,12 @@ apartIntegrate[e_, x_, opts:OptionsPattern[]] := apartIntegrate[e, x, opts] = Mo
 
 radicals = Cases[e, Power[p_, n_Rational] /; (! FreeQ[p, x] && PolynomialQ[p, x]), {0, Infinity}];	
 
-If[Length[radicals] > 1, Return[ {0, e, 0} ]];
+If[Length[radicals] != 1, Return[ {0, e, 0} ]];
 
 exy = e /. radicals[[1]] -> y;
 
-If[FreeQ[Denominator[exy], x] || Complement[Flatten[Variables /@ Level[Denominator[exy], {-1}]], {x, y}] =!= {}, Return[ {0, e, 0} ]];
+If[FreeQ[Denominator[exy], x] || Complement[Flatten[Variables /@ Level[Denominator[exy], {-1}]], {x, y}] =!= {}, 
+	Return[ {0, e, 0} ]];
 
 If[OptionValue["FactorComplete"], 
 	sf = x /. Solve[Denominator[exy] == 0 /. y -> 1, x];
@@ -3978,7 +4000,7 @@ candidates = Flatten[
 			{#, # /. px_^n_Rational :> px^(1/Denominator[n]),
 				# /. px_^n_Rational :> px^(-1/Denominator[n])}, #]& /@ candidates ];
 candidates = DeleteCases[candidates, x^n_Integer /; n < 0];
-candidates = Cases[candidates, s_ /; !FreeQ[s,x]];
+candidates = Cases[candidates, s_ /; ! FreeQ[s,x] && FreeQ[s, Root | RootSum]];
 candidates = DeleteCases[candidates, x];
 candidates = Select[candidates, LeafCount[#] < 4/5 LeafCount[e]&]; (* Only try _small_ substitutions (relative to the integrand) *)
 candidates = Union[candidates, SameTest -> (FreeQ[#1/#2, x]&)];
@@ -4078,7 +4100,7 @@ Do[
 		subs2 = Table[n sub -> n u, {n, -16, 16}];
 		diff = Cancel @ Together[D[sub,x]];
 		eu = e //. subs1 //. subs2;
-		subx = Solve[u == sub, x]; (* Inverse function for the candidate substitution. *)
+		subx = Quiet @ Solve[u == sub, x]; (* Inverse function for the candidate substitution. *)
 		If[Length[subx] > 1, Continue[]]; (* Something went wrong. (Special candidates should only have a single solution.) *)
 		eu = eu //. subx[[1]];
 		eu = (Cancel[Together[eu/diff]] //. subs1 //. subs2 //. subx[[1]]);
@@ -4288,10 +4310,11 @@ gb = GroebnerBasis[eqns, {Dt[u],u}, elimvars, MonomialOrder -> EliminationOrder,
 debugPrint3["Time elapsed in GroebnerBasis = ", AbsoluteTime[]-tic];
 If[gb == {}, Return[ False ]];
 gb = Factor[gb];
-ufns = Solve[gb[[1]] == 0, Dt[y]];
+ufns = Quiet @ Solve[gb[[1]] == 0, Dt[y]];
 If[MatchQ[ufns, {}|{{}}], Return[ False ]];
 ufns = Factor[ufns /. Dt[u] -> 1]; (* This is faster than dividing by Dt[u] and cancelling. *)
 ufns = Cancel @ Together[(Dt[y] /. ufns)];
+ufns = Cases[ufns, s_ /; FreeQ[s, Root | RootSum]];
 debugPrint3["Candidate integrands in ", u, " are ",ufns];
 Do[
 If[FreeQ[ufn, x] && PossibleZeroQ[Cancel[Together[et - (ufn D[subt,x] /. u -> subt)]]],
