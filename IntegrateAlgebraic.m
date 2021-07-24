@@ -2379,7 +2379,7 @@ False
 (*goursatQuartic[(77-46 x+5 x^2)/((-23+82 x-23 x^2) Sqrt[-60+83 x-21 x^2-3 x^3+x^4]), x,u]*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*linearRationalIntegrate - linear rational substitutions*)
 
 
@@ -2429,9 +2429,6 @@ linearRationalIntegrate[e_, x_, opts : OptionsPattern[]] := Module[
 	If[MatchQ[result, {_, 0, _}],
 	
 		(* Fix for int[(3 - x^2)/((1 - x^2)*(1 - 6*x^2 + x^4)^(1/4)), x, "Expansion" -> True] *)
-		Print[result];
-		Print[result /. Last[linRat]];
-		Print[powerReduce1[MapAll[Together,result /. Last[linRat]], x]];
 		integral = simplify[powerReduce1[MapAll[Together,result /. Last[linRat]], x], x];
 		const = Simplify[e/(integral[[1]] + D[integral[[3]], x])];
 		If[Cancel[D[const, x]] == 0, integral[[3]] *= const];
