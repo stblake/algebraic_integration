@@ -1843,7 +1843,7 @@
 (*int[(1+4 x)/Sqrt[1-2 x+3 x^2+2 x^3+x^4],x]*)
 
 
-(* ::InheritFromParent:: *)
+(* ::Input:: *)
 (*int[(-1+x)/Sqrt[-2-x+6 x^2-4 x^3+x^4],x]*)
 
 
@@ -1857,6 +1857,10 @@
 
 (* ::Subsubsection::Closed:: *)
 (*decreasePolynomialRadicandDegreeIntegrate*)
+
+
+(* ::Input:: *)
+(*$verboseLevel=2;*)
 
 
 (* ::Input:: *)
@@ -2002,11 +2006,15 @@
 
 
 (* ::Input:: *)
-(*int[x^2/ (((a x+b)/(c x+d))^(1/2)),x]*)
+(*int[x^2/Sqrt[(a x+b)/(c x+d)],x]*)
 
 
 (* ::Input:: *)
-(*int[(x^2-1)/ (((a x+b)/(c x+d))^(1/4)),x]*)
+(*int[(x^2-c x^2 ((a x+b)/(c x+d))^(3/2))/(a-b Sqrt[(a x+b)/(c x+d)]),x]*)
+
+
+(* ::Input:: *)
+(*int[(x^2-1)/((a x+b)/(c x+d))^(1/4),x]*)
 
 
 (* ::Input:: *)
@@ -2018,7 +2026,7 @@
 
 
 (* ::Input:: *)
-(*int[((1+d x^2)((1-b x)/(c+x))^(1/6))/((1+c x)(1+b x)),x]*)
+(*int[((1+d x^2) ((1-b x)/(c+x))^(1/6))/((1+c x) (1+b x)),x]*)
 
 
 (* ::Subsubsection::Closed:: *)
@@ -2057,6 +2065,10 @@
 (*int[(b-a x^5)/((a b+x^5)Sqrt[a+b x]),x]*)
 
 
+(* ::Input:: *)
+(*int[(b Sqrt[a+b x]-a x+1)/((a b Sqrt[a+b x]+x) Sqrt[a+b x]),x]*)
+
+
 (* ::Subsubsection::Closed:: *)
 (*integrateQuadraticRadical*)
 
@@ -2083,6 +2095,10 @@
 
 (* ::Input:: *)
 (*int[(x^2+1)/((x^2-1) (2 x^2+1)^(3/2)),x]*)
+
+
+(* ::Input:: *)
+(*int[((2 x^2+1)^(1/2)-x^2+(2 x^2+1)^(5/2))/(x^2-x (2 x^2+1)^(3/2)),x]*)
 
 
 (* ::Subsubsection::Closed:: *)

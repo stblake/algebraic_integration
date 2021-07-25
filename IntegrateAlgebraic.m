@@ -2420,7 +2420,11 @@ invrules = Join @@ Table[
 {rule, preducerule},
 {n, mults}];
 
-epint = MapAll[Together, epint] //. invrules;
+If[FreeQ[epint, Root|RootSum],
+	epint = MapAll[Together, epint]
+];
+
+epint = epint //. invrules;
 
 integral = simplify[epint, x, "CancelRadicalDenominators" -> False];
 debugPrint2["Integral after repairing branch cuts is ", integral];
@@ -4913,8 +4917,8 @@ verifySolution[integral_, integrand_, x_] := Module[
 	TrueQ[
 		tdd === 0 ||
 		numericZeroQ[tdd] ||
-		PossibleZeroQ[tdd] || 
-		PossibleZeroQ[D[Simplify[tdd], x]]
+		Quiet[ PossibleZeroQ[tdd] ] || 
+		Quiet[ PossibleZeroQ[D[Simplify[tdd], x]] ]
 	]
 ]
 
