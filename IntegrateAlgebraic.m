@@ -307,7 +307,11 @@
 
 
 (* ::Text:: *)
-(*We can integrate all integrands in Q(x, (a x^2 + b x + c)^(m1/2), (a x^2 + b x + c)^(m2/2), ...) using Euler's substitution. Sometimes the Euler substitution method will produce integrals which are larger than necessary. *)
+(*We can integrate all integrands in Q(x, (a x^2 + b x + c)^(m1/2), (a x^2 + b x + c)^(m2/2), ...) using Euler's substitution. Sometimes the Euler substitution method will produce integrals which are larger than necessary. Here's a nice example*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(1-Sqrt[1-x+x^2])/(x^4+x^2 Sqrt[1-x+x^2]-1),x]*)
 
 
 (* ::Subsubsection::Closed:: *)
@@ -706,6 +710,16 @@ If[! OptionValue["RationalUndeterminedOnly"] && nestedCount[unintegratedPart, x]
 		integratedPart  += result[[3]]
 	];
 	debugPrint1["decreasePolynomialRadicandDegreeIntegrate returned : ", {rationalPart, unintegratedPart, integratedPart}]
+];
+
+If[! OptionValue["RationalUndeterminedOnly"] && nestedCount[unintegratedPart, x] == 0,
+	result = decreaseRationalRadicandDegreeIntegrate[unintegratedPart, x, opts];
+	If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[result[[3]], unintegratedPart - result[[1]] - result[[2]], x],
+		rationalPart    += result[[1]]; 
+		unintegratedPart = result[[2]];
+		integratedPart  += result[[3]]
+	];
+	debugPrint1["decreaseRationalRadicandDegreeIntegrate returned : ", {rationalPart, unintegratedPart, integratedPart}]
 ];
 
 (* Goursat pseudo-elliptic integral. *)
@@ -2117,7 +2131,7 @@ Do[
 
 
 (* ::Subsection::Closed:: *)
-(*decreasePolynomialRadicandDegreeIntegrate - integrating by factorisation and taking branch cuts*)
+(*decreasePolynomialRadicandDegreeIntegrate - integrating by factorisation and taking branch cuts for sqrt(polynomial)*)
 
 
 (* ::Text:: *)
@@ -2162,10 +2176,6 @@ Do[
 
 partiallyRemovableQ[listOfFactors_, r_, x_] := 
 	Cases[listOfFactors, {p_,n_} /; !FreeQ[p,x] && n >= Denominator[r]] =!= {}
-
-
-(* ::Subsubsection::Closed:: *)
-(*decreasePolynomialRadicandDegreeIntegrate*)
 
 
 ClearAll[decreasePolynomialRadicandDegreeIntegrate];
@@ -2294,8 +2304,163 @@ invrules = Join @@ Table[
 (*IntegrateAlgebraic[Sqrt[1-12 u^4+16 u^6]/((-2+u^2) (1+4 u^2)),u]*)
 
 
-(* ::Subsubsection:: *)
-(*decreaseRationalRadicandDegreeIntegrate*)
+(* ::Subsection::Closed:: *)
+(*decreaseRationalRadicandDegreeIntegrate - integrating by factorisation and taking branch cuts for sqrt(rational)*)
+
+
+(* ::Text:: *)
+(*Similar to decreasePolynomialRadicandDegreeIntegrate, this method solves integrals like *)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[Sqrt[(-3 - 16*x - 9*x^2 + 32*x^3 - 15*x^4 + 2*x^5)/*)
+(*    (1 - 2*x - 13*x^2 + 38*x^3 - 23*x^4 + 4*x^5)], x]*)
+
+
+(* ::Text:: *)
+(*which we integrate by rewriting the radicand as *)
+
+
+(* ::Input:: *)
+(*(Sqrt[(-3 + 2*x)/(1 + 4*x)]*(-1 - 3*x + x^2))/(1 - 3*x + x^2)*)
+
+
+(* ::Text:: *)
+(*Then repairing for the branch cuts that we introduced after finishing the integration. *)
+
+
+factorRules[factorList_] := Module[
+{qr, fo, fi, fot, rules},
+Table[
+	With[{factors = fl[[1]], p = fl[[2]], r = fl[[3]], radical = fl[[2]]^fl[[3]]},
+	qr = {#1, Quotient[#2,Denominator[r]], Mod[#2,Denominator[r]]}& @@@ factors;
+	fo = Select[qr, #[[2]] != 0&];(* Partially factored-out terms. *)
+	fi = Select[qr, #[[2]] == 0&];(* Factored terms that stay in the radical. *)
+	fi = Apply[Times, Power[#1,#3]& @@@ fi];
+	fot = 1;(* Factored-out terms. *)
+	Do[
+		fot *= ft[[1]]^(ft[[2]] Numerator[r]); (* Quotient factors out. *)
+		fi *= ft[[1]]^(ft[[3]] Numerator[r]),(* Remainder stays inside the radical. *)
+	{ft, fo}];
+	If[fi === 1, Return[$Failed, Module]]; (* Handle these in the future. SAMB 0721 *)
+	{fot, fi}
+],
+{fl, factorList}]
+]
+
+
+ClearAll[decreaseRationalRadicandDegreeIntegrate];
+
+Options[decreaseRationalRadicandDegreeIntegrate] = Options[IntegrateAlgebraic];
+
+decreaseRationalRadicandDegreeIntegrate[e_, x_, opts:OptionsPattern[]] := Module[
+{fp, flistnum, flistden, rulesnum, rulesden, ep, epint, invrules, 
+pexpandrule, preducerule, integral, mults},
+(* Find radicands, (p1/p2)^(m/n), such that the polynomial, p1, p2, factors 
+into p1 = r1*q1^(v1 n), p2 = r2*q2^(v2 n), for integers v1,v2 > 0 and 
+polynomials q1, q2, r1, r2. *)
+
+fp = Union @ Cases[e, Power[p_, r_Rational] /; ! FreeQ[Denominator[p],x] && rationalQ[p,x], {0, Infinity}];
+If[Length[fp] != 1, Return[ {0, e, 0} ]];(* No radicals or multiple distinct radicals. *)
+
+flistnum = {FactorList[Numerator @ #1], Numerator @ #1, #2}& @@@ fp;
+flistnum = Cases[flistnum, {facs_, _, r_} /; partiallyRemovableQ[facs, r, x], {1}];
+If[flistnum =!= {}, 
+	debugPrint2["Radicand numerator is partially factorable ", flistnum]];
+
+flistden = {FactorList[Denominator @ #1], Denominator @ #1, #2}& @@@ fp;
+flistden = Cases[flistden, {facs_, _, r_} /; partiallyRemovableQ[facs, r, x], {1}];
+If[flistden =!= {}, 
+	debugPrint2["Radicand denominator is partially factorable ", flistden]];
+
+If[flistnum === {} && flistden === {}, Return[ {0, e, 0} ]];(* Radicands do not partially factor out in 
+either the numerator or denominator. *)
+
+(* Create rules to factor radicals. *)
+rulesnum = factorRules[flistnum];
+If[rulesnum === $Failed, Return[ {0, e, 0} ]];
+rulesden = factorRules[flistden];
+If[rulesden === $Failed, Return[ {0, e, 0} ]];
+
+If[rulesnum === {}, rulesnum = {{1, Numerator @ fp[[1,1]]}}];
+If[rulesden === {}, rulesden = {{1, Denominator @ fp[[1,1]]}}];
+
+pexpandrule = {
+	fp[[1]] -> (rulesnum[[1,1]]/rulesden[[1,1]]) (rulesnum[[1,2]]/rulesden[[1,2]])^fp[[1,2]],
+	fp[[1,1]]^(-fp[[1,2]]) -> (rulesden[[1,1]]/rulesnum[[1,1]]) (rulesnum[[1,2]]/rulesden[[1,2]])^(-fp[[1,2]])
+	};
+
+preducerule = {
+	(rulesnum[[1,2]]/rulesden[[1,2]])^fp[[1,2]] -> (rulesden[[1,1]]/rulesnum[[1,1]])fp[[1]],
+	(rulesnum[[1,2]]/rulesden[[1,2]])^(-fp[[1,2]]) -> (rulesnum[[1,1]]/rulesden[[1,1]]) fp[[1,1]]^(-fp[[1,2]])
+	};
+
+ep = e /. pexpandrule;
+
+(* Recursive integration. *)
+debugPrint2["Reduced integrand for recursive integration is ", ep];
+epint = solveAlgebraicIntegral[ep, x, opts];
+debugPrint2["Recursive integration returned ", epint];
+If[epint[[2]] =!= 0, 
+	Return[ {0, e, 0} ], 
+	epint = epint[[1]] + epint[[3]]
+];
+
+(* The creation of inverse rules is a hack and should be completely rewritten. SAMB 0521 *)
+mults = Range[-16,16]~Join~(1/Range[1,16])~Join~(1/Range[-16,-1]);
+invrules = Join @@ Table[
+	Which[
+		n == 0, 
+			Sequence @@ {}, 
+		n == 1, 
+			rule, 
+		True, 
+			Distribute[(rule)^n,Rule]
+	],
+{rule, preducerule},
+{n, mults}];
+
+epint = MapAll[Together, epint] //. invrules;
+
+integral = simplify[epint, x, "CancelRadicalDenominators" -> False];
+debugPrint2["Integral after repairing branch cuts is ", integral];
+
+{0, 0, integral}
+]
+
+
+(* ::InheritFromParent:: *)
+(*IntegrateAlgebraic[Sqrt[(1 + a*x^2 + 4*b*x^2 + 4*a*b*x^4 + 6*b^2*x^4 + 6*a*b^2*x^6 + 4*b^3*x^6 + *)
+(*      4*a*b^3*x^8 + b^4*x^8 + a*b^4*x^10)/(1 + c*x^2 + 4*d*x^2 + 4*c*d*x^4 + 6*d^2*x^4 + *)
+(*      6*c*d^2*x^6 + 4*d^3*x^6 + 4*c*d^3*x^8 + d^4*x^8 + c*d^4*x^10)]/x, x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[Sqrt[(-1 + a*x - 2*x^2 + 2*a*x^3 - x^4 + a*x^5)/*)
+(*    (1 + a*x - 2*x^2 - 2*a*x^3 + x^4 + a*x^5)], x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(x - a)/((-1 - 3*x + a*x - 3*x^2 + 3*a*x^2 - x^3 + 3*a*x^3 + a*x^4)/*)
+(*     (-1 + 3*x - a*x - 3*x^2 + 3*a*x^2 + x^3 - 3*a*x^3 + a*x^4))^(1/3), x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(x/(-1 - a*x + 3*x^2 + 3*a*x^3 - 3*x^4 - 3*a*x^5 + x^6 + a*x^7))^(1/3), x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(x/(-1 - a*x + 3*x^2 + 3*a*x^3 - 3*x^4 - 3*a*x^5 + x^6 + a*x^7))^(1/3)/x^3, x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[((1 + a*x - 4*x^2 - 4*a*x^3 + 6*x^4 + 6*a*x^5 - 4*x^6 - 4*a*x^7 + x^8 + a*x^9)/*)
+(*    (-c + b*x))^(1/4), x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[((1 + 4*x^2 + a*x^2 + 6*x^4 + 4*a*x^4 + 4*x^6 + 6*a*x^6 + x^8 + 4*a*x^8 + *)
+(*      a*x^10)/x^2)^(1/4)/x, x]*)
 
 
 (* ::Subsection::Closed:: *)
@@ -2379,7 +2544,7 @@ False
 (*goursatQuartic[(77-46 x+5 x^2)/((-23+82 x-23 x^2) Sqrt[-60+83 x-21 x^2-3 x^3+x^4]), x,u]*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*linearRationalIntegrate - linear rational substitutions*)
 
 
@@ -2429,7 +2594,7 @@ linearRationalIntegrate[e_, x_, opts : OptionsPattern[]] := Module[
 	If[MatchQ[result, {_, 0, _}],
 	
 		(* Fix for int[(3 - x^2)/((1 - x^2)*(1 - 6*x^2 + x^4)^(1/4)), x, "Expansion" -> True] *)
-		integral = simplify[powerReduce1[MapAll[Together,result /. Last[linRat]], x], x];
+		integral = simplify[powerReduce1[MapAll[Together, result /. Last[linRat]], x], x];
 		const = Simplify[e/(integral[[1]] + D[integral[[3]], x])];
 		If[Cancel[D[const, x]] == 0, integral[[3]] *= const];
 
@@ -2485,10 +2650,6 @@ powerReduce1[e_, x_] := e //. (p_ q_^n_Integer)^m_Rational /;
 
 powerReduce2[e_, x_] := e //. (p_ q_^n_Integer)^m_Rational /;
 	PolynomialQ[p,x] && PolynomialQ[q,x] && n < 0 && -n <= Denominator[m] :> -(-p q^(Denominator[m]+n))^m/q^Numerator[m]
-
-
-(* ::Input:: *)
-(*powerReduce1[((p x^2 \[ScriptCapitalA]^2+2 p x \[ScriptCapitalA] \[ScriptCapitalB]+p \[ScriptCapitalB]^2+q x^2 \[ScriptCapitalC]^2+2 q x \[ScriptCapitalC] \[ScriptCapitalD]+q \[ScriptCapitalD]^2)/(x \[ScriptCapitalC]+\[ScriptCapitalD])^2)^(7/3),x]*)
 
 
 (* ::Input:: *)
@@ -4648,6 +4809,7 @@ simplify[e_, x_, OptionsPattern[]] := Module[
 	simp = simp /. ArcTanh[a_] /; nicerQ[Numerator[a], Denominator[a], x] :> ArcTanh[collectnumden @ canonic[Denominator[a]/Numerator[a]]];
 
 	simp = collect[simp, x] /. Power[p_, r_Rational] /; PolynomialQ[p, x] :> Expand[p]^r;
+	simp = collect[simp, x] /. Power[p_, r_Rational] /; rationalQ[p, x] :> (Expand[Numerator @ p]/Expand[Denominator @ p])^r;
 	simp = simp /. p_ /; PolynomialQ[p,x] :> Collect[p, x];
 	simp = simp /. Log[ex_] :> Log[Collect[ex, Power[_, _Rational]]];
 	simp = simp /. Log[ex_^(n_Integer|n_Rational)] :> n Log[ex];
@@ -4667,6 +4829,8 @@ simplify[e_, x_, OptionsPattern[]] := Module[
 			rationalTerms
 		]
 	];
+
+	simp = collect[simp, x] /. Power[p_, r_Rational] /; rationalQ[p, x] :> (Expand[Numerator @ p]/Expand[Denominator @ p])^r;
 
 	simp = simp /. {$rootSum -> RootSum, $function -> Function};
 

@@ -21,8 +21,19 @@
 (*int=IntegrateAlgebraic;*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*current bugs and deficiencies*)
+
+
+(* ::Text:: *)
+(*For this integral, we have issues when repairing branch cuts:*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[*)
+(*  ((1 + 4*x + a*x + 6*x^2 + 4*a*x^2 + 4*x^3 + *)
+(*     6*a*x^3 + x^4 + 4*a*x^4 + a*x^5)/*)
+(*    ((-c)*x^4 + b*x^5))^(1/4), x]*)
 
 
 (* ::Text:: *)
@@ -984,7 +995,7 @@
 (*int[(1+x^2)/((1-x^2) Sqrt[1+x^4]),x]*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*regression testing*)
 
 
@@ -1918,6 +1929,44 @@
 
 (* ::Input:: *)
 (*int[(-x+x^2)/Sqrt[-2 x+4 x^2-2 x^3+x^4-2 x^5+x^6],x]*)
+
+
+(* ::Subsubsection::Closed:: *)
+(*decreaseRationalRadicandDegreeIntegrate*)
+
+
+(* ::InheritFromParent:: *)
+(*IntegrateAlgebraic[Sqrt[(1 + a*x^2 + 4*b*x^2 + 4*a*b*x^4 + 6*b^2*x^4 + 6*a*b^2*x^6 + 4*b^3*x^6 + *)
+(*      4*a*b^3*x^8 + b^4*x^8 + a*b^4*x^10)/(1 + c*x^2 + 4*d*x^2 + 4*c*d*x^4 + 6*d^2*x^4 + *)
+(*      6*c*d^2*x^6 + 4*d^3*x^6 + 4*c*d^3*x^8 + d^4*x^8 + c*d^4*x^10)]/x, x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[Sqrt[(-1 + a*x - 2*x^2 + 2*a*x^3 - x^4 + a*x^5)/*)
+(*    (1 + a*x - 2*x^2 - 2*a*x^3 + x^4 + a*x^5)], x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(x - a)/((-1 - 3*x + a*x - 3*x^2 + 3*a*x^2 - x^3 + 3*a*x^3 + a*x^4)/*)
+(*     (-1 + 3*x - a*x - 3*x^2 + 3*a*x^2 + x^3 - 3*a*x^3 + a*x^4))^(1/3), x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(x/(-1 - a*x + 3*x^2 + 3*a*x^3 - 3*x^4 - 3*a*x^5 + x^6 + a*x^7))^(1/3), x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(x/(-1 - a*x + 3*x^2 + 3*a*x^3 - 3*x^4 - 3*a*x^5 + x^6 + a*x^7))^(1/3)/x^3, x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[((1 + a*x - 4*x^2 - 4*a*x^3 + 6*x^4 + 6*a*x^5 - 4*x^6 - 4*a*x^7 + x^8 + a*x^9)/*)
+(*    (-c + b*x))^(1/4), x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[((1 + 4*x^2 + a*x^2 + 6*x^4 + 4*a*x^4 + 4*x^6 + 6*a*x^6 + x^8 + 4*a*x^8 + *)
+(*      a*x^10)/x^2)^(1/4)/x, x]*)
 
 
 (* ::Subsubsection::Closed:: *)
