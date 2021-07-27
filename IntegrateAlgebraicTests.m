@@ -30,10 +30,7 @@
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[*)
-(*  ((1 + 4*x + a*x + 6*x^2 + 4*a*x^2 + 4*x^3 + *)
-(*     6*a*x^3 + x^4 + 4*a*x^4 + a*x^5)/*)
-(*    ((-c)*x^4 + b*x^5))^(1/4), x]*)
+(*IntegrateAlgebraic[((1+4 x+a x+6 x^2+4 a x^2+4 x^3+6 a x^3+x^4+4 a x^4+a x^5)/(-c x^4+b x^5))^(1/4),x]*)
 
 
 (* ::Text:: *)
@@ -57,35 +54,7 @@
 
 
 (* ::Text:: *)
-(*I'm not sure if we should be able to do this one. If we can compute the rational part of the integral, then we can do the logarithmic part:*)
-
-
-(* ::Text:: *)
-(*[samb@spartan - login2 ~] $ maple*)
-(*    | \^ / |     Maple 2018 (X86 64 LINUX)*)
-(*._ | \|   | /| _. Copyright (c) Maplesoft, a division of Waterloo Maple Inc. 2018*)
-(* \  MAPLE  /  All rights reserved. Maple is a trademark of*)
-(* < ___ _ ___ _ >  Waterloo Maple Inc.*)
-(*        |       Type ? for help.*)
-(*   > int (x/(x^3 + x^2 - x - 1)^(1/3), x);     *)
-(*memory used = 4.1 MB, alloc = 40.3 MB, time = 0.14*)
-(*                                                          /*)
-(*                                      (x - 1) (x + 1)       |                1*)
-(*                                --------------------- +  |  - ------------------------- dx*)
-(*                                                2 1/3    |                      2 (1/3)*)
-(*                                ((x - 1) (x + 1) )      /     3 ((x - 1) (x + 1) )*)
-(**)
-(*> int (convert (x/(x^3 + x^2 - x - 1)^(1/3), RootOf), x);*)
-(**)
-
-
-(* ::Input:: *)
-(*int[x/(x^3+x^2-x-1)^(1/3),x]*)
-(*int[1/(3 (x^3+x^2-x-1)^(1/3)),x]*)
-
-
-(* ::Text:: *)
-(*This example takes far too long in verifying solutions. *)
+(*This example takes far too long in verifying the solution: *)
 
 
 (* ::Input:: *)
@@ -101,23 +70,6 @@
 
 
 (* ::Text:: *)
-(*What on Earth has gone on here?*)
-
-
-(* ::Input:: *)
-(*int[x Sqrt[1+Sqrt[2]+Sqrt[2] x+x^2],x]*)
-
-
-(* ::Text:: *)
-(*Something strange happening here:*)
-
-
-(* ::Input:: *)
-(*int[(1+x^2)/((-1+x) Sqrt[1-x^2+x^4]),x,"Expansion"->True]*)
-(*IntegrateAlgebraic[(1+x)/((-1+x) Sqrt[1-x^2+x^4]),x]*)
-
-
-(* ::Text:: *)
 (*This should return the partial answer it found (if not the complete integral):*)
 
 
@@ -125,35 +77,8 @@
 (*int[(-1+x^3)^(1/3)/(1+x),x,"Expansion"->True]*)
 
 
-(* ::Text:: *)
-(*The integral below should work without Expand[]:*)
-
-
-(* ::Input:: *)
-(*int[(2 x-1)/((x+1) Sqrt[Expand[(x+1)^6-a^2 x^2]]),x]*)
-
-
-(* ::Text:: *)
-(*This solution to this integral is terrible. (Ok, its seemingly better now. 04032021)*)
-
-
-(* ::Input:: *)
-(*int[Sqrt[x^4-1]/(x^4+1),x]*)
-
-
-(* ::Input:: *)
-(*Simplify[\!\( *)
-(*\*SubscriptBox[\(\[PartialD]\), \(x\)]\((\(-*)
-(*\*FractionBox[\(1\), \(2\)]\)\ ArcTan[*)
-(*\*FractionBox[\(x\ \((1 - *)
-(*\*SuperscriptBox[\(x\), \(2\)])\)\), *)
-(*SqrtBox[\(\(-1\) + *)
-(*\*SuperscriptBox[\(x\), \(4\)]\)]]] - *)
-(*\*FractionBox[\(1\), \(2\)]\ ArcTanh[*)
-(*\*FractionBox[\(x\ \((1 + *)
-(*\*SuperscriptBox[\(x\), \(2\)])\)\), *)
-(*SqrtBox[\(\(-1\) + *)
-(*\*SuperscriptBox[\(x\), \(4\)]\)]]])\)\)-Sqrt[x^4-1]/(x^4+1)]*)
+(* ::Subsection::Closed:: *)
+(*wish list*)
 
 
 (* ::Text:: *)
@@ -225,8 +150,32 @@
 (*\*SuperscriptBox[\(x\), \(6\)])\)])\))\)\)-1/((x+1) (x^3+2)^(1/3))]*)
 
 
-(* ::Subsection::Closed:: *)
-(*wish list*)
+(* ::Text:: *)
+(*I'm not sure if we should be able to do this one. If we can compute the rational part of the integral, then we can do the logarithmic part:*)
+
+
+(* ::Text:: *)
+(*[samb@spartan - login2 ~] $ maple*)
+(*    | \^ / |     Maple 2018 (X86 64 LINUX)*)
+(*._ | \|   | /| _. Copyright (c) Maplesoft, a division of Waterloo Maple Inc. 2018*)
+(* \  MAPLE  /  All rights reserved. Maple is a trademark of*)
+(* < ___ _ ___ _ >  Waterloo Maple Inc.*)
+(*        |       Type ? for help.*)
+(*   > int (x/(x^3 + x^2 - x - 1)^(1/3), x);     *)
+(*memory used = 4.1 MB, alloc = 40.3 MB, time = 0.14*)
+(*                                                          /*)
+(*                                      (x - 1) (x + 1)       |                1*)
+(*                                --------------------- +  |  - ------------------------- dx*)
+(*                                                2 1/3    |                      2 (1/3)*)
+(*                                ((x - 1) (x + 1) )      /     3 ((x - 1) (x + 1) )*)
+(**)
+(*> int (convert (x/(x^3 + x^2 - x - 1)^(1/3), RootOf), x);*)
+(**)
+
+
+(* ::Input:: *)
+(*int[x/(x^3+x^2-x-1)^(1/3),x]*)
+(*int[1/(3 (x^3+x^2-x-1)^(1/3)),x]*)
 
 
 (* ::Text:: *)
@@ -401,6 +350,26 @@
 
 (* ::Subsection::Closed:: *)
 (*previously bugs, deficiencies or edge cases*)
+
+
+(* ::Input:: *)
+(*int[x Sqrt[1+Sqrt[2]+Sqrt[2] x+x^2],x]*)
+
+
+(* ::Input:: *)
+(*int[(1+x^2)/((-1+x) Sqrt[1-x^2+x^4]),x,"Expansion"->True]*)
+
+
+(* ::Input:: *)
+(*int[(1+x)/((-1+x) Sqrt[1-x^2+x^4]),x]*)
+
+
+(* ::Input:: *)
+(*int[(2 x-1)/((x+1) Sqrt[(x+1)^6-a^2 x^2]),x]*)
+
+
+(* ::Input:: *)
+(*int[Sqrt[x^4-1]/(x^4+1),x]*)
 
 
 (* ::Input:: *)
@@ -995,7 +964,7 @@
 (*int[(1+x^2)/((1-x^2) Sqrt[1+x^4]),x]*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*regression testing*)
 
 
@@ -1860,10 +1829,6 @@
 
 
 (* ::Input:: *)
-(*$verboseLevel=2;*)
-
-
-(* ::Input:: *)
 (*int[Sqrt[-1-11 x-36 x^2-27 x^3+16 x^4+9 x^5+x^6],x]*)
 
 
@@ -1939,38 +1904,32 @@
 (*decreaseRationalRadicandDegreeIntegrate*)
 
 
-(* ::InheritFromParent:: *)
-(*IntegrateAlgebraic[Sqrt[(1 + a*x^2 + 4*b*x^2 + 4*a*b*x^4 + 6*b^2*x^4 + 6*a*b^2*x^6 + 4*b^3*x^6 + *)
-(*      4*a*b^3*x^8 + b^4*x^8 + a*b^4*x^10)/(1 + c*x^2 + 4*d*x^2 + 4*c*d*x^4 + 6*d^2*x^4 + *)
-(*      6*c*d^2*x^6 + 4*d^3*x^6 + 4*c*d^3*x^8 + d^4*x^8 + c*d^4*x^10)]/x, x]*)
+(* ::Input:: *)
+(*int[Sqrt[(-1+a x-2 x^2+2 a x^3-x^4+a x^5)/(1+a x-2 x^2-2 a x^3+x^4+a x^5)],x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[Sqrt[(-1 + a*x - 2*x^2 + 2*a*x^3 - x^4 + a*x^5)/*)
-(*    (1 + a*x - 2*x^2 - 2*a*x^3 + x^4 + a*x^5)], x]*)
+(*int[Sqrt[(1+a x^2+4 b x^2+4 a b x^4+6 b^2 x^4+6 a b^2 x^6+4 b^3 x^6+4 a b^3 x^8+b^4 x^8+a b^4 x^10)/(1+c x^2+4 d x^2+4 c d x^4+6 d^2 x^4+6 c d^2 x^6+4 d^3 x^6+4 c d^3 x^8+d^4 x^8+c d^4 x^10)]/x,x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[(x - a)/((-1 - 3*x + a*x - 3*x^2 + 3*a*x^2 - x^3 + 3*a*x^3 + a*x^4)/*)
-(*     (-1 + 3*x - a*x - 3*x^2 + 3*a*x^2 + x^3 - 3*a*x^3 + a*x^4))^(1/3), x]*)
+(*int[(x-a)/((-1-3 x+a x-3 x^2+3 a x^2-x^3+3 a x^3+a x^4)/(-1+3 x-a x-3 x^2+3 a x^2+x^3-3 a x^3+a x^4))^(1/3),x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[(x/(-1 - a*x + 3*x^2 + 3*a*x^3 - 3*x^4 - 3*a*x^5 + x^6 + a*x^7))^(1/3), x]*)
+(*int[(x/(-1-a x+3 x^2+3 a x^3-3 x^4-3 a x^5+x^6+a x^7))^(1/3),x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[(x/(-1 - a*x + 3*x^2 + 3*a*x^3 - 3*x^4 - 3*a*x^5 + x^6 + a*x^7))^(1/3)/x^3, x]*)
+(*int[(x/(-1-a x+3 x^2+3 a x^3-3 x^4-3 a x^5+x^6+a x^7))^(1/3)/x^3,x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[((1 + a*x - 4*x^2 - 4*a*x^3 + 6*x^4 + 6*a*x^5 - 4*x^6 - 4*a*x^7 + x^8 + a*x^9)/*)
-(*    (-c + b*x))^(1/4), x]*)
+(*int[((1+a x-4 x^2-4 a x^3+6 x^4+6 a x^5-4 x^6-4 a x^7+x^8+a x^9)/(-c+b x))^(1/4),x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[((1 + 4*x^2 + a*x^2 + 6*x^4 + 4*a*x^4 + 4*x^6 + 6*a*x^6 + x^8 + 4*a*x^8 + *)
-(*      a*x^10)/x^2)^(1/4)/x, x]*)
+(*int[((1+4 x^2+a x^2+6 x^4+4 a x^4+4 x^6+6 a x^6+x^8+4 a x^8+a x^10)/x^2)^(1/4)/x,x]*)
 
 
 (* ::Subsubsection::Closed:: *)
