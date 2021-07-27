@@ -4900,7 +4900,7 @@ simplify[e_, x_, OptionsPattern[]] := Module[
 (*simplify[-((4 Sqrt[-2+2 x^5-x^7+x^8])/(3 x^6))+(6 Sqrt[-2+2 x^5-x^7+x^8])/x^2+(4 Sqrt[-2+2 x^5-x^7+x^8])/(3 x)-2/3 x Sqrt[-2+2 x^5-x^7+x^8]+2/3 x^2 Sqrt[-2+2 x^5-x^7+x^8]+3 Log[1-Sqrt[-2+2 x^5-x^7+x^8]/x^2]-3 Log[1+Sqrt[-2+2 x^5-x^7+x^8]/x^2],x]*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*verifySolution*)
 
 
@@ -4936,7 +4936,7 @@ ClearAll[numericZeroQ];
 Options[numericZeroQ] = {Precision -> $MachinePrecision, Tolerance -> 1.0*^-6};
 
 numericZeroQ[e_, OptionsPattern[]] := Module[
-	{ee, vpre, v, ef, lower, upper, step, numericeval, $c},
+	{ee, vpre, v, ef, lower, upper, step, numericeval, $c, rands, j},
 
 	If[NumericQ[e] && e == 0., Return[ True ]];
 	
@@ -4952,16 +4952,15 @@ numericZeroQ[e_, OptionsPattern[]] := Module[
 	upper = 10.0 + (119. E)/(121. Pi);
 	step  = (1999. Sqrt[2])/(4003.);
 
-	(* TODO: test using Compile? *)
-	
-	(* BlockRandom *)
-		numericeval = Table[
-					Quiet[
-						ef @@ SetPrecision[Table[r Random[] Exp[2.0 Pi I k/12], {Length @ v}], OptionValue[Precision]]
-						],
-					{k, 0, 11},
-					{r, lower, upper, step}
-				] // Flatten;
+	rands = BlockRandom[ RandomReal[{0,1}, Ceiling[12*(upper - lower)/step]] ];
+	j = 0;
+	numericeval = Table[
+				Quiet[
+					ef @@ SetPrecision[Table[r rands[[j++]] Exp[2.0 Pi I k/12], {Length @ v}], OptionValue[Precision]]
+				],
+			{k, 0, 11},
+			{r, lower, upper, step}
+		] // Flatten;
 
 	Mean[Norm /@ Select[numericeval, NumericQ]] < SetPrecision[OptionValue[Tolerance], OptionValue[Precision]] // TrueQ
 ]
