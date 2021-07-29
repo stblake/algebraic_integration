@@ -2077,6 +2077,34 @@
 
 
 (* ::Input:: *)
+(*int[(C[6]+C[7]x)/ Sqrt[C[4]+C[5] Sqrt[(C[0]+x C[1])/(C[2]+x C[3])]],x]*)
+
+
+(* ::Input:: *)
+(*int[(C[6]+C[7]x)^2/ Sqrt[C[4]+C[5] Sqrt[(C[0]+x C[1])/(C[2]+x C[3])]],x]*)
+
+
+(* ::Input:: *)
+(*int[1/((C[6]+C[7]x) Sqrt[C[4]+C[5] Sqrt[(C[0]+x C[1])/(C[2]+x C[3])]]),x]*)
+
+
+(* ::Input:: *)
+(*int[1/((C[6]+C[7]x)^2 Sqrt[C[4]+C[5] Sqrt[(C[0]+x C[1])/(C[2]+x C[3])]]),x]*)
+
+
+(* ::Input:: *)
+(*int[(C[8]+C[9]x)/((C[6]+C[7]x) Sqrt[C[4]+C[5] Sqrt[(C[0]+x C[1])/(C[2]+x C[3])]]),x]*)
+
+
+(* ::Input:: *)
+(*int[(x^2-1)/((x^2+1)Sqrt[C[4]+C[5] Sqrt[(C[0]+x C[1])/(C[2]+x C[3])]]),x]*)
+
+
+(* ::Input:: *)
+(*int[(x^2-1)/(x^2+1) Sqrt[C[4]+C[5] Sqrt[(C[0]+x C[1])/(C[2]+x C[3])]],x]*)
+
+
+(* ::Input:: *)
 (*int[1/((1+Sqrt[x]) Sqrt[x-Sqrt[x]]),x]*)
 
 
