@@ -876,7 +876,7 @@ If[ListQ @ splitIntegrand[unintegratedPart, x],
 ]
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*rationalUndeterminedIntegrate*)
 
 
@@ -1052,7 +1052,7 @@ rationalUndeterminedIntegrate[integrand_, x_, opts : OptionsPattern[]] := Module
 ]
 
 
-(* ::Subsubsection::Closed:: *)
+(* ::Subsubsection:: *)
 (*solveRational*)
 
 
@@ -1111,7 +1111,7 @@ ClearAll[solveRational];
 Options[solveRational] = {"MaxRationalDegree" -> 8, "RadicandPart" -> True};
 
 solveRational[num_, den_, p_, r_, usubstitution_, radicandDenominator_, x_, u_, OptionsPattern[]] := Module[
-	{y = Symbol["y"], radrat, eqns, solns, sol, pv},
+	{y, radrat, eqns, solns, sol, pv},
 
 	If[OptionValue["RadicandPart"],
 		radrat = PowerExpand[radicandDenominator^(1/r)], (* Radical contribution to the rational part of the integrand. *)
@@ -4900,7 +4900,7 @@ simplify[e_, x_, OptionsPattern[]] := Module[
 (*simplify[-((4 Sqrt[-2+2 x^5-x^7+x^8])/(3 x^6))+(6 Sqrt[-2+2 x^5-x^7+x^8])/x^2+(4 Sqrt[-2+2 x^5-x^7+x^8])/(3 x)-2/3 x Sqrt[-2+2 x^5-x^7+x^8]+2/3 x^2 Sqrt[-2+2 x^5-x^7+x^8]+3 Log[1-Sqrt[-2+2 x^5-x^7+x^8]/x^2]-3 Log[1+Sqrt[-2+2 x^5-x^7+x^8]/x^2],x]*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*verifySolution*)
 
 
@@ -4923,7 +4923,7 @@ verifySolution[integral_, integrand_, x_] := Module[
 ]
 
 
-(* ::Subsubsection:: *)
+(* ::Subsubsection::Closed:: *)
 (*numericZeroQ*)
 
 
