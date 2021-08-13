@@ -556,7 +556,14 @@ Options[IntegrateAlgebraic] = {
 	"FactorComplete" -> False
 }; 
 
-IntegrateAlgebraic[e_, x_, opts:OptionsPattern[]] := Module[
+(* IntegrateAlgebraic should not be used with the following functions: *)
+bannedList = Alternatives[List, Function, True, False, Equal, Unequal, Less, Greater, LessEqual, GreaterEqual, RegionEqual,
+			And, Or, Abs, Boole, If, Piecewise, UnitStep, UnitBox, UnitTriangle, DiracDelta, 
+			KroneckerDelta, Condition, ConditionalExpression, D, Dt, Integrate, Limit, HeavisideTheta, 
+			HeavisidePi, HeavisideLambda, TriangleWave, SawtoothWave, SquareWave, DiracComb, 
+			GreenFunction, InterpolatingFunction, BSplineFunction, BezierFunction, BezierCurve];
+
+IntegrateAlgebraic[e_, x_, opts:OptionsPattern[]] /; algebraicQ[e, x] := Module[
 	{integratedRationalPart, unintegratedPart, integratedPart, integral},
 
 	$timeConstraint = OptionValue["SingleStepTimeConstraint"];
@@ -876,7 +883,7 @@ If[ListQ @ splitIntegrand[unintegratedPart, x],
 ]
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*rationalUndeterminedIntegrate*)
 
 
@@ -1052,7 +1059,7 @@ rationalUndeterminedIntegrate[integrand_, x_, opts : OptionsPattern[]] := Module
 ]
 
 
-(* ::Subsubsection:: *)
+(* ::Subsubsection::Closed:: *)
 (*solveRational*)
 
 
@@ -1888,7 +1895,7 @@ logPartSolve1[a_, b_, r_, x_, degreeBound_:12] :=
 
 
 logPartSolve1[a_Function, b_Function, r_Function, x_, degreeBound_:12] := Module[
-{p, q, eqns, vars, c, sol, l, logs},
+{p, q, eqns, vars, c, sol, l, logs, log},
 
 Do[
 	p = Function @@ {x, undetermined[bound, x, 0]};
@@ -1924,7 +1931,9 @@ Do[
 
 	logs = logs /. LCM -> Times; (* Incase LCM doesn't simplify. eg. LCM[1, Sqrt[2]] *)
 
-	Select[logs, Quiet[ PossibleZeroQ[Together[D[#, x] - a[x]/(b[x] Sqrt[r[x]])]] ] &, 1] /. {{e_} :> e, {} -> False}
+	log = Select[logs, Quiet[ PossibleZeroQ[Together[D[#, x] - a[x]/(b[x] Sqrt[r[x]])]] ] &, 1] /. {{e_} :> e, {} -> False};
+	
+	If[FreeQ[log, _Complex], log, ExpToTrig[log]] (* Fix for IntegrateAlgebraic[(2*x-42*x^2+16*x^3)/Sqrt[Expand[1-(x^2-14*x^3+4*x^4)^2]],x] SAMB 0821 *)
 ]
 
 
@@ -3097,7 +3106,8 @@ c = Coefficient[radicals[[1,2]], x, 0];
 
 transformed = {};
 
-If[Im[a] == 0 && a > 0,
+(* Removed condition so we can handle, for example, IntegrateAlgebraic[Sqrt[a*x^2 + b*x + c], x] SAMB 0821 *)
+If[True (* (Im[a] == 0 && a > 0) *), 
 	(* Euler's first substitution. *)
 	X = (u^2 - c)/(b - 2 Sqrt[a] u);
 	U = Sqrt[radicals[[1,2]]] - Sqrt[a] x;
@@ -3711,9 +3721,9 @@ If[nestedCount[e, x] == 0,
 	Return[False]];
 
 terms = Union @ DeleteCases[
-   Flatten[Level[e, {0, \[Infinity]}]], _Symbol | _?NumericQ | _?NumericQ _Symbol];
+   Flatten[Level[{e, MapAll[Factor, e]}, {0, \[Infinity]}]], _Symbol | _?NumericQ | _?NumericQ _Symbol];
 
-terms = Cases[terms, s_Power /; !FreeQ[s, Power[p_, _Rational] /; !FreeQ[p, x]]];
+terms = Cases[terms, (s_Power | s_Plus) /; !FreeQ[s, Power[p_, _Rational] /; !FreeQ[p, x]]];
 terms = terms /. p_^n_Rational /; n < 0 && ! PolynomialQ[p, x] :> p^(-n);
 terms = ReverseSortBy[terms, LeafCount];
 debugPrint2[terms];
@@ -4154,7 +4164,7 @@ candidateSubstitutions[e_, x_, OptionsPattern[]] := Module[
 subsets of the integrand, then we should probably do so and add 
 these to the list of candidate substitutions. SAMB 0521 *)
 
-candidates = Union @ Level[e, {0,\[Infinity]}];
+candidates = Union @ Level[{e, Factor //@ e}, {0,\[Infinity]}];
 candidates = If[MatchQ[#, a_ b_ /; FreeQ[a,x]], Last[#], #]& /@ candidates; (* Remove constant multiples. *)
 candidates = If[MatchQ[#, x^n_Rational /; n < 0], 1/#, #]& /@ candidates;
 candidates = Flatten[ 
@@ -4923,7 +4933,7 @@ verifySolution[integral_, integrand_, x_] := Module[
 ]
 
 
-(* ::Subsubsection::Closed:: *)
+(* ::Subsubsection:: *)
 (*numericZeroQ*)
 
 
