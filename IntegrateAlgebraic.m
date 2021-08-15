@@ -688,16 +688,28 @@ If[multipleRadicalsQ[unintegratedPart, x] && nestedCount[unintegratedPart, x] ==
 (* Nested radicals. *)
 
 If[nestedCount[unintegratedPart, x] > 0,
+	debugPrint1["Integrand contains nested radicals: ", unintegratedPart];
+	(* Groebner basis-based direct rationalisation. *)
+	debugPrint1["Trying Groebner basis-based direct rationalisation on ", unintegratedPart];
 	If[ListQ @ decreaseNestedRadicals[unintegratedPart, x, u],
-		debugPrint1["Integrand contains nested radicals: ", unintegratedPart];
-		result = integrateNestedRadicals[unintegratedPart, x, u];
+		result = integrateNestedRadicals[unintegratedPart, x, u, opts];
 		If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[result[[3]], unintegratedPart - result[[1]] - result[[2]], x],
 			rationalPart    += result[[1]]; 
 			unintegratedPart = result[[2]];
 			integratedPart  += result[[3]]
 		];
 		debugPrint1["integrateNestedRadicals returned : ", {rationalPart, unintegratedPart, integratedPart}]
-	] 
+	];
+	
+	(* Nested radical where the innermost radical is a quadratic. *)
+	debugPrint1["Trying nestedQuadraticRadicalIntegrate on ", unintegratedPart];
+	result = nestedQuadraticRadicalIntegrate[unintegratedPart, x, opts];
+	If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[result[[3]], unintegratedPart - result[[1]] - result[[2]], x],
+		rationalPart    += result[[1]];
+		unintegratedPart = result[[2]];
+		integratedPart  += result[[3]]
+	];
+	debugPrint1["nestedQuadraticRadicalIntegrate returned : ", {rationalPart, unintegratedPart, integratedPart}]
 ];
 
 (*
@@ -3518,6 +3530,257 @@ If[rationalPart === 0 && Length[terms] === 1,
 
 
 (* ::Subsection::Closed:: *)
+(*nestedQuadraticRadicalIntegrate - integrating nested radicals via the Euler substitution*)
+
+
+(* ::Text:: *)
+(*This method was motivated by the following integral that we previously could not compute*)
+
+
+(* ::Input:: *)
+(*Integrate[Sqrt[a*x^2 + b*x*Sqrt[-(a/b^2) + (a^2*x^2)/b^2]]/(x*Sqrt[-(a/b^2) + (a^2*x^2)/b^2]), x]*)
+
+
+recastRadicals[e_, rad_, x_] := Module[{radicals, rules},
+radicals = Cases[e, Power[p_, _Rational] /; !FreeQ[p,x], {0, Infinity}];
+rules = Table[
+	With[{c = FixedPoint[Cancel[PowerExpand[Factor //@ Together //@ #]]&, r/rad]},
+		If[FreeQ[c,x],
+			r -> c rad,
+			Sequence @@ {}
+		]
+	],
+{r, radicals}];
+
+e //. rules
+]
+
+
+(* ::Input:: *)
+(*recastRadicals[(Sqrt[2] Sqrt[b^2] Log[-Sqrt[b^2] (-((a x)/b)+Sqrt[-(a/b^2)+(a^2 x^2)/b^2])+Sqrt[a+b^2 (-((a x)/b)+Sqrt[-(a/b^2)+(a^2 x^2)/b^2])^2]])/Sqrt[a],Sqrt[a x^2+b x Sqrt[-(a/b^2)+(a^2 x^2)/b^2]],x]*)
+
+
+(* ::Input:: *)
+(*recastRadicals[ArcTanh[Sqrt[b+(-a x+Sqrt[-b+a^2 x^2])^2]/Sqrt[b]],Sqrt[a x^2+x Sqrt[-b+a^2 x^2]],x]*)
+
+
+(* ::Input:: *)
+(*recastRadicals[(Sqrt[2] Log[Sqrt[a^2] x+Sqrt[-b+a^2 x^2]-Sqrt[2] Sqrt[x (a^2 x+Sqrt[a^2] Sqrt[-b+a^2 x^2])]])/Sqrt[a],Sqrt[a x^2+x Sqrt[-b+a^2 x^2]],x]*)
+
+
+(* ::Input:: *)
+(*recastRadicals[(Sqrt[2] Log[Sqrt[a^2] x+Sqrt[-b+a^2 x^2]- Sqrt[x (2a^2 x+2Sqrt[a^2] Sqrt[-b+a^2 x^2])]])/Sqrt[a],Sqrt[a x^2+x Sqrt[-b+a^2 x^2]],x]*)
+
+
+ClearAll[nestedQuadraticRadicalIntegrate];
+
+Options[nestedQuadraticRadicalIntegrate] = Options[IntegrateAlgebraic];
+
+nestedQuadraticRadicalIntegrate[e_, x_, opts:OptionsPattern[]] := Module[
+{radicalOfQuadraticRadicals,quadratics,radicand,a,b,c,u,eu, 
+substitutions,sub,subu,exponent,intx,subx, dd,intu,results,recur,result},
+
+(* Find nested radicals where the innermost radical has a quadratic 
+polynomial radicand. *)
+radicalOfQuadraticRadicals = Union @ Cases[e, 
+	r:Power[e1_, r1_Rational] /; 
+		!FreeQ[e1, Power[poly_, r2_Rational] /; Exponent[poly, x] == 2 && Denominator[r2] == 2] :> r, 
+	{0, Infinity}];
+If[Length[radicalOfQuadraticRadicals] != 1, Return[ {0, e, 0} ]];
+
+(* Find the quadratic polynomial. *)
+quadratics = Cases[radicalOfQuadraticRadicals[[1,1]], 
+	Power[poly_, r_Rational] /; Exponent[poly, x] == 2 && Denominator[r] == 2 :> {poly,r}, 
+	{0,Infinity}];
+If[Length[quadratics] != 1, Return[ {0, e, 0} ]];
+
+(* Rationalise the innermost radical using Euler's first substitution. *)
+radicand = quadratics[[1,1]];
+exponent = quadratics[[1,2]];
+{c,b,a} = CoefficientList[radicand, x];
+
+(* Rationalising substitutions for quadratic radicals. *)
+substitutions = {
+{PowerExpand[(u^2 - c)/(b + 2 Sqrt[a] u)], PowerExpand[Sqrt[a]] x + Sqrt[radicand]},
+{PowerExpand[(u^2 - c)/(b - 2 Sqrt[a] u)], -PowerExpand[Sqrt[a]] x + Sqrt[radicand]},
+{PowerExpand[(2 Sqrt[c] u - b)/(a - u^2)], (Sqrt[radicand] - PowerExpand[Sqrt[c]])/x},
+{PowerExpand[(-2 Sqrt[c] u - b)/(a - u^2)], (Sqrt[radicand] + PowerExpand[Sqrt[c]])/x}
+};
+
+If[b === 0, 
+	substitutions = Join[{
+		{-(PowerExpand[Sqrt[-a/c]]c(1 + u^2))/(2 a u), PowerExpand[Sqrt[-a/c]] x + PowerExpand[Sqrt[-1/c]]Sqrt[c + a x^2]},
+		{(PowerExpand[Sqrt[-a/c]]c(1 + u^2))/(2 a u), -PowerExpand[Sqrt[-a/c]] x + PowerExpand[Sqrt[-1/c]]Sqrt[c + a x^2]}}, 
+		substitutions]
+];
+
+(* TODO: Add Euler's third substitution if c == 0 or both real roots of quadratic. *)
+
+(* Try each substitution and see if we can solve the recursive integration problem and 
+substitute back without creating branch cut issues. *)
+results = Table[
+	subu = sub[[1]];
+	subx = sub[[2]];
+	eu = e /. x -> subu;
+	eu *= D[subu, u];
+	eu = MapAll[Factor, MapAll[Together, eu] // PowerExpand] // PowerExpand;
+	debugPrint2["Trying the substitution ", subu, " reduces the integral to ", eu];
+	recur = solveAlgebraicIntegral[eu, u, opts];
+	debugPrint2["Recursive integration returned ", recur];
+	If[recur[[3]] =!= 0,
+		(* Substitute back and simplify. *)
+		recur = recur /. u -> subx;
+		intx = recur[[3]];
+		intx = simplify[intx // Apart // Together, x, "CancelRadicalDenominators" -> False];
+		intx = recastRadicals[intx, radicalOfQuadraticRadicals[[1]], x];
+
+		(* Repair branch cuts. *)
+		dd = 1;
+		If[! verifySolution[intx, e - recur[[1]] - recur[[2]], x],
+			dd = Cancel @ Together @ Apart[D[intx,x]/e];
+			If[Cancel[Together @ D[dd,x]] == 0,
+				debugPrint2["Repairing branch cut with the piecewise constant ", dd]; 
+				intx *= dd
+			];
+			intx = simplify[intx // Apart // Together, x, "CancelRadicalDenominators" -> False]
+		];
+
+		(* Check the repairs gives a solution valid for all complex x. *)
+		If[verifySolution[intx, e - recur[[1]] - recur[[2]], x],
+			result = {recur[[1]], recur[[2]], intx};
+			If[dd === 1 && recur[[1]] === recur[[2]] === 0,
+				Return[result, Module],
+				result
+			]
+		]
+	],
+{sub, substitutions}];
+
+SortBy[DeleteCases[results, Null], LeafCount[#[[3]]]&] /. {l_, ___} :> l /. {} -> {0, e, 0}
+]
+
+
+(* ::Input:: *)
+(*nestedQuadraticRadicalIntegrate[Sqrt[a x^2+b x Sqrt[-(a/b^2)+(a^2 x^2)/b^2]]/(x Sqrt[-(a/b^2)+(a^2 x^2)/b^2]),x]//Timing*)
+
+
+(* ::Input:: *)
+(*nestedQuadraticRadicalIntegrate[Power[a x^2+b x Sqrt[-(a/b^2)+(a^2 x^2)/b^2], (3)^-1]/Sqrt[-(a/b^2)+(a^2 x^2)/b^2],x]//Timing*)
+
+
+(* ::Input:: *)
+(*nestedQuadraticRadicalIntegrate[Power[a x^2+b x Sqrt[-(a/b^2)+(a^2 x^2)/b^2], (4)^-1]/Sqrt[-(a/b^2)+(a^2 x^2)/b^2],x]//Timing*)
+
+
+(* ::Input:: *)
+(*nestedQuadraticRadicalIntegrate[1/(x Sqrt[-(a/b^2)+(a^2 x^2)/b^2] Sqrt[a x^2+b x Sqrt[-(a/b^2)+(a^2 x^2)/b^2]]),x]//Timing*)
+
+
+(* ::Input:: *)
+(*nestedQuadraticRadicalIntegrate[Sqrt[-(a/b^2)+(a^2 x^2)/b^2]/(x Sqrt[a x^2+b x Sqrt[-(a/b^2)+(a^2 x^2)/b^2]]),x]//Timing*)
+
+
+(* ::Input:: *)
+(*nestedQuadraticRadicalIntegrate[Sqrt[-(a/b^2)+(a^2 x^2)/b^2]/(x^2 Sqrt[a x^2+b x Sqrt[-(a/b^2)+(a^2 x^2)/b^2]]),x]//Timing*)
+
+
+(* ::Input:: *)
+(*nestedQuadraticRadicalIntegrate[(x^3 Sqrt[-(a/b^2)+(a^2 x^2)/b^2])/Sqrt[a x^2+b x Sqrt[-(a/b^2)+(a^2 x^2)/b^2]],x]//Timing*)
+
+
+(* ::Input:: *)
+(*nestedQuadraticRadicalIntegrate[Sqrt[-(a/b^2)+(a^2 x^2)/b^2]/Sqrt[a x^2+b x Sqrt[-(a/b^2)+(a^2 x^2)/b^2]],x]//Timing*)
+
+
+(* ::Input:: *)
+(*nestedQuadraticRadicalIntegrate[Sqrt[-(a/b^2)+(a^2 x^2)/b^2] Sqrt[a x^2+b x Sqrt[-(a/b^2)+(a^2 x^2)/b^2]],x]//Timing*)
+
+
+(* ::Input:: *)
+(*nestedQuadraticRadicalIntegrate[Sqrt[-(a/b^2)+(a^2 x^2)/b^2] Power[a x^2+b x Sqrt[-(a/b^2)+(a^2 x^2)/b^2], (3)^-1],x]//Timing*)
+
+
+(* ::Input:: *)
+(*nestedQuadraticRadicalIntegrate[1/Sqrt[x-Sqrt[-1+x^2]],x]//Timing*)
+
+
+(* ::Input:: *)
+(*nestedQuadraticRadicalIntegrate[Sqrt[x^3+x^2 Sqrt[-1+x^2]],x]//Timing*)
+
+
+(* ::Input:: *)
+(*nestedQuadraticRadicalIntegrate[Sqrt[x^2+x Sqrt[-1+x^2]]/(x Sqrt[-1+x^2]),x]//Timing*)
+
+
+(* ::Input:: *)
+(*nestedQuadraticRadicalIntegrate[Sqrt[a x^2+x Sqrt[-b+a^2 x^2]]/(x Sqrt[-b+a^2 x^2]),x]//Timing*)
+
+
+(* ::Input:: *)
+(*nestedQuadraticRadicalIntegrate[x Sqrt[-1+x^2] Sqrt[x^2+x Sqrt[-1+x^2]],x]//Timing*)
+
+
+(* ::Input:: *)
+(*nestedQuadraticRadicalIntegrate[(Sqrt[-1+x^2] Sqrt[x^2+x Sqrt[-1+x^2]])/(x^2+1),x]//Timing*)
+
+
+(* ::Input:: *)
+(*nestedQuadraticRadicalIntegrate[(Sqrt[-1+x^2] Sqrt[x^2+x Sqrt[-1+x^2]])/(x+1),x]//Timing*)
+
+
+(* ::Input:: *)
+(*nestedQuadraticRadicalIntegrate[Sqrt[x^2+x Sqrt[x+x^2]]/Sqrt[x+x^2],x]//Timing*)
+
+
+(* ::Input:: *)
+(*nestedQuadraticRadicalIntegrate[Sqrt[x^2+x Sqrt[x+x^2]]/(x Sqrt[x+x^2]),x]//Timing*)
+
+
+(* ::Input:: *)
+(*nestedQuadraticRadicalIntegrate[1/(x Sqrt[x+x^2] Sqrt[x^2+x Sqrt[x+x^2]]),x]//Timing*)
+
+
+(* ::Input:: *)
+(*nestedQuadraticRadicalIntegrate[Sqrt[x+x^2]/(x Sqrt[x^2+x Sqrt[x+x^2]]),x]//Timing*)
+
+
+(* ::Input:: *)
+(*nestedQuadraticRadicalIntegrate[(x Sqrt[x+x^2])/Sqrt[x^2+x Sqrt[x+x^2]],x]//Timing*)
+
+
+(* ::Input:: *)
+(*nestedQuadraticRadicalIntegrate[(x^2 Sqrt[x+x^2])/Sqrt[x^2+x Sqrt[x+x^2]],x]//Timing*)
+
+
+(* ::Input:: *)
+(*nestedQuadraticRadicalIntegrate[(x^3 Sqrt[x+x^2])/Sqrt[x^2+x Sqrt[x+x^2]],x]//Timing*)
+
+
+(* ::Input:: *)
+(*nestedQuadraticRadicalIntegrate[Sqrt[-x+x^2]/Sqrt[x^2-x Sqrt[-x+x^2]],x]//Timing*)
+
+
+(* ::Input:: *)
+(*nestedQuadraticRadicalIntegrate[1/x^3 Sqrt[-x+x^2] Sqrt[x^2-x Sqrt[-x+x^2]],x]//Timing*)
+
+
+(* ::Input:: *)
+(*nestedQuadraticRadicalIntegrate[1/x^3 Sqrt[x^2-x Sqrt[-x+x^2]],x]//Timing*)
+
+
+(* ::Input:: *)
+(*nestedQuadraticRadicalIntegrate[Sqrt[c x^2-x Sqrt[-b x+a x^2]]/x^3,x]//Timing*)
+
+
+(* ::Input:: *)
+(*nestedQuadraticRadicalIntegrate[Sqrt[c x^2-x Sqrt[-b x+a x^2]]/(x^3 Sqrt[-b x+a x^2]),x]//Timing*)
+
+
+(* ::Input:: *)
+(*nestedQuadraticRadicalIntegrate[1/(x^3 Sqrt[a x^2+b x Sqrt[-(a/b^2)+(a^2 x^2)/b^2]]),x]//Timing*)
+
+
+(* ::Subsection::Closed:: *)
 (*Expand integrate*)
 
 
@@ -3697,11 +3960,13 @@ If[integratedPart === 0,
 
 ClearAll[integrateNestedRadicals];
 
-integrateNestedRadicals[e_, x_, u_] := Module[{integrand, subst, result},
+Options[integrateNestedRadicals] = Options[IntegrateAlgebraic];
+
+integrateNestedRadicals[e_, x_, u_, opts:OptionsPattern[]] := Module[{integrand, subst, result},
 
 	{integrand, subst} = decreaseNestedRadicals[e, x, u];
 	debugPrint1["Using the substitution ", subst, " reduces the integral to ", integrand];
-	result = solveAlgebraicIntegral[integrand, u];
+	result = solveAlgebraicIntegral[integrand, u, opts];
 	result = {0, result[[2]], Expand[ result[[1]] + result[[3]] ]} /. subst;
 	result[[3]] = Collect[result[[3]], (Power[p_,_Rational] /; !FreeQ[p,x]) | _Log | _ArcTan | _ArcTanh | _RootSum, Together];
 
@@ -4916,7 +5181,7 @@ simplify[e_, x_, OptionsPattern[]] := Module[
 
 ClearAll[verifySolution];
 
-verifySolution[integral_, integrand_, x_] := Module[
+verifySolution[integral_, integrand_, x_] := verifySolution[integral, integrand, x] = Module[
 	{dd, tdd},
 	debugPrint3["Verifying the integrand, integral: ", integrand, ",", integral];
 	If[TrueQ[integral == 0] || TrueQ[integrand == 0], Return[ False ]];
