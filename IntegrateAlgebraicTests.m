@@ -2376,132 +2376,192 @@
 (*int[Sqrt[1+Sqrt[1+x^2]],x]*)
 
 
-(* ::Subsubsection::Closed:: *)
+(* ::Subsubsection:: *)
 (*nestedQuadraticRadicalIntegrate*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[Sqrt[c x^2-x Sqrt[-b x+a x^2]]/(x^3 Sqrt[-b x+a x^2]),x]*)
+(*int[Sqrt[c x^2-x Sqrt[-b x+a x^2]]/(x^3 Sqrt[-b x+a x^2]),x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[Sqrt[a x^2+b x Sqrt[-(a/b^2)+(a^2 x^2)/b^2]]/(x Sqrt[-(a/b^2)+(a^2 x^2)/b^2]),x]*)
+(*int[Sqrt[a x^2+b x Sqrt[-(a/b^2)+(a^2 x^2)/b^2]]/(x Sqrt[-(a/b^2)+(a^2 x^2)/b^2]),x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[Power[a x^2+b x Sqrt[-(a/b^2)+(a^2 x^2)/b^2], (3)^-1]/Sqrt[-(a/b^2)+(a^2 x^2)/b^2],x]*)
+(*int[(a x^2+b x Sqrt[-(a/b^2)+(a^2 x^2)/b^2])^(1/3)/Sqrt[-(a/b^2)+(a^2 x^2)/b^2],x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[Power[a x^2+b x Sqrt[-(a/b^2)+(a^2 x^2)/b^2], (4)^-1]/Sqrt[-(a/b^2)+(a^2 x^2)/b^2],x]*)
+(*int[(a x^2+b x Sqrt[-(a/b^2)+(a^2 x^2)/b^2])^(1/4)/Sqrt[-(a/b^2)+(a^2 x^2)/b^2],x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[1/(x Sqrt[-(a/b^2)+(a^2 x^2)/b^2] Sqrt[a x^2+b x Sqrt[-(a/b^2)+(a^2 x^2)/b^2]]),x]*)
+(*int[1/(x Sqrt[-(a/b^2)+(a^2 x^2)/b^2] Sqrt[a x^2+b x Sqrt[-(a/b^2)+(a^2 x^2)/b^2]]),x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[Sqrt[-(a/b^2)+(a^2 x^2)/b^2]/(x Sqrt[a x^2+b x Sqrt[-(a/b^2)+(a^2 x^2)/b^2]]),x]*)
+(*int[Sqrt[-(a/b^2)+(a^2 x^2)/b^2]/(x Sqrt[a x^2+b x Sqrt[-(a/b^2)+(a^2 x^2)/b^2]]),x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[Sqrt[-(a/b^2)+(a^2 x^2)/b^2]/(x^2 Sqrt[a x^2+b x Sqrt[-(a/b^2)+(a^2 x^2)/b^2]]),x]*)
+(*int[Sqrt[-(a/b^2)+(a^2 x^2)/b^2]/(x^2 Sqrt[a x^2+b x Sqrt[-(a/b^2)+(a^2 x^2)/b^2]]),x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[(x^3 Sqrt[-(a/b^2)+(a^2 x^2)/b^2])/Sqrt[a x^2+b x Sqrt[-(a/b^2)+(a^2 x^2)/b^2]],x]*)
+(*int[(x^3 Sqrt[-(a/b^2)+(a^2 x^2)/b^2])/Sqrt[a x^2+b x Sqrt[-(a/b^2)+(a^2 x^2)/b^2]],x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[Sqrt[-(a/b^2)+(a^2 x^2)/b^2]/Sqrt[a x^2+b x Sqrt[-(a/b^2)+(a^2 x^2)/b^2]],x]*)
+(*int[Sqrt[-(a/b^2)+(a^2 x^2)/b^2]/Sqrt[a x^2+b x Sqrt[-(a/b^2)+(a^2 x^2)/b^2]],x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[Sqrt[-(a/b^2)+(a^2 x^2)/b^2] Sqrt[a x^2+b x Sqrt[-(a/b^2)+(a^2 x^2)/b^2]],x]*)
+(*int[Sqrt[-(a/b^2)+(a^2 x^2)/b^2] Sqrt[a x^2+b x Sqrt[-(a/b^2)+(a^2 x^2)/b^2]],x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[Sqrt[-(a/b^2)+(a^2 x^2)/b^2] Power[a x^2+b x Sqrt[-(a/b^2)+(a^2 x^2)/b^2], (3)^-1],x]*)
+(*int[Sqrt[-(a/b^2)+(a^2 x^2)/b^2] (a x^2+b x Sqrt[-(a/b^2)+(a^2 x^2)/b^2])^(1/3),x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[1/Sqrt[x-Sqrt[-1+x^2]],x]*)
+(*int[1/Sqrt[x-Sqrt[-1+x^2]],x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[Sqrt[x^3+x^2 Sqrt[-1+x^2]],x]*)
+(*int[Sqrt[x^3+x^2 Sqrt[-1+x^2]],x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[Sqrt[x^2+x Sqrt[-1+x^2]]/(x Sqrt[-1+x^2]),x]*)
+(*int[Sqrt[x^2+x Sqrt[-1+x^2]]/(x Sqrt[-1+x^2]),x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[Sqrt[a x^2+x Sqrt[-b+a^2 x^2]]/(x Sqrt[-b+a^2 x^2]),x]*)
+(*int[Sqrt[a x^2+x Sqrt[-b+a^2 x^2]]/(x Sqrt[-b+a^2 x^2]),x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[x Sqrt[-1+x^2] Sqrt[x^2+x Sqrt[-1+x^2]],x]*)
+(*int[x Sqrt[-1+x^2] Sqrt[x^2+x Sqrt[-1+x^2]],x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[(Sqrt[-1+x^2] Sqrt[x^2+x Sqrt[-1+x^2]])/(x^2+1),x]*)
+(*int[(Sqrt[-1+x^2] Sqrt[x^2+x Sqrt[-1+x^2]])/(x^2+1),x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[(Sqrt[-1+x^2] Sqrt[x^2+x Sqrt[-1+x^2]])/(x+1),x]*)
+(*int[(Sqrt[-1+x^2] Sqrt[x^2+x Sqrt[-1+x^2]])/(x+1),x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[Sqrt[x^2+x Sqrt[x+x^2]]/Sqrt[x+x^2],x]*)
+(*int[Sqrt[x^2+x Sqrt[x+x^2]]/Sqrt[x+x^2],x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[Sqrt[x^2+x Sqrt[x+x^2]]/(x Sqrt[x+x^2]),x]*)
+(*int[Sqrt[x^2+x Sqrt[x+x^2]]/(x Sqrt[x+x^2]),x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[1/(x Sqrt[x+x^2] Sqrt[x^2+x Sqrt[x+x^2]]),x]*)
+(*int[1/(x Sqrt[x+x^2] Sqrt[x^2+x Sqrt[x+x^2]]),x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[Sqrt[x+x^2]/(x Sqrt[x^2+x Sqrt[x+x^2]]),x]*)
+(*int[Sqrt[x+x^2]/(x Sqrt[x^2+x Sqrt[x+x^2]]),x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[(x Sqrt[x+x^2])/Sqrt[x^2+x Sqrt[x+x^2]],x]*)
+(*int[(x Sqrt[x+x^2])/Sqrt[x^2+x Sqrt[x+x^2]],x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[(x^2 Sqrt[x+x^2])/Sqrt[x^2+x Sqrt[x+x^2]],x]*)
+(*int[(x^2 Sqrt[x+x^2])/Sqrt[x^2+x Sqrt[x+x^2]],x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[(x^3 Sqrt[x+x^2])/Sqrt[x^2+x Sqrt[x+x^2]],x]*)
+(*int[(x^3 Sqrt[x+x^2])/Sqrt[x^2+x Sqrt[x+x^2]],x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[Sqrt[-x+x^2]/Sqrt[x^2-x Sqrt[-x+x^2]],x]*)
+(*int[Sqrt[-x+x^2]/Sqrt[x^2-x Sqrt[-x+x^2]],x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[1/x^3 Sqrt[-x+x^2] Sqrt[x^2-x Sqrt[-x+x^2]],x]*)
+(*int[(Sqrt[-x+x^2] Sqrt[x^2-x Sqrt[-x+x^2]])/x^3,x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[1/x^3 Sqrt[x^2-x Sqrt[-x+x^2]],x]*)
+(*int[Sqrt[x^2-x Sqrt[-x+x^2]]/x^3,x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[Sqrt[c x^2-x Sqrt[-b x+a x^2]]/x^3,x]*)
+(*int[Sqrt[c x^2-x Sqrt[-b x+a x^2]]/x^3,x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[Sqrt[c x^2-x Sqrt[-b x+a x^2]]/(x^3 Sqrt[-b x+a x^2]),x]*)
+(*int[Sqrt[c x^2-x Sqrt[-b x+a x^2]]/(x^3 Sqrt[-b x+a x^2]),x]*)
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[1/(x^3 Sqrt[a x^2+b x Sqrt[-(a/b^2)+(a^2 x^2)/b^2]]),x]*)
+(*int[1/(x^3 Sqrt[a x^2+b x Sqrt[-(a/b^2)+(a^2 x^2)/b^2]]),x]*)
+
+
+(* ::Input:: *)
+(*int[1/x(x^4+c)Sqrt[-b+x^2] Sqrt[x+Sqrt[-b+x^2]],x]*)
+
+
+(* ::Input:: *)
+(*int[1/x(c x^4+d)Sqrt[-b+a^2 x^2] Sqrt[a x+Sqrt[-b+a^2 x^2]],x]*)
+
+
+(* ::Input:: *)
+(*int[1/x^2(c x^4+d)Sqrt[-b+a^2 x^2] Sqrt[a x+Sqrt[-b+a^2 x^2]],x]*)
+
+
+(* ::Input:: *)
+(*int[1/x(c x^4+d)/(Sqrt[-b+a^2 x^2] Power[a x+Sqrt[-b+a^2 x^2], (4)^-1]),x]*)
+
+
+(* ::Input:: *)
+(*int[x/(Sqrt[-b+a^2 x^2] Power[a x+Sqrt[-b+a^2 x^2], (4)^-1]),x]*)
+
+
+(* ::Input:: *)
+(*int[x^2/(Sqrt[-b+a^2 x^2] Power[a x+Sqrt[-b+a^2 x^2], (4)^-1]),x]*)
+
+
+(* ::Input:: *)
+(*int[1/x((-b+a^2 x^2)^(3/2) Power[a x+Sqrt[-b+a^2 x^2], (4)^-1]),x]*)
+
+
+(* ::Input:: *)
+(*int[1/x^2((-b+a^2 x^2)^(3/2) Power[a x+Sqrt[-b+a^2 x^2], (4)^-1]),x]*)
+
+
+(* ::Input:: *)
+(*int[1/x 1/(-b+a^2 x^2)^(3/2) Power[a x+Sqrt[-b+a^2 x^2], (4)^-1],x]*)
+
+
+(* ::Input:: *)
+(*int[(a x+Sqrt[-b+a^2 x^2])^(1/4)/(x^2 (-b+a^2 x^2)^(3/2)),x]*)
+
+
+(* ::Input:: *)
+(*int[((c x^2+d)(a x+Sqrt[-b+a^2 x^2])^(3/4))/(-b+a^2 x^2)^(5/2),x]*)
+
+
+(* ::Input:: *)
+(*int[((c x^2+d)(a x+Sqrt[-b+a^2 x^2])^(5/4))/(-b+a^2 x^2)^(3/2),x]*)
+
+
+(* ::Input:: *)
+(*int[((c x^2+d)(a x+Sqrt[-b+a^2 x^2])^(5/4))/(x (-b+a^2 x^2)^(5/2)),x]*)
+
+
+(* ::Input:: *)
+(*int[((c x^2+d)^2 (a x+Sqrt[-b+a^2 x^2])^(1/4))/((c x^2-d)^2 (-b+a^2 x^2)^(1/2)),x]*)
+
+
+(* ::Input:: *)
+(*int[(a x+Sqrt[-b+a^2 x^2])^(1/6)/(x^3 (-b+a^2 x^2)^(1/2)),x]*)
 
 
 (* ::Subsubsection::Closed:: *)

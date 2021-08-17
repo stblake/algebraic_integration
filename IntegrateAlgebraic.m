@@ -3542,18 +3542,22 @@ If[rationalPart === 0 && Length[terms] === 1,
 
 
 recastRadicals[e_, rad_, x_] := Module[{radicals, rules},
-radicals = Cases[e, Power[p_, _Rational] /; !FreeQ[p,x], {0, Infinity}];
-rules = Table[
-	With[{c = FixedPoint[Cancel[PowerExpand[Factor //@ Together //@ #]]&, r/rad]},
+radicals = Cases[e, Power[p_, r_Rational] /; ! FreeQ[p,x], {0, Infinity}];
+radicals = Table[{r[[1]]^(1/Denominator[r[[2]]]), Abs @ Numerator[r[[2]]]}, {r, radicals}];
+rules = Join @@ Table[
+	With[{c = FixedPoint[Cancel[PowerExpand[Factor //@ Together //@ #]]&, r[[1]]/rad]},
 		If[FreeQ[c,x],
-			r -> c rad,
+			Table[r[[1]]^n -> c^n rad^n, {n, -r[[2]], r[[2]]}],
 			Sequence @@ {}
 		]
 	],
 {r, radicals}];
-
 e //. rules
 ]
+
+
+(* ::Input:: *)
+(*recastRadicals[(3 Sqrt[-b+a^2 x^2] (524880 b^3 c+831402 a^4 b d+145800 a^2 b^2 c x^2+230945 a^6 d x^2+103950 a^4 b c x^4+85085 a^6 c x^6) ((a x+Sqrt[-b+a^2 x^2])/Sqrt[b])^(2/3))/(1616615 a^7 b^(2/3))-(3 (349920 b^3 c x+554268 a^4 b d x+32400 a^2 b^2 c x^3+230945 a^6 d x^3+13860 a^4 b c x^5+85085 a^6 c x^7) ((a x+Sqrt[-b+a^2 x^2])/Sqrt[b])^(2/3))/(1616615 a^6 b^(2/3)),Power[a x+Sqrt[-b+a^2 x^2], (3)^-1],x]*)
 
 
 (* ::Input:: *)
@@ -3632,7 +3636,7 @@ results = Table[
 		recur = recur /. u -> subx;
 		intx = recur[[3]];
 		intx = simplify[intx // Apart // Together, x, "CancelRadicalDenominators" -> False];
-		intx = recastRadicals[intx, radicalOfQuadraticRadicals[[1]], x];
+		intx = recastRadicals[intx, radicalOfQuadraticRadicals[[1,1]]^Abs[radicalOfQuadraticRadicals[[1,2]]], x];
 
 		(* Repair branch cuts. *)
 		dd = 1;
@@ -5198,7 +5202,7 @@ verifySolution[integral_, integrand_, x_] := verifySolution[integral, integrand,
 ]
 
 
-(* ::Subsubsection:: *)
+(* ::Subsubsection::Closed:: *)
 (*numericZeroQ*)
 
 
