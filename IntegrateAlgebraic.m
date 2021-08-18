@@ -2210,7 +2210,7 @@ into p = r*q^(v n), for integer v > 0 and polynomials q and r. *)
 
 fp = Union @ Cases[e,Power[p_, r_Rational] /; PolynomialQ[p,x], {0, Infinity}];
 If[Length[fp] != 1, Return[ {0, e, 0} ]];(* No radicals or multiple distinct radicals. *)
-flist = {FactorList[#1],#1, #2}& @@@ fp;
+flist = {FactorList[#1],#1, Abs @ #2}& @@@ fp;
 flist = Cases[flist,{facs_, _, r_} /; partiallyRemovableQ[facs, r, x], {1}];
 If[flist === {}, Return[ {0, e, 0} ]];(* Radicands do not partially factor out. *)
 debugPrint2["Radicand is partially factorable ",flist];
@@ -2384,12 +2384,12 @@ polynomials q1, q2, r1, r2. *)
 fp = Union @ Cases[e, Power[p_, r_Rational] /; ! FreeQ[Denominator[p],x] && rationalQ[p,x], {0, Infinity}];
 If[Length[fp] != 1, Return[ {0, e, 0} ]];(* No radicals or multiple distinct radicals. *)
 
-flistnum = {FactorList[Numerator @ #1], Numerator @ #1, #2}& @@@ fp;
+flistnum = {FactorList[Numerator @ #1], Numerator @ #1, Abs @ #2}& @@@ fp;
 flistnum = Cases[flistnum, {facs_, _, r_} /; partiallyRemovableQ[facs, r, x], {1}];
 If[flistnum =!= {}, 
 	debugPrint2["Radicand numerator is partially factorable ", flistnum]];
 
-flistden = {FactorList[Denominator @ #1], Denominator @ #1, #2}& @@@ fp;
+flistden = {FactorList[Denominator @ #1], Denominator @ #1, Abs @ #2}& @@@ fp;
 flistden = Cases[flistden, {facs_, _, r_} /; partiallyRemovableQ[facs, r, x], {1}];
 If[flistden =!= {}, 
 	debugPrint2["Radicand denominator is partially factorable ", flistden]];
@@ -5020,7 +5020,7 @@ simplify[l_List, x_, opts:OptionsPattern[]] := Map[simplify[#, x, opts]&, l]
 
 simplify[e_, x_, OptionsPattern[]] := Module[
 	{$function, simp, permutations, denomP, rad, rationalTerms, nonRationalTerms, 
-	rationalTermsMerged},
+	rationalTermsMerged, simpTrig},
 	
 	simp = e /. {RootSum -> $rootSum, Function -> $function};
 	
@@ -5125,6 +5125,15 @@ simplify[e_, x_, OptionsPattern[]] := Module[
 
 	(* Remove constants. *)
 	simp = stripConst[simp, x];
+	
+	(* Simplify using ExpToTrig. *)
+	If[! FreeQ[simp, _Complex], 
+		simpTrig = ExpToTrig[simp];
+		If[FreeQ[simpTrig, _Complex] && LeafCount[simpTrig] < LeafCount[simp], 
+			simp = simpTrig
+		]
+	];
+	
 	simp
 ]
 
