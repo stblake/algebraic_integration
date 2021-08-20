@@ -581,7 +581,7 @@ IntegrateAlgebraic[e_, x_, opts:OptionsPattern[]] /; algebraicQ[e, x] := Module[
 ]
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*solveAlgebraicIntegral*)
 
 
@@ -741,6 +741,19 @@ If[! OptionValue["RationalUndeterminedOnly"] && nestedCount[unintegratedPart, x]
 	debugPrint1["decreaseRationalRadicandDegreeIntegrate returned : ", {rationalPart, unintegratedPart, integratedPart}]
 ];
 
+(* Factoring the radicand, partial power-expanding, then correcting for branch cuts. *)
+
+If[! OptionValue["RationalUndeterminedOnly"] && nestedCount[unintegratedPart, x] == 0,
+	debugPrint1["Trying factorisation, partial power-expanding, then correcting for branch cuts on ", unintegratedPart];
+	result = radicandFactorIntegrate[unintegratedPart, x, opts];
+	If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[result[[3]], unintegratedPart - result[[1]] - result[[2]], x],
+		rationalPart    += result[[1]]; 
+		unintegratedPart = result[[2]];
+		integratedPart  += result[[3]]
+	];
+	debugPrint1["radicandFactorIntegrate returned : ", {rationalPart, unintegratedPart, integratedPart}]
+];
+
 (* Goursat pseudo-elliptic integral. *)
 
 If[! OptionValue["RationalUndeterminedOnly"] && ! multipleRadicalsQ[unintegratedPart, x] && nestedCount[unintegratedPart, x] == 0,
@@ -808,6 +821,19 @@ If[! multipleRadicalsQ[unintegratedPart, x] && nestedCount[unintegratedPart, x] 
 	];
 	debugPrint1["logPart returned : ", {rationalPart, unintegratedPart, integratedPart}];
 ]
+];
+
+(* Last resort - factoring the radicand, power-expanding, then correcting for branch cuts. *)
+
+If[! OptionValue["RationalUndeterminedOnly"] && nestedCount[unintegratedPart, x] == 0,
+	debugPrint1["Trying Factor, PowerExpand, integrating, then correcting for branch cuts on ", unintegratedPart];
+	result = powerExpandIntegrate[unintegratedPart, x, opts];
+	If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[result[[3]], unintegratedPart - result[[1]] - result[[2]], x],
+		rationalPart    += result[[1]]; 
+		unintegratedPart = result[[2]];
+		integratedPart  += result[[3]]
+	];
+	debugPrint1["powerExpandIntegrate returned : ", {rationalPart, unintegratedPart, integratedPart}]
 ];
 
 (* Partial fraction expansion and integrate term-by-term. *)
@@ -2208,7 +2234,7 @@ decreasePolynomialRadicandDegreeIntegrate[e_, x_, opts:OptionsPattern[]] := Modu
 (* Find radicands, p^(m/n), such that the polynomial, p, factors 
 into p = r*q^(v n), for integer v > 0 and polynomials q and r. *)
 
-fp = Union @ Cases[e,Power[p_, r_Rational] /; PolynomialQ[p,x], {0, Infinity}];
+fp = Union @ Cases[e, Power[p_, r_Rational] /; PolynomialQ[p,x], {0, Infinity}];
 If[Length[fp] != 1, Return[ {0, e, 0} ]];(* No radicals or multiple distinct radicals. *)
 flist = {FactorList[#1],#1, Abs @ #2}& @@@ fp;
 flist = Cases[flist,{facs_, _, r_} /; partiallyRemovableQ[facs, r, x], {1}];
@@ -3104,7 +3130,7 @@ If[radicals === {} || Length[Union[ radicals[[All,2]] ]] > 1 || Union[ radicals[
 
 (* Convert to R(x,y), where y^2 = a x^2 + b x + c. *)
 radicalRules = Flatten[ {#[[1]] -> y^#[[3]], #[[1]]^-1 -> y^-#[[3]]}& /@ radicals ];
-exy = Cancel @ Together[e /. radicalRules];
+exy = Cancel @ Together[e /. p_^r_Rational :> Expand[p]^r /. radicalRules];
 
 (* We should now have a rational function of x and y. *)
 If[!(PolynomialQ[exy, {x, y}] || rational2dQ[exy, {x, y}]), 
@@ -3782,6 +3808,223 @@ SortBy[DeleteCases[results, Null], LeafCount[#[[3]]]&] /. {l_, ___} :> l /. {} -
 
 (* ::Input:: *)
 (*nestedQuadraticRadicalIntegrate[1/(x^3 Sqrt[a x^2+b x Sqrt[-(a/b^2)+(a^2 x^2)/b^2]]),x]//Timing*)
+
+
+(* ::Subsection::Closed:: *)
+(*radicandFactorIntegrate - factoring the radicand, partial power-expanding, then correcting for branch cuts.*)
+
+
+ClearAll[radicandFactorIntegrate];
+Options[radicandFactorIntegrate] = Options[IntegrateAlgebraic];
+
+radicandFactorIntegrate[e_, x_, opts:OptionsPattern[]] := Module[
+{fp, ffp, rules, ep, recur, integral, dd, ddd, integral2},
+(* Find radicands, p^(m/n), such that the polynomial, p, factors 
+into p = q^v, for integer v > 0 and polynomial q. Then we integrate 
+with p^(m/n) expressed as q^((v*m)/n) and correct for branch 
+cuts as required. *)
+
+fp = Union @ Cases[e, Power[p_, r_Rational] /; (! FreeQ[p,x] && PolynomialQ[p,x]), {0, Infinity}];
+If[Length[fp] != 1, Return[ {0, e, 0} ]]; (* It may be possible to relax/remove this condition. *)
+ffp = PowerExpand[MapAll[Factor, #]]& /@ fp;
+
+(* Check the radicand(s) factor. *)
+If[fp === ffp || ! VectorQ[ffp, MatchQ[#, (p_ /; PolynomialQ[p,x] || rationalQ[p,x]) | Power[p_ /; PolynomialQ[p,x],_Rational]]&], 
+	Return[ {0, e, 0} ]];
+
+(* Reduced form of the integrand. *)
+rules = Thread[fp -> ffp];
+ep = e /. rules;
+
+(* Integrate reduced form. *)
+debugPrint2["Reduced integrand for recursive integration is ", ep];
+recur = solveAlgebraicIntegral[ep, x, opts];
+debugPrint2["Recursive integration returned ", recur];
+
+If[recur[[2]] =!= 0, Return[ {0, e, 0} ]];(* Recursive integration failed. *)
+integral = recur[[1]] + recur[[3]];
+
+(* Piecewise constants not required. *)
+If[verifySolution[integral, e, x],
+	Return[{0, 0, integral}]
+];
+
+(* Express the factored/powerexpanded radical in terms of the original radical. *)
+integral2 = Fold[recastRadicals[#1,#2,x]&, integral, fp];
+debugPrint2["Recasting integral in terms of radicals present in integrand gives ", integral2];
+
+(* Correct for branch cuts. *)
+TimeConstrained[
+	dd = e/D[integral2, x] // Together // Cancel // RootReduce;
+	ddd = D[dd, x] // Together // Cancel,
+	$timeConstraint,
+	ddd = 1
+];
+
+If[numericZeroQ[ddd],
+	dd = Simplify[dd];
+	debugPrint2["Piecewise constant from branch cut repair is ", dd];
+	Return[{0, 0, dd integral2}]
+];
+
+(* Correct for branch cuts on reduced radicals. *)
+TimeConstrained[
+	dd = e/D[integral,x] // Together // Cancel // RootReduce;
+	ddd = D[dd,x] // Together // Cancel,
+	$timeConstraint,
+	ddd = 1
+];
+
+If[numericZeroQ[ddd],
+	dd = Simplify[dd];
+	debugPrint2["Piecewise constant from branch cut repair is ", dd];
+	{0, 0, dd integral},
+	{0, e, 0}
+]
+]
+
+
+(* ::Input:: *)
+(*1/(1+(9-6 x+x^2)^(1/4))*)
+(*radicandFactorIntegrate[%,x]*)
+(*D[%//Last,x]-%%//Simplify*)
+
+
+(* ::Input:: *)
+(*(-5+2 x)/(4-4 x+x^2)^(1/4)*)
+(*radicandFactorIntegrate[%,x]*)
+(*D[%//Last,x]-%%//Simplify*)
+
+
+(* ::Input:: *)
+(*1/((-5+2 x)^2 (4-4 x+x^2)^(1/4))*)
+(*radicandFactorIntegrate[%,x]*)
+(*D[%//Last,x]-%%//Simplify*)
+
+
+(* ::Input:: *)
+(*x/(1-4 x+6 x^2-4 x^3+x^4)^(1/5)*)
+(*radicandFactorIntegrate[%,x]*)
+(*D[%//Last,x]-%%//Simplify*)
+
+
+(* ::Input:: *)
+(*(243-5265 x+47250 x^2-225810 x^3+615255 x^4-954733 x^5+820340 x^6-401440 x^7+112000 x^8-16640 x^9+1024 x^10)^(1/5)*)
+(*radicandFactorIntegrate[%,x]*)
+(*D[%//Last,x]-%%//Simplify*)
+
+
+(* ::Input:: *)
+(*(256-256 x^2+96 x^4-16 x^6+x^8)^(1/8)/(-1+x^3)*)
+(*radicandFactorIntegrate[%,x]*)
+(*D[%//Last,x]-%%//Simplify//RootReduce*)
+
+
+(* ::InheritFromParent:: *)
+(*(1+x)/((-1+x^3) (256-256 x^2+96 x^4-16 x^6+x^8)^(1/8))*)
+(*radicandFactorIntegrate[%,x]*)
+(*D[%//Last,x]-%%//Simplify*)
+
+
+(* ::InheritFromParent:: *)
+(*1/(x^3 (256-256 x^2+96 x^4-16 x^6+x^8)^(1/8))*)
+(*radicandFactorIntegrate[%,x]*)
+(*D[%//Last,x]-%%//Simplify*)
+
+
+(* ::Input:: *)
+(*(-1-2 x+x^2+3 x^3)/(-1+3 x-3 x^2+x^3)^(1/4)*)
+(*radicandFactorIntegrate[%,x]*)
+(*D[%//Last,x]-%%//Simplify*)
+
+
+(* ::Input:: *)
+(*1/((-1-2 x+x^2+3 x^3)(-1+3 x-3 x^2+x^3)^(1/4))*)
+(*radicandFactorIntegrate[%,x]*)
+(*D[%//Last,x]-%%//Simplify*)
+
+
+(* ::Input:: *)
+(*x^2/((x^2+1)(243-5265 x+47250 x^2-225810 x^3+615255 x^4-954733 x^5+820340 x^6-401440 x^7+112000 x^8-16640 x^9+1024 x^10)^(1/5));*)
+(*radicandFactorIntegrate[%,x]*)
+(*D[%//Last,x]-%%//Simplify*)
+
+
+(* ::Input:: *)
+(*x^2/((x^2-1)(243-5265 x+47250 x^2-225810 x^3+615255 x^4-954733 x^5+820340 x^6-401440 x^7+112000 x^8-16640 x^9+1024 x^10)^(1/10));*)
+(*radicandFactorIntegrate[%,x]*)
+(*D[%//Last,x]-%%//Simplify*)
+
+
+(* ::Input:: *)
+(*1/((x^4+1)^2//Expand)^(1/8)*)
+(*radicandFactorIntegrate[%,x]*)
+(*D[%//Last,x]-%%//Simplify*)
+
+
+(* ::Input:: *)
+(*1/((x^4+1)^5//Expand)^(1/20)*)
+(*radicandFactorIntegrate[%,x]*)
+(*D[%//Last,x]-%%//Simplify*)
+
+
+(* ::Input:: *)
+(*(x^2-1)/((x^2+1)((x^4+1)^5//Expand)^(1/10))*)
+(*radicandFactorIntegrate[%,x]*)
+(*D[%//Last,x]-%%//Simplify*)
+
+
+(* ::Input:: *)
+(*(* We cannot presently integrate this one with radicandFactorIntegrate. *)*)
+(*(1-Sqrt[-27+135 x+99 x^2-955 x^3-396 x^4+2160 x^5+1728 x^6])/(1+Sqrt[-27+135 x+99 x^2-955 x^3-396 x^4+2160 x^5+1728 x^6])*)
+(*radicandFactorIntegrate[%,x]*)
+(*D[%//Last,x]-%%//Simplify*)
+
+
+(* ::Input:: *)
+(*(* This one will have to wait for powerexpandintegrate: *)*)
+(*1/(1+((9-6 x+x^2)/(1-2 x+x^2))^(1/4))*)
+(*radicandFactorIntegrate[%,x]*)
+(*D[%//Last,x]-%%//Simplify*)
+
+
+(* ::Subsection:: *)
+(*powerExpandIntegrate*)
+
+
+(* ::Text:: *)
+(*This method returns ugly solutions to integrals and should only be used as a last resort. *)
+
+
+ClearAll[powerExpandIntegrate];
+
+Options[powerExpandIntegrate] = Options[IntegrateAlgebraic];
+
+powerExpandIntegrate[e_, x_, opts:OptionsPattern[]] := Module[
+{pe, recur, integral, dd, ddd},
+(* Factor, power expand, integrate, correct for branch cuts. *)
+
+pe = MapAll[Factor, e] // PowerExpand;
+If[pe === e, Return[ {0,e,0} ]];(* Nothing to expand. *)
+
+(* Recursive integration. *)
+debugPrint2["Reduced integrand for recursive integration is ", pe];
+recur = solveAlgebraicIntegral[pe, x, opts]; 
+debugPrint2["Recursive integration returned ", recur];
+
+If[recur[[2]] =!= 0, Return[ {0, e, 0} ]];(* Recursive integration failed. *)
+integral = recur[[1]] + recur[[3]];
+
+(* Correct for branch cuts introduced by PowerExpand. *)
+dd = e/D[integral, x] // Together // Cancel // RootReduce;
+ddd = D[dd, x] // Together // Cancel;
+If[numericZeroQ[ddd],
+	dd = Simplify[dd];
+	debugPrint2["Piecewise constant from branch cut repair is ", dd];
+	{0, 0, dd integral},
+	{0, e, 0}
+]
+]
 
 
 (* ::Subsection::Closed:: *)
