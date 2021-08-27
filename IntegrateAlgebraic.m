@@ -1185,7 +1185,7 @@ solveRational[num_, den_, p_, r_, usubstitution_, radicandDenominator_, x_, u_, 
 		GroebnerBasis[eqns, {u, Dt[u]}, {Dt[x], x}, 
 			MonomialOrder -> EliminationOrder, 
 			Method -> "Buchberger", ParameterVariables -> pv] // Factor // PowerExpand,
-		4. $timeConstraint,
+		10. $timeConstraint,
 		debugPrint3[Style["GroebnerBasis timed-out in solveRational!", Orange]];
 		$TimedOut];
 
@@ -4049,7 +4049,7 @@ If[numericZeroQ[ddd],
 ]
 
 
-(* ::InheritFromParent:: *)
+(* ::Input:: *)
 (*IntegrateAlgebraic[1/(x^2 (1+x-2 x^2-2 x^3+x^4+x^5)^(1/3)),x]*)
 
 
@@ -4058,30 +4058,22 @@ If[numericZeroQ[ddd],
 
 
 (* ::Input:: *)
-(*$verboseLevel=1;*)
-
-
-(* ::InheritFromParent:: *)
 (*IntegrateAlgebraic[1/(x^2 (-1+5 x-7 x^2-2 x^3+10 x^4-2 x^5-5 x^6+x^7+x^8)^(1/3)),x]*)
-
-
-(* ::InheritFromParent:: *)
-(*Integrate[1/(x^2 (-1+5 x-7 x^2-2 x^3+10 x^4-2 x^5-5 x^6+x^7+x^8)^(1/3)),x]*)
 
 
 (* ::Input:: *)
 (*IntegrateAlgebraic[1/(x^2 (-1-x+5 x^2+2 x^3-10 x^4+2 x^5+7 x^6-5 x^7+x^8)^(1/3)),x]*)
 
 
-(* ::InheritFromParent:: *)
+(* ::Input:: *)
 (*IntegrateAlgebraic[(-1-x+5 x^2+2 x^3-10 x^4+2 x^5+7 x^6-5 x^7+x^8)^(1/3)/x^2,x]*)
 
 
-(* ::InheritFromParent:: *)
+(* ::Input:: *)
 (*IntegrateAlgebraic[1/(x^2 (-4-8 x+11 x^2+17 x^3-20 x^4-7 x^5+16 x^6-7 x^7+x^8)^(1/3)),x]*)
 
 
-(* ::InheritFromParent:: *)
+(* ::Input:: *)
 (*IntegrateAlgebraic[1/(1+2 x-x^2-4 x^3-x^4+2 x^5+x^6)^(1/6),x]*)
 
 
@@ -4344,7 +4336,7 @@ simp
 ClearAll[nestedCount];
 
 nestedCount[e_, x_] := Total[ Cases[e, Power[r_, _Rational] /; 
-				! FreeQ[r, x] && ! FreeQ[r, Power[_, _Rational]] :> 1 + nestedCount[r, x], {0, \[Infinity]}] /. {} -> {0} ]
+				! FreeQ[r, x] && ! FreeQ[r, Power[p_ /; !FreeQ[p,x], _Rational]] :> 1 + nestedCount[r, x], {0, \[Infinity]}] /. {} -> {0} ]
 
 
 (* ::Code::Initialization::Plain:: *)
