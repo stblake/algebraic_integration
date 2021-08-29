@@ -663,7 +663,7 @@ If[ListQ @ quadraticRadicalToRational[unintegratedPart, x, u],
 If[ListQ @ multipleLinearRadicalToRational[unintegratedPart, x, u],
 	debugPrint1["Integrand is in Q(x, (a*x + b)^(1/2), (c*x + d)^(1/2)): ", unintegratedPart];
 	integral = integrateMultipleLinearRadical[unintegratedPart, x, opts];
-	If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[integral, unintegratedPart, x],
+	If[integral =!= False && TrueQ[! OptionValue[VerifySolutions]] || verifySolution[integral, unintegratedPart, x],
 		Return[ {0, 0, integral}, Module ],
 		Return[ {0, unintegratedPart, 0}, Module ]
 	]
@@ -2244,14 +2244,14 @@ debugPrint2["Radicand is partially factorable ",flist];
 (* Create rules to factor radicals. *)
 rules = Table[
 	With[{factors = fl[[1]], p = fl[[2]], r = fl[[3]], radical = fl[[2]]^fl[[3]]},
-	qr = {#1, Quotient[#2,Denominator[r]], Mod[#2,Denominator[r]]}& @@@ factors;
+	qr = {#1, Quotient[#2, Denominator[r]], Mod[#2, Denominator[r]]}& @@@ factors;
 	fo = Select[qr, #[[2]] != 0&];(* Partially factored-out terms. *)
 	fi = Select[qr, #[[2]] == 0&];(* Factored terms that stay in the radical. *)
 	fi = Apply[Times, Power[#1,#3]& @@@ fi];
 	fot = 1;(* Factored-out terms. *)
 	Do[
 		fot *= ft[[1]]^(ft[[2]] Numerator[r]); (* Quotient factors out. *)
-		fi *= ft[[1]]^(ft[[3]] Numerator[r]),(* Remainder stays inside the radical. *)
+		fi *= ft[[1]]^(ft[[3]]),(* Remainder stays inside the radical. *)
 	{ft, fo}];
 	If[fi === 1, Return[{0, e, 0}, Module]]; (* Handle these in the future. SAMB 0721 *)
 	{
@@ -2289,7 +2289,7 @@ invrules = Join @@ Table[
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[Sqrt[1+10 x+27 x^2+10 x^3+x^4],x](* We cannot currently do this one, which is a shame. SAMB 0621 *)*)
+(*IntegrateAlgebraic[Sqrt[1+10 x+27 x^2+10 x^3+x^4],x]*)
 
 
 (* ::Input:: *)
@@ -2388,7 +2388,7 @@ Table[
 	fot = 1;(* Factored-out terms. *)
 	Do[
 		fot *= ft[[1]]^(ft[[2]] Numerator[r]); (* Quotient factors out. *)
-		fi *= ft[[1]]^(ft[[3]] Numerator[r]),(* Remainder stays inside the radical. *)
+		fi *= ft[[1]]^(ft[[3]]),(* Remainder stays inside the radical. *)
 	{ft, fo}];
 	If[fi === 1, Return[$Failed, Module]]; (* Handle these in the future. SAMB 0721 *)
 	{fot, fi}
@@ -3238,7 +3238,11 @@ Options[integrateMultipleLinearRadical] = Options[IntegrateAlgebraic];
 integrateMultipleLinearRadical[e_, x_, opts:OptionsPattern[]] := Module[{u, integrand, subst, integral},
 
 	{integrand, subst} = multipleLinearRadicalToRational[e, x, u];
-	integral = Integrate[integrand, u] /. subst;
+	integral = TimeConstrained[Integrate[integrand, u], 4.0 $timeConstraint, Integrate];
+	If[FreeQ[integral, Integrate],
+		integral = integral /. subst,
+		Return[False, Module]
+	];
 	simplify[integral, x, "CancelRadicalDenominators" -> False, "Radicals" -> OptionsPattern["Radicals"]]
 ]
 
