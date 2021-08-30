@@ -582,7 +582,7 @@ IntegrateAlgebraic[e_, x_, opts:OptionsPattern[]] /; algebraicQ[e, x] := Module[
 ]
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*solveAlgebraicIntegral*)
 
 
@@ -839,7 +839,7 @@ If[! OptionValue["RationalUndeterminedOnly"] && nestedCount[unintegratedPart, x]
 
 (* Partial fraction expansion and integrate term-by-term. *)
 
-If[OptionValue["Expansion"],
+If[OptionValue["Expansion"] || reasonableExpansionQ[unintegratedPart, x],
 	
 	(* Use partial fractions with a factorisation over Q. *)
 	
@@ -862,7 +862,7 @@ If[OptionValue["Expansion"],
 		integratedPart  += result[[3]]
 	];
 	debugPrint1["partialFractionIntegrate returned : ", {rationalPart, unintegratedPart, integratedPart}];
-			
+	
 	(* Expand and integrate term-by-term. *)
 
 	debugPrint1["Trying to integrate term-by-term on: ", unintegratedPart];
@@ -882,6 +882,7 @@ If[OptionValue["Expansion"],
 		integratedPart  += result[[3]]
 	];
 	debugPrint1["expandIntegrate1 returned : ", {rationalPart, unintegratedPart, integratedPart}];
+
 ];
 
 (* Try derivative-divides on the algebraic integral. *)
@@ -4085,6 +4086,12 @@ If[numericZeroQ[ddd],
 (*Expand integrate*)
 
 
+ClearAll[reasonableExpansionQ];
+reasonableExpansionQ[e_Plus, x_] := True
+reasonableExpansionQ[e_, x_] /; PolynomialQ[Numerator[e], x] := True
+reasonableExpansionQ[_, _] := False
+
+
 ClearAll[expandIntegrate0];
 
 Options[expandIntegrate0] = Options[solveAlgebraicIntegral];
@@ -4118,7 +4125,7 @@ If[Head[e] === Plus,
 		integratedPart = 0;
 		rationalPart = 0;
 	];
-	{rationalPart, unintegratedPart, integratedPart}, 
+	{rationalPart, unintegratedPart // Together // Cancel, integratedPart}, 
 	{0, e, 0}
 ]
 ]
@@ -4160,7 +4167,7 @@ If[Head[exnum] === Plus,
 		integratedPart = 0;
 		rationalPart = 0;
 	];
-	{rationalPart, unintegratedPart, integratedPart}, 
+	{rationalPart, unintegratedPart // Together // Cancel, integratedPart}, 
 	{0, e, 0}
 ]
 ]
@@ -4170,7 +4177,7 @@ If[Head[exnum] === Plus,
 (*expandIntegrate1[-((2 2^(3/4) (-1+u) u^2)/((-1+u^4) (1+u^4)^(3/4))),u]*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Partial fraction integrate*)
 
 
@@ -4247,7 +4254,9 @@ If[integratedPart === 0,
 	integratedPart += integrated[[3]]
 ];
 
-{rationalPart, unintegratedPart, simplify[integratedPart // Expand, x, "Radicals" -> OptionValue["Radicals"]]}
+integratedPart = simplify[integratedPart // Expand, x, "Radicals" -> OptionValue["Radicals"]];
+
+{rationalPart, unintegratedPart // Together // Cancel, integratedPart}
 ]
 
 
