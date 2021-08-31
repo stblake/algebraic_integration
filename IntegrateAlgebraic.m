@@ -538,7 +538,7 @@ derivdivides::usage = "derivative-divides heuristic.";
 Begin["`Private`"];
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*IntegrateAlgebraic*)
 
 
@@ -582,7 +582,7 @@ IntegrateAlgebraic[e_, x_, opts:OptionsPattern[]] /; algebraicQ[e, x] := Module[
 ]
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*solveAlgebraicIntegral*)
 
 
@@ -664,8 +664,7 @@ If[ListQ @ multipleLinearRadicalToRational[unintegratedPart, x, u],
 	debugPrint1["Integrand is in Q(x, (a*x + b)^(1/2), (c*x + d)^(1/2)): ", unintegratedPart];
 	integral = integrateMultipleLinearRadical[unintegratedPart, x, opts];
 	If[integral =!= False && TrueQ[! OptionValue[VerifySolutions]] || verifySolution[integral, unintegratedPart, x],
-		Return[ {0, 0, integral}, Module ],
-		Return[ {0, unintegratedPart, 0}, Module ]
+		Return[ {0, 0, integral}, Module ]
 	]
 ];
 
@@ -3036,7 +3035,7 @@ integrateQuadraticRadical[e_, x_, opts:OptionsPattern[]] := Module[
 			debugPrint3["Cannot integrate the rational function ", integrand, " wrt ", u];
 			Return[ False, Module ]];
 		integral = integral /. substitution;
-		integral = Apart[integral], (* We need Apart here for example IntegrateAlgebraic[(-2 + u)/(1 - u + u^2)^(3/2), u] *)
+		integral = Apart[integral],(* We need Apart here for example IntegrateAlgebraic[(-2 + u)/(1 - u + u^2)^(3/2), u] *) 
 		integral = Quiet @ Integrate[e, x] (* eg. Integrate[Sqrt[2I x^2 - 3I x + 1], x] *)	
 	];
 
@@ -3158,6 +3157,8 @@ a = Coefficient[radicals[[1,2]], x, 2];
 b = Coefficient[radicals[[1,2]], x, 1];
 c = Coefficient[radicals[[1,2]], x, 0];
 
+If[b === 0 && c === 0, Return[ False ]];
+
 (* This is here for compact forms for solveAlgebraicIntegral. *)
 
 transformed = {};
@@ -3239,7 +3240,7 @@ Options[integrateMultipleLinearRadical] = Options[IntegrateAlgebraic];
 integrateMultipleLinearRadical[e_, x_, opts:OptionsPattern[]] := Module[{u, integrand, subst, integral},
 
 	{integrand, subst} = multipleLinearRadicalToRational[e, x, u];
-	integral = TimeConstrained[Integrate[integrand, u], 4.0 $timeConstraint, Integrate];
+	integral = TimeConstrained[Integrate[integrand, u], $timeConstraint, Integrate];
 	If[FreeQ[integral, Integrate],
 		integral = integral /. subst,
 		Return[False, Module]
@@ -4088,7 +4089,8 @@ If[numericZeroQ[ddd],
 
 ClearAll[reasonableExpansionQ];
 reasonableExpansionQ[e_Plus, x_] := True
-reasonableExpansionQ[e_, x_] /; PolynomialQ[Numerator[e], x] := True
+reasonableExpansionQ[e_, x_] /; 
+	PolynomialQ[Numerator[e], x] && Length[CoefficientRules[Numerator[e]]] > 1 := True
 reasonableExpansionQ[_, _] := False
 
 
@@ -4177,7 +4179,7 @@ If[Head[exnum] === Plus,
 (*expandIntegrate1[-((2 2^(3/4) (-1+u) u^2)/((-1+u^4) (1+u^4)^(3/4))),u]*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Partial fraction integrate*)
 
 
@@ -5527,7 +5529,7 @@ simplify[e_, x_, opts:OptionsPattern[]] := Module[
 (*simplify[-((4 Sqrt[-2+2 x^5-x^7+x^8])/(3 x^6))+(6 Sqrt[-2+2 x^5-x^7+x^8])/x^2+(4 Sqrt[-2+2 x^5-x^7+x^8])/(3 x)-2/3 x Sqrt[-2+2 x^5-x^7+x^8]+2/3 x^2 Sqrt[-2+2 x^5-x^7+x^8]+3 Log[1-Sqrt[-2+2 x^5-x^7+x^8]/x^2]-3 Log[1+Sqrt[-2+2 x^5-x^7+x^8]/x^2],x]*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*verifySolution*)
 
 
@@ -5544,8 +5546,7 @@ verifySolution[integral_, integrand_, x_] := verifySolution[integral, integrand,
 	TrueQ[
 		tdd === 0 ||
 		numericZeroQ[tdd] ||
-		Quiet[ PossibleZeroQ[tdd] ] || 
-		Quiet[ PossibleZeroQ[D[Simplify[tdd], x]] ]
+		Quiet[ PossibleZeroQ[tdd] ]
 	]
 ]
 
