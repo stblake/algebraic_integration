@@ -538,7 +538,7 @@ derivdivides::usage = "derivative-divides heuristic.";
 Begin["`Private`"];
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*IntegrateAlgebraic*)
 
 
@@ -566,6 +566,8 @@ bannedList = Alternatives[List, Function, True, False, Equal, Unequal, Less, Gre
 
 IntegrateAlgebraic[e_, x_, opts:OptionsPattern[]] /; algebraicQ[e, x] := Module[
 	{integratedRationalPart, unintegratedPart, integratedPart, integral},
+
+	$recursionCounter = 0;
 
 	$timeConstraint = OptionValue["SingleStepTimeConstraint"];
 	If[$verboseLevel > 0,
@@ -595,6 +597,10 @@ solveAlgebraicIntegral[integrand_, x_, opts : OptionsPattern[]] :=
 {start, u, dd, rationalPart, unintegratedPart, integratedPart, 
 rationalIntegrand, substitution, integral, linRat, result, 
 goursat, simplified, split},
+
+If[++$recursionCounter > 32, 
+	debugPrint1["Recursion limit exceeded! Giving up..."];
+	Return[ {0, integrand, 0} ]];
 
 If[$verboseLevel > 0, 
 start = AbsoluteTime[]];
@@ -2481,7 +2487,7 @@ debugPrint2["Integral after repairing branch cuts is ", integral];
 ]
 
 
-(* ::InheritFromParent:: *)
+(* ::Input:: *)
 (*IntegrateAlgebraic[Sqrt[(1 + a*x^2 + 4*b*x^2 + 4*a*b*x^4 + 6*b^2*x^4 + 6*a*b^2*x^6 + 4*b^3*x^6 + *)
 (*      4*a*b^3*x^8 + b^4*x^8 + a*b^4*x^10)/(1 + c*x^2 + 4*d*x^2 + 4*c*d*x^4 + 6*d^2*x^4 + *)
 (*      6*c*d^2*x^6 + 4*d^3*x^6 + 4*c*d^3*x^8 + d^4*x^8 + c*d^4*x^10)]/x, x]*)
@@ -3011,7 +3017,7 @@ ClearAll[integrateQuadraticRadical];
 Options[integrateQuadraticRadical] = Options[IntegrateAlgebraic];
 
 integrateQuadraticRadical[e_, x_, opts:OptionsPattern[]] := Module[
-{t, u, mmaInt, intt, integrand, substitution, integral, numerics, result},
+{t, u, mmaInt, intt, integrand, substitution, integral, numerics, result, dd, ddd},
 
 	(* Can we substitute u \[Equal] (x^2)? eg. (x*Sqrt[-2 + x^2])/(2 - 4*x^2 + x^4) *)
 
@@ -3164,7 +3170,7 @@ If[b === 0 && c === 0, Return[ False ]];
 transformed = {};
 
 (* Removed condition so we can handle, for example, IntegrateAlgebraic[Sqrt[a*x^2 + b*x + c], x] SAMB 0821 *)
-If[True (* (Im[a] == 0 && a > 0) *), 
+If[True(* (Im[a] == 0 && a > 0) *),
 	(* Euler's first substitution. *)
 	X = (u^2 - c)/(b - 2 Sqrt[a] u);
 	U = Sqrt[radicals[[1,2]]] - Sqrt[a] x;
@@ -3298,6 +3304,7 @@ If[!(PolynomialQ[exy, {x, y1, y2}] || rationalQ[exy, {x, y1, y2}]),
 {{a,b},{c,d}}=radicals[[All,{2,3}]];
 
 \[Alpha] = pickAlpha[a,b,c,d];
+If[\[Alpha] === 1, Return [ False ]];
 
 \[Beta]=Sqrt[a \[Alpha]+b];
 \[Gamma]=Sqrt[c \[Alpha]+d];
@@ -5419,9 +5426,9 @@ simplify[e_, x_, opts:OptionsPattern[]] := Module[
 
 	simp = simp //. log2ArcTanh;
 	simp = simp //. {arcTanDiff, arcTanSum, arcTanhDiff, arcTanhSum};
-	
+
 	simp = simp /. (h:ArcTan|ArcTanh)[a_] :> h[collectnumden @ canonic[a]];
-	
+
 	(* Pick the nicer of ArcTan[a/b] or -ArcTan[b/a]. *)
 	simp = simp /. ArcTan[a_] /; nicerQ[Numerator[a], Denominator[a], x] :> -ArcTan[collectnumden @ canonic[Denominator[a]/Numerator[a]]];
 
@@ -5529,7 +5536,7 @@ simplify[e_, x_, opts:OptionsPattern[]] := Module[
 (*simplify[-((4 Sqrt[-2+2 x^5-x^7+x^8])/(3 x^6))+(6 Sqrt[-2+2 x^5-x^7+x^8])/x^2+(4 Sqrt[-2+2 x^5-x^7+x^8])/(3 x)-2/3 x Sqrt[-2+2 x^5-x^7+x^8]+2/3 x^2 Sqrt[-2+2 x^5-x^7+x^8]+3 Log[1-Sqrt[-2+2 x^5-x^7+x^8]/x^2]-3 Log[1+Sqrt[-2+2 x^5-x^7+x^8]/x^2],x]*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*verifySolution*)
 
 
