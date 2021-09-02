@@ -4289,17 +4289,19 @@ integrateNestedRadicals[e_, x_, u_, opts:OptionsPattern[]] := Module[{integrand,
 	result = {0, result[[2]], Expand[ result[[1]] + result[[3]] ]} /. subst;
 	result[[3]] = Collect[result[[3]], (Power[p_,_Rational] /; !FreeQ[p,x]) | _Log | _ArcTan | _ArcTanh | _RootSum, Together];
 
-	rewriteNestedRadicals[
+	result = rewriteNestedRadicals[
 		simplify[result, x, "CancelRadicalDenominators" -> False, "Radicals" -> OptionValue["Radicals"]], 
 		Last @ subst, 
-		x]
+		x];
+
+	result
 ]
 
 
 ClearAll[decreaseNestedRadicals];
 
 decreaseNestedRadicals[e_, x_, u_] := decreaseNestedRadicals[e, x, u] = Module[
-{terms, substitution, simp},
+{terms, purenestedradicals, pureradicals, substitution, simp},
 
 If[nestedCount[e, x] == 0, 
 	Return[False]];
@@ -4307,9 +4309,20 @@ If[nestedCount[e, x] == 0,
 terms = Union @ DeleteCases[
    Flatten[Level[{e, MapAll[Factor, e]}, {0, \[Infinity]}]], _Symbol | _?NumericQ | _?NumericQ _Symbol];
 
+purenestedradicals = Union @ Cases[e, Power[r_, n_Rational] /; 
+				! FreeQ[r, x] && ! FreeQ[r, Power[p_ /; !FreeQ[p,x], _Rational]] :> r^(1/Denominator[n]), {0, \[Infinity]}];
+pureradicals = Union @ Cases[e, Power[p_, n_Rational] /; PolynomialQ[p,x] :> p^(1/Denominator[n]), {0, \[Infinity]}];
+
 terms = Cases[terms, (s_Power | s_Plus) /; !FreeQ[s, Power[p_, _Rational] /; !FreeQ[p, x]]];
 terms = terms /. p_^n_Rational /; n < 0 && ! PolynomialQ[p, x] :> p^(-n);
 terms = ReverseSortBy[terms, LeafCount];
+terms = Join[terms, 
+x/purenestedradicals, purenestedradicals/x]; (* Fix/generalisation for IntegrateAlgebraic[
+  1/((a + b*x^4)*Sqrt[c*x^2 + d*Sqrt[a + b*x^4]]), x]. Eventually, we should use a direct 
+  rationalise-type approach for these integrals. SAMB 0921 *)
+If[Length[pureradicals] > 0,
+terms = Join[terms, {purenestedradicals[[1]]/pureradicals[[1]], pureradicals[[1]]/purenestedradicals[[1]]}]
+]; (* Fix/generalisation for IntegrateAlgebraic[Sqrt[b - a*x^2 + c*x*Sqrt[-b + a*x^2]], x] SAMB 0921 *)
 debugPrint2[terms];
 
 If[terms === {}, 
@@ -4395,11 +4408,15 @@ radicalCount[e_, x_] := Total[ Cases[e, Power[r_, _Rational] /;
 Clear[rewriteNestedRadicals];
 
 rewriteNestedRadicals[integral_, sub_, x_] := 
-((integral /. Power[e_Plus|e_Times, r_Rational] :> Factor[Expand[e]]^r) //. 
+((integral /. s:Power[e_Plus|e_Times, r_Rational] /; nestedCount[s, x] > 0 :> Factor[Expand[e]]^r) //. 
 Power[a_ b_, r_Rational] /; FreeQ[a, x] || (PolynomialQ[a, x] && Denominator[b] == 1) :> PowerExpand[a^r] b^r) /.{
 Power[a_+b:Power[c_,_Rational],r_Rational] /; Denominator[sub[[1]]] == 1 && Simplify[(a+b+sub[[1]])-2b] == 0 :> PowerExpand[Power[Expand[(a+b)(-a+b)], r]]/(-a+b)^r,
 Power[a_-b:Power[c_,_Rational],r_Rational] /; Denominator[sub[[1]]] == 1 && Simplify[(a-b+sub[[1]])-2a] == 0 :> PowerExpand[Power[Expand[(a+b)(a-b)], r]]/(a+b)^r
 }
+
+
+(* ::Input:: *)
+(*rewriteNestedRadicals[ArcTan[(Sqrt[2] Sqrt[-1+x^2])/Sqrt[1-x^2+x Sqrt[-1+x^2]]],Sqrt[1-x^2+x Sqrt[-1+x^2]],x]*)
 
 
 (* ::Input:: *)
@@ -5729,11 +5746,27 @@ singleRadicalQ[e_, x_] :=
 (*algebraicQ*)
 
 
-algebraicQ[e_, x_Symbol] := Complement[
-Cases[e, s_Symbol /; (Context[s] === "System`" && !NumericQ[s]), {-1}, Heads -> True],
-{Plus, Times, Power, C, x}] === {} && 
-Cases[e, Power[p_, q_] /; (! FreeQ[p,x] && ! MatchQ[Head[q], Integer|Rational]), {0, Infinity}] === {} && 
-Cases[e, Power[p_, q_] /; (FreeQ[p,x] && !FreeQ[q,x]), {0, Infinity}] === {}
+ClearAll[algebraicQ];
+
+algebraicQ[C[_], _] := True
+algebraicQ[_Integer | _Rational | _Symbol, _] := True
+
+algebraicQ[e_Plus, x_] := algebraicQ[First @ e, x] && algebraicQ[Rest @ e, x]
+algebraicQ[e_Times, x_] := algebraicQ[First @ e, x] && algebraicQ[Rest @ e, x]
+
+algebraicQ[Power[a_, b_], x_] := algebraicQ[a, x] && PolynomialQ[b, x]
+
+
+(* ::Input:: *)
+(*algebraicQ[1+x+x^2,x]*)
+
+
+(* ::Input:: *)
+(*algebraicQ[x^(-1+n)/(a c+b c x^n+d Sqrt[a+b x^n]),x]*)
+
+
+(* ::Input:: *)
+(*algebraicQ[(d+e x+f Sqrt[a+(2 d e x)/f^2+(e^2 x^2)/f^2])^n/Sqrt[a+(2 d e x)/f^2+(e^2 x^2)/f^2],x]*)
 
 
 (* ::Input:: *)
@@ -5745,15 +5778,15 @@ Cases[e, Power[p_, q_] /; (FreeQ[p,x] && !FreeQ[q,x]), {0, Infinity}] === {}
 
 
 (* ::Input:: *)
-(*algebraicQ[((2+x^3)+x^2+Sqrt[(-1+x) (1+x+x^2)])/(x^2 (-2-4 x^2+2 x^3)Sqrt[-1+x^3]),x]*)
+(*algebraicQ[((2+x^3)+x^2+Sqrt[(-1+x) (1+x+x^2)])/(x^2 (-2-4 x^2+2 x^3) Sqrt[-1+x^3]),x]*)
 
 
 (* ::Input:: *)
-(*algebraicQ[((2+x^3)+x^Sqrt[2]+Sqrt[(-1+x) (1+x+x^2)])/(x^2 (-2-4 x^2+2 x^3)Sqrt[-1+x^3]),x]*)
+(*algebraicQ[((2+x^3)+x^Sqrt[2]+Sqrt[(-1+x) (1+x+x^2)])/(x^2 (-2-4 x^2+2 x^3) Sqrt[-1+x^3]),x]*)
 
 
 (* ::Input:: *)
-(*algebraicQ[((2+x^3)+x^Pi+Sqrt[(-1+x) (1+x+x^2)])/(x^2 (-2-4 x^2+2 x^3)Sqrt[-1+x^3]),x]*)
+(*algebraicQ[((2+x^3)+x^\[Pi]+Sqrt[(-1+x) (1+x+x^2)])/(x^2 (-2-4 x^2+2 x^3) Sqrt[-1+x^3]),x]*)
 
 
 (* ::Input:: *)
