@@ -747,19 +747,6 @@ If[! OptionValue["RationalUndeterminedOnly"] && nestedCount[unintegratedPart, x]
 	debugPrint1["decreaseRationalRadicandDegreeIntegrate returned : ", {rationalPart, unintegratedPart, integratedPart}]
 ];
 
-(* Factoring the radicand, partial power-expanding, then correcting for branch cuts. *)
-
-If[! OptionValue["RationalUndeterminedOnly"] && nestedCount[unintegratedPart, x] == 0,
-	debugPrint1["Trying factorisation, partial power-expanding, then correcting for branch cuts on ", unintegratedPart];
-	result = radicandFactorIntegrate[unintegratedPart, x, opts];
-	If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[result[[3]], unintegratedPart - result[[1]] - result[[2]], x],
-		rationalPart    += result[[1]]; 
-		unintegratedPart = result[[2]];
-		integratedPart  += result[[3]]
-	];
-	debugPrint1["radicandFactorIntegrate returned : ", {rationalPart, unintegratedPart, integratedPart}]
-];
-
 (* Goursat pseudo-elliptic integral. *)
 
 If[! OptionValue["RationalUndeterminedOnly"] && ! multipleRadicalsQ[unintegratedPart, x] && nestedCount[unintegratedPart, x] == 0,
@@ -813,6 +800,19 @@ If[TrueQ[OptionValue["LinearRational"]] && ! multipleRadicalsQ[unintegratedPart,
 		integratedPart  += result[[3]]
 	];
 	debugPrint1["LinearRational returned : ", {rationalPart, unintegratedPart, integratedPart}];
+];
+
+(* Factoring the radicand, partial power-expanding, then correcting for branch cuts. *)
+
+If[! OptionValue["RationalUndeterminedOnly"] && nestedCount[unintegratedPart, x] == 0,
+	debugPrint1["Trying factorisation, partial power-expanding, then correcting for branch cuts on ", unintegratedPart];
+	result = radicandFactorIntegrate[unintegratedPart, x, opts];
+	If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[result[[3]], unintegratedPart - result[[1]] - result[[2]], x],
+		rationalPart    += result[[1]]; 
+		unintegratedPart = result[[2]];
+		integratedPart  += result[[3]]
+	];
+	debugPrint1["radicandFactorIntegrate returned : ", {rationalPart, unintegratedPart, integratedPart}]
 ];
 
 (* Solving for the logarithmic part with undetermined coefficients. *)
@@ -2237,7 +2237,7 @@ ClearAll[decreasePolynomialRadicandDegreeIntegrate];
 Options[decreasePolynomialRadicandDegreeIntegrate] = Options[IntegrateAlgebraic];
 
 decreasePolynomialRadicandDegreeIntegrate[e_, x_, opts:OptionsPattern[]] := Module[
-{fp, flist, fl, qr, fo, fi,ep,fot, rules, epint, invrules},
+{fp, flist, fl, qr, fo, fi, ep, fot, rules, epint, invrules},
 (* Find radicands, p^(m/n), such that the polynomial, p, factors 
 into p = r*q^(v n), for integer v > 0 and polynomials q and r. *)
 
@@ -3491,7 +3491,7 @@ PolynomialQ[num,x] && PolynomialQ[den,x] && nex<2 && dex<2 && nex+dex>0
 (*linearRatioQ[4/5,x]*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*integrateMultipleRadicals - integrating distinct radicals term-by-term*)
 
 
@@ -3649,7 +3649,7 @@ substitutions,sub,subu,exponent,intx,subx, dd,intu,results,recur,result},
 polynomial radicand. *)
 radicalOfQuadraticRadicals = Union @ Cases[e, 
 	r:Power[e1_, r1_Rational] /; 
-		!FreeQ[e1, Power[poly_, r2_Rational] /; Exponent[poly, x] == 2 && Denominator[r2] == 2] :> r, 
+		!FreeQ[e1, Power[poly_, r2_Rational] /; PolynomialQ[poly,x] && Exponent[poly, x] == 2 && Denominator[r2] == 2] :> r, 
 	{0, Infinity}];
 If[Length[radicalOfQuadraticRadicals] != 1, Return[ {0, e, 0} ]];
 
@@ -3955,13 +3955,13 @@ If[numericZeroQ[ddd],
 (*D[%//Last,x]-%%//Simplify//RootReduce*)
 
 
-(* ::InheritFromParent:: *)
+(* ::Input:: *)
 (*(1+x)/((-1+x^3) (256-256 x^2+96 x^4-16 x^6+x^8)^(1/8))*)
 (*radicandFactorIntegrate[%,x]*)
 (*D[%//Last,x]-%%//Simplify*)
 
 
-(* ::InheritFromParent:: *)
+(* ::Input:: *)
 (*1/(x^3 (256-256 x^2+96 x^4-16 x^6+x^8)^(1/8))*)
 (*radicandFactorIntegrate[%,x]*)
 (*D[%//Last,x]-%%//Simplify*)
@@ -4036,22 +4036,24 @@ ClearAll[powerExpandIntegrate];
 Options[powerExpandIntegrate] = Options[IntegrateAlgebraic];
 
 powerExpandIntegrate[e_, x_, opts:OptionsPattern[]] := Module[
-{pe, recur, integral, dd, ddd},
+{int, pint, recur, integral, dd, ddd},
 (* Factor, power expand, integrate, correct for branch cuts. *)
 
-pe = MapAll[Factor, e] // PowerExpand;
-If[pe === e, Return[ {0,e,0} ]];(* Nothing to expand. *)
+int= Cancel @ Together[e];
+pint = MapAll[Factor, int] // PowerExpand;
+pint = Cancel @ Together[pint];
+If[pint === int, Return[ {0,e,0} ]];(* Nothing to expand. *)
 
 (* Recursive integration. *)
-debugPrint2["Reduced integrand for recursive integration is ", pe];
-recur = solveAlgebraicIntegral[pe, x, opts]; 
+debugPrint2["Reduced integrand for recursive integration is ", pint];
+recur = solveAlgebraicIntegral[pint, x, opts]; 
 debugPrint2["Recursive integration returned ", recur];
 
 If[recur[[2]] =!= 0, Return[ {0, e, 0} ]];(* Recursive integration failed. *)
 integral = recur[[1]] + recur[[3]];
 
 (* Correct for branch cuts introduced by PowerExpand. *)
-dd = e/D[integral, x] // Together // Cancel // RootReduce;
+dd = int/D[integral, x] // Together // Cancel // RootReduce;
 ddd = D[dd, x] // Together // Cancel;
 If[numericZeroQ[ddd],
 	dd = Simplify[dd];
