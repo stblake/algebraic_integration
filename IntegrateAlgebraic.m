@@ -2980,7 +2980,14 @@ Denominator[te] =!= 1 && PolynomialQ[Numerator[te],{x,y}] && PolynomialQ[Denomin
 
 ClearAll[integrate];
 
-integrate[e_, x_] := Integrate[e, x]
+integrate[e_, x_] := Module[{pf, result},
+	pf = apartList[e, x];
+	result = 0;
+	Do[
+		result += Integrate[term, x],
+	{term, pf}];
+	result
+]
 
 
 integrate[e_, x_] /; ListQ[ linearRadicalToRational[e, x, $u] ] := 
@@ -2995,7 +3002,7 @@ integrateLinearRadical[e_, x_, opts:OptionsPattern[]] := Module[{integrand, subs
 
 	{integrand, substitution} = linearRadicalToRational[e, x, $u];
 	debugPrint3["Rationalised integrand and substitution is ", {integrand, substitution}];
-	integral = Quiet @ Integrate[integrand, $u];
+	integral = Quiet @ integrate[integrand, $u];
 	If[! FreeQ[integral, Integrate], 
 		debugPrint3["Cannot integrate the rational function ", integrand, " wrt ", u];
 		Return[ False, Module ]];
@@ -3036,7 +3043,7 @@ integrateQuadraticRadical[e_, x_, opts:OptionsPattern[]] := Module[
 	If[ListQ[result],
 		{integrand, substitution} = result;
 		debugPrint3["Rationalised integrand and substitution is ", {integrand, substitution}];
-		integral = Quiet @ Integrate[integrand, u];
+		integral = Quiet @ integrate[integrand, u];
 		If[! FreeQ[integral, Integrate], 
 			debugPrint3["Cannot integrate the rational function ", integrand, " wrt ", u];
 			Return[ False, Module ]];
@@ -3491,7 +3498,7 @@ PolynomialQ[num,x] && PolynomialQ[den,x] && nex<2 && dex<2 && nex+dex>0
 (*linearRatioQ[4/5,x]*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*integrateMultipleRadicals - integrating distinct radicals term-by-term*)
 
 
@@ -5820,6 +5827,21 @@ simpleRadicalQ[p_/q_ r_^(-1/2), x_] /; PolynomialQ[p, x] && PolynomialQ[q, x] &&
 
 (* ::Input:: *)
 (*simpleRadicalQ[1/(x Sqrt[x^4-x^3-2 x^2+3 x+3]),x]*)
+
+
+(* ::Subsubsection::Closed:: *)
+(*apartList*)
+
+
+ClearAll[apartList];
+
+apartList[e_, x_] := Module[{apartList},
+	apartList = Apart[e, x];
+	If[Head[apartList] === Plus,
+		List @@ apartList,
+		{apartList}
+	]
+]
 
 
 (* ::Subsection::Closed:: *)
