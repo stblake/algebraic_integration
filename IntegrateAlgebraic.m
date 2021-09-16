@@ -554,7 +554,8 @@ Options[IntegrateAlgebraic] = {
 	"SingleStepTimeConstraint" -> 0.25,
 	"RationalUndeterminedOnly" -> False,
 	"FactorComplete" -> False,
-	"Radicals" -> False
+	"Radicals" -> False,
+	"DerivDivides" -> True
 }; 
 
 (* IntegrateAlgebraic should not be used with the following functions: *)
@@ -564,7 +565,8 @@ bannedList = Alternatives[List, Function, True, False, Equal, Unequal, Less, Gre
 			HeavisidePi, HeavisideLambda, TriangleWave, SawtoothWave, SquareWave, DiracComb, 
 			GreenFunction, InterpolatingFunction, BSplineFunction, BezierFunction, BezierCurve];
 
-IntegrateAlgebraic[e_, x_, opts:OptionsPattern[]] /; algebraicQ[e, x] := Module[
+IntegrateAlgebraic[e_, x_, opts:OptionsPattern[]] /; 
+	(algebraicQ[e, x] && ! PolynomialQ[e, x] && ! rationalQ[e, x] && Precision[e] === Infinity) := Module[
 	{integratedRationalPart, unintegratedPart, integratedPart, integral},
 
 	$recursionCounter = 0;
@@ -596,7 +598,7 @@ solveAlgebraicIntegral[integrand_, x_, opts : OptionsPattern[]] :=
 	solveAlgebraicIntegral[integrand, x, opts] = Module[
 {start, u, dd, rationalPart, unintegratedPart, integratedPart, 
 rationalIntegrand, substitution, integral, linRat, result, 
-goursat, simplified, split},
+goursat, simplified, split, recuropts},
 
 If[++$recursionCounter > 32, 
 	debugPrint1["Recursion limit exceeded! Giving up..."];
@@ -611,20 +613,21 @@ start = AbsoluteTime[]];
 
 If[PolynomialQ[unintegratedPart, x] || rationalQ[unintegratedPart, x], 
 	debugPrint1["Integrand is in Q(x): ", unintegratedPart];
-	integral = Integrate[unintegratedPart, x];
+	integral = integrate[unintegratedPart, x];
 	Return[ {0, 0, simplify[integral, x, "CancelRadicalDenominators" -> False, "Radicals" -> OptionValue["Radicals"]]}, Module ]
 ];
 
 (* Simple derivative divides. *)
 
-If[! algebraicQ[unintegratedPart, x],
-	debugPrint1["Trying derivative-divides..."];
-	dd = derivdivides[unintegratedPart, x, u];
+If[OptionValue["DerivDivides"],
+	debugPrint1["Trying simple derivative-divides..."];
+	dd = derivdivides[unintegratedPart, x, u, "Fast" -> True];
 	If[ListQ[dd], 
 		debugPrint1["Derivative-divides produced a simplification: ", dd];
 		simplified = dd[[1]];
 		substitution = dd[[2]];
-		result = solveAlgebraicIntegral[simplified, u, opts];
+		recuropts = Append[DeleteCases[{opts}, HoldPattern["DerivDivides" -> _]], "DerivDivides" -> False];
+		result = solveAlgebraicIntegral[simplified, u, Sequence @@ recuropts];
 		(* TODO: what do we do if we couldn't integrate the simplified integrand? Do we 
 			give up now, or try other methods on the original integrand? SAMB 0421 *)
 		(* result = simplify[result /. substitution, x, "Radicals" -> OptionValue["Radicals"]]; *)
@@ -1028,7 +1031,7 @@ rationalUndeterminedIntegrate[integrand_, x_, opts : OptionsPattern[]] := Module
 						radicandNumeratorUParam = Quiet @ Expand[ radicandNumeratorU /. radicandMatchRule /. {A[1]|A[2]|A[3]|B[1]|B[2] -> 1, A[0]|B[0] -> 0} ];
 
 						If[! FreeQ[{radicandDenominatorUParam, radicandDenominatorUParam}, C[_]|A[_]] || 
-							PossibleZeroQ[radicandNumeratorUParam] || PossibleZeroQ[radicandNumeratorUParam], 
+							zeroQ[radicandNumeratorUParam] || zeroQ[radicandNumeratorUParam], 
 							Continue[]];
 
 						debugPrint3["radicand numerator = ", radicandNumeratorUParam];
@@ -1074,8 +1077,8 @@ rationalUndeterminedIntegrate[integrand_, x_, opts : OptionsPattern[]] := Module
 								If[TrueQ[! OptionValue[VerifySolutions]] || TrueQ[(
 										(* Order tests from fastest to slowest. *)
 										numericZeroQ[Together[D[intX, x] - unintegratedPart /. internalC -> C]] || 
-										PossibleZeroQ[Together[D[intX, x] - unintegratedPart /. internalC -> C]] || 
-										PossibleZeroQ[D[Simplify[D[intX, x] - unintegratedPart /. internalC -> C], x]])],
+										zeroQ[Together[D[intX, x] - unintegratedPart /. internalC -> C]] || 
+										zeroQ[D[Simplify[D[intX, x] - unintegratedPart /. internalC -> C], x]])],
 									integratedPart = intX;
 									unintegratedPart = 0;
 									uform = RationalSubstitution = usubstitutionParam; (* Keep the u-substitution. *)
@@ -1144,7 +1147,7 @@ solveRationalUndetermined[num_, den_, p_, r_, usubstitution_, radicandDenominato
 		vars = Union @ Cases[eqn, (V|A|B)[_], Infinity];
 		ratSolution = Quiet[ Solve[! Eliminate[! eqn, {x}], vars], {Solve::"svars"}];
 
-		If[TrueQ[ratSolution =!= {} && ! MatchQ[ratSolution, _Solve] && ! MatchQ[ratSolution, {{(_ -> _?PossibleZeroQ) ..}..}]],
+		If[TrueQ[ratSolution =!= {} && ! MatchQ[ratSolution, _Solve] && ! MatchQ[ratSolution, {{(_ -> _?zeroQ) ..}..}]],
 			ratSolution = ratSolution[[1]];
 			debugPrint3["solution to the rational part is ", ratSolution];
 			parameterisedFormU = Cancel[ratU /. ratSolution];
@@ -1745,7 +1748,7 @@ Do[
 
 	Do[
 		{form, y} = {form, y} /. s /. {V[_] -> 1, A[_] -> 1};
-		If[!MatchQ[form, Indeterminate|0] && PossibleZeroQ[Cancel[Together[p/q r^l - (form D[y, x] /. u -> y)]]],
+		If[!MatchQ[form, Indeterminate|0] && zeroQ[Cancel[Together[p/q r^l - (form D[y, x] /. u -> y)]]],
 			RationalSubstitution = y;
 			Throw @ Cancel[ {form, y} ]
 		], 
@@ -1828,7 +1831,7 @@ Do[
 
 	Do[
 		{form, y} = {form, y} /. s /. {V[_] -> 1, A[_] -> 1};
-		If[!MatchQ[form, Indeterminate|0] && PossibleZeroQ[Cancel[Together[p/q r^l - (form D[y, x] /. u -> y)]]],
+		If[!MatchQ[form, Indeterminate|0] && zeroQ[Cancel[Together[p/q r^l - (form D[y, x] /. u -> y)]]],
 			RationalSubstitution = y;
 			Throw @ Cancel[ {form, y} ]
 		], 
@@ -1959,7 +1962,7 @@ Do[
 		{}];
 
 	sol = sol /. ConditionalExpression[e_,___] :> e /. C[1] -> 1;
-	sol = DeleteCases[sol, {(_ -> _?PossibleZeroQ) ..}];
+	sol = DeleteCases[sol, {(_ -> _?zeroQ) ..}];
 
 	If[! MatchQ[sol, {} | {{}} | _Solve | False], 
 		Break[]
@@ -1976,7 +1979,7 @@ Do[
 
 	logs = logs /. LCM -> Times; (* Incase LCM doesn't simplify. eg. LCM[1, Sqrt[2]] *)
 
-	log = Select[logs, Quiet[ PossibleZeroQ[Together[D[#, x] - a[x]/(b[x] Sqrt[r[x]])]] ] &, 1] /. {{e_} :> e, {} -> False};
+	log = Select[logs, Quiet[ zeroQ[Together[D[#, x] - a[x]/(b[x] Sqrt[r[x]])]] ] &, 1] /. {{e_} :> e, {} -> False};
 	
 	If[FreeQ[log, _Complex], log, ExpToTrig[log]] (* Fix for IntegrateAlgebraic[(2*x-42*x^2+16*x^3)/Sqrt[Expand[1-(x^2-14*x^3+4*x^4)^2]],x] SAMB 0821 *)
 ]
@@ -2112,7 +2115,7 @@ Do[
 		{}];
 
 	sol = sol /. ConditionalExpression[e_,___] :> e /. C[1] -> 1;
-	sol = DeleteCases[sol, {(_ -> _?PossibleZeroQ) ..}];
+	sol = DeleteCases[sol, {(_ -> _?zeroQ) ..}];
 
 	If[! MatchQ[sol, {} | {{}} | _Solve | False], 
 		Break[]
@@ -2128,7 +2131,7 @@ Do[
 		{k, Length[sol]}];
 	logs = logs /. LCM -> Times; (* Incase LCM doesn't simplify. eg. LCM[1, Sqrt[2]] *)
 
-	Select[logs, Quiet[ PossibleZeroQ[Together[D[#,x]-a[x]/(b[x] Sqrt[r[x]])]] ]&, 1] /. {{e_} :> e, {} -> False}
+	Select[logs, Quiet[ zeroQ[Together[D[#,x]-a[x]/(b[x] Sqrt[r[x]])]] ]&, 1] /. {{e_} :> e, {} -> False}
 ]
 
 
@@ -2578,7 +2581,7 @@ Do[
 	\[ScriptCapitalL] = a + b - c - d;
 	\[ScriptCapitalM] = c d - a b;
 	\[ScriptCapitalN] = a b (c + d) - c d (a + b);
-	If[Rx + (Rx /. x -> -((\[ScriptCapitalM] x + \[ScriptCapitalN])/(\[ScriptCapitalL] x + \[ScriptCapitalM]))) // Together // PossibleZeroQ, 
+	If[Rx + (Rx /. x -> -((\[ScriptCapitalM] x + \[ScriptCapitalN])/(\[ScriptCapitalL] x + \[ScriptCapitalM]))) // Together // zeroQ, 
 		(* Integral is a Goursat pseudo-elliptic *)
 		roots = u /. Solve[\[ScriptCapitalL] u^2 + 2 \[ScriptCapitalM] u + \[ScriptCapitalN] == 0, u];
 		If[Length[roots] == 2,  
@@ -2749,7 +2752,7 @@ If[solns === $TimedOut,
 
 solns = DeleteCases[solns, s_ /; !FreeQ[s, Power[_Integer, _Rational]]];
 
-If[MatchQ[solns, {}|{{}} | _Solve | {{(_ -> _?PossibleZeroQ) ..}..}], 
+If[MatchQ[solns, {}|{{}} | _Solve | {{(_ -> _?zeroQ) ..}..}], 
 	Return[ False ]];
 
 subs1 = Table[
@@ -2774,7 +2777,7 @@ subs = Join[subs1, subs2];
 
 goodsubs = Cases[subs, 
 	{integrand_, u -> usub_} /; 
-	Quiet[ PossibleZeroQ[e - Cancel @ Together[integrand D[usub, x] /. u -> usub]] ]];
+	Quiet[ zeroQ[e - Cancel @ Together[integrand D[usub, x] /. u -> usub]] ]];
 
 If[goodsubs === {}, 
 	Return[ False ]
@@ -2853,7 +2856,7 @@ If[solns === $TimedOut,
 
 solns = DeleteCases[solns, s_ /; !FreeQ[s, Power[_Integer, _Rational]]];
 
-If[MatchQ[solns, {}|{{}} | _Solve | {{(_ -> _?PossibleZeroQ) ..}..}], 
+If[MatchQ[solns, {}|{{}} | _Solve | {{(_ -> _?zeroQ) ..}..}], 
 	Return[ False ]];
 
 subs = Table[
@@ -2867,7 +2870,7 @@ subs = Table[
 
 goodsubs = Cases[subs, 
 	{integrand_, u -> usub_} /; 
-	Quiet[ PossibleZeroQ[e - PowerExpand @ Cancel @ Together[integrand D[usub, x] /. u -> usub]] ]];
+	Quiet[ zeroQ[e - PowerExpand @ Cancel @ Together[integrand D[usub, x] /. u -> usub]] ]];
 
 If[goodsubs === {}, 
 	Return[ False ]
@@ -2926,7 +2929,7 @@ solns = DeleteCases[solns, s_ /; ! FreeQ[s, Complex]];
 If[solns === $TimedOut, 
 	Return[ False ]];
 
-If[MatchQ[solns, {}|{{}} | _Solve | {{(_ -> _?PossibleZeroQ) ..}..}], 
+If[MatchQ[solns, {}|{{}} | _Solve | {{(_ -> _?zeroQ) ..}..}], 
 	Return[ False ]];
 
 subs = Table[
@@ -2942,7 +2945,7 @@ subs = Table[
 
 goodsubs = Cases[subs, 
 	{integrand_, u -> usub_} /; 
-	Quiet[ PossibleZeroQ[e - powerReduce1[MapAll[Together, integrand D[usub, x] /. u -> usub],x]] ]];
+	Quiet[ zeroQ[e - powerReduce1[MapAll[Together, integrand D[usub, x] /. u -> usub],x]] ]];
 	
 If[goodsubs === {}, 
 	Return[ False ]
@@ -2986,7 +2989,7 @@ integrate[e_, x_] := Module[{pf, result},
 	Do[
 		result += Integrate[term, x],
 	{term, pf}];
-	result
+	Simplify[ result ]
 ]
 
 
@@ -3316,8 +3319,11 @@ If[\[Alpha] === 1, Return [ False ]];
 \[Beta]=Sqrt[a \[Alpha]+b];
 \[Gamma]=Sqrt[c \[Alpha]+d];
 
+Quiet @ Check[
 rat=e dx/. {(a x+b)^m_/;Denominator[m]==2 :> ((-\[Beta] c u^2+2\[Gamma] a u-\[Beta] a)/(c u^2-a))^(2m),(c x+d)^m_/;Denominator[m]==2:> ((\[Gamma] c u^2-2\[Beta] c u+\[Gamma] a)/(c u^2-a))^(2m),x->\[Alpha]-(4 \[Beta] \[Gamma] u)/(c u^2-a)+(4 (2\[Alpha] a c+a d+b c)u^2-8\[Beta] \[Gamma] a u)/(c u^2-a)^2, 
-dx-> (4\[Beta] \[Gamma] c^2 u^4-8(2\[Alpha] a c+a d+b c)c u^3+24\[Beta] \[Gamma] a c u^2-8(2 \[Alpha] a c+a d+b c) a u+4 \[Beta] \[Gamma] a^2)/(c u^2-a)^3};
+dx-> (4\[Beta] \[Gamma] c^2 u^4-8(2\[Alpha] a c+a d+b c)c u^3+24\[Beta] \[Gamma] a c u^2-8(2 \[Alpha] a c+a d+b c) a u+4 \[Beta] \[Gamma] a^2)/(c u^2-a)^3},
+Return[ False ]
+];
 
 result = {rat//Together//Cancel, u -> (Sqrt[a x+b]-\[Beta])/(Sqrt[c x+d]-\[Gamma])};
 debugPrint2[result];
@@ -4523,11 +4529,11 @@ uintegrands = PowerExpand[Factor[uintegrands]] //. Power[a_,n_Rational]Power[b_,
 debugPrint2[uintegrands];
 
 (* Pick the correct substitution. *)
-gooduintegrands = Cases[uintegrands, {_ -> intU_} /; (PossibleZeroQ[integrand - rewriteNestedRadicals[Cancel @ Together[intU D[sub, x] /. u -> sub], sub, x]]), 1, 1];
+gooduintegrands = Cases[uintegrands, {_ -> intU_} /; (zeroQ[integrand - rewriteNestedRadicals[Cancel @ Together[intU D[sub, x] /. u -> sub], sub, x]]), 1, 1];
 
 If[gooduintegrands==={},
 gooduintegrands = Join[gooduintegrands,
-Cases[uintegrands, {dd_ -> intU_} /; PossibleZeroQ[integrand - PowerExpand @ Cancel @ Together[PowerExpand[intU] D[sub, x] /. u -> sub]] :> {dd -> intU // PowerExpand}, 1, 1]
+Cases[uintegrands, {dd_ -> intU_} /; zeroQ[integrand - PowerExpand @ Cancel @ Together[PowerExpand[intU] D[sub, x] /. u -> sub]] :> {dd -> intU // PowerExpand}, 1, 1]
 	]
 ];
 
@@ -4785,7 +4791,7 @@ ClearAll[candidateSubstitutions];
 Options[candidateSubstitutions] = {"SingleStepTimeConstraint" -> 0.25};
 
 candidateSubstitutions[e_, x_, OptionsPattern[]] := Module[
-{candidates, sorted, scores},
+{candidates, rads, sorted, scores},
 
 (* TODO. If it's cheap to Factor and Decompose the integrand, or 
 subsets of the integrand, then we should probably do so and add 
@@ -4802,6 +4808,8 @@ candidates = DeleteCases[candidates, x^n_Integer /; n < 0];
 candidates = Cases[candidates, s_ /; ! FreeQ[s,x] && FreeQ[s, Root | RootSum]];
 candidates = DeleteCases[candidates, x];
 candidates = Select[candidates, LeafCount[#] < 4/5 LeafCount[e]&]; (* Only try _small_ substitutions (relative to the integrand) *)
+rads = Cases[candidates, Power[p_,r_Rational] /; !FreeQ[p,x] :> Expand[p]^Abs[r]] // Union;
+candidates = Join[candidates, DeleteCases[Flatten @ Outer[Divide, rads, rads],1]];
 candidates = Union[candidates, SameTest -> (FreeQ[#1/#2, x]&)];
 
 scores = scoreCandidate[e, #, x] - 10^-3 LeafCount[#]& /@ Union[candidates]; (* Use LeafCount to break ties. *)
@@ -4846,29 +4854,58 @@ Mean[ranks] // N
 (* Simple derivative-divides heuristic. *)
 ClearAll[derivdivides];
 
-Options[derivdivides] = {"SingleStepTimeConstraint" -> 0.25, "Candidates" -> Automatic};
+Options[derivdivides] = {
+"SingleStepTimeConstraint" -> 0.25, 
+"Candidates" -> Automatic,
+"Fast" -> False};
 
 derivdivides[e_, x_, u_, opts:OptionsPattern[]] := Module[
-{candidates, diff, eu, euu, y, sys, eus, subs1, subs2, 
+{candidates, diff, eu, euu, y, sys, eus, subs1, subs2, subs3, subs4, 
 	a, b, eqns, special1, special2, special3, special, subx, gs},
 
 (* Create a list of candidate substitutions. *)
 
 If[OptionValue["Candidates"] === Automatic,
 	candidates = candidateSubstitutions[e, x, opts],
-	candidates = OptionValue["Candidates"]];
+	candidates = OptionValue["Candidates"]
+];
+
+special1 = Cases[candidates, p_ /; 
+		(linearPolynomialQ[p,x] || linearRationalPolynomialQ[p,x])];
+special2 = Cases[candidates, p_^n_Rational /; 
+	(Numerator[n] == 1 && (linearPolynomialQ[p,x] || linearRationalPolynomialQ[p,x]))];
+special3 = Cases[candidates, p_^n_Rational q_^m_Rational /; 
+	(Numerator[n] == 1 && n + m == 0 && linearPolynomialQ[p,x] && linearPolynomialQ[q,x])];
+
+If[OptionValue["Fast"],
+	special = Join[special3, special2],
+	special = Join[special3, special2, special1]
+];
+
+If[OptionValue["Fast"], 
+	candidates = Cases[candidates, p_ /; PolynomialQ[p, x] && Exponent[p, x] > 1];
+	candidates = Join[candidates, special]
+];
+
+If[candidates === {}, 
+	Return[ False, Module ]
+];
+
 debugPrint3["Candidates for derivative-divides are ", candidates];
 
 (* Computationally cheap checks first. *)
 
 Do[
-	TimeConstrained[
+	Quiet @ Check[
+		TimeConstrained[
 		subs1 = Table[sub^n -> u^n, {n, -16, 16}]; (* This is a hack, but speedy compared to Eliminate/Solve below. *)
 		subs2 = Table[n sub -> n u, {n, -16, 16}]; (* Hack! *)
+		subs3 = Table[Expand[sub^n] -> u^n, {n, -8, 8}]; (* These are also hacks! *)
+		subs4 = Table[n sub -> n u, {n, -8, 8}];
 		diff = Cancel @ Together[D[sub,x]];
 		eu = e //. subs1;
-		eu = eu //. subs2; 
-		eu = Cancel[Together[eu/diff]] //. subs1 //. subs2;
+		eu = eu //. subs2 //. subs3 //. subs4; 
+		eu = Cancel[Together[eu/diff]] //. subs1 //. subs2 //. subs3 //. subs4;
 		debugPrint3["Trying sub = ", sub, ", giving ", eu, ", rank in = ", 
 			rank[e, x],", rank out = ", rank[eu, u], ", size ratio = ", LeafCount[eu]/LeafCount[e] // N];
 		If[FreeQ[eu, x] && (simpleQ[eu, u] || LeafCount[eu]/LeafCount[e] < 0.75 || rank[eu, u]/rank[e, x] < 0.9),
@@ -4876,7 +4913,8 @@ Do[
 			Return[{eu, u -> sub}, Module]
 		],
 		OptionValue["SingleStepTimeConstraint"]
-	],
+		], 
+	Continue[]],
 {sub, candidates}];
 
 (* Some special cases that we handle separately: u \[Rule] a x + b, u \[Rule] (a x + b)/(c x + d), 
@@ -4885,15 +4923,8 @@ Do[
 	TODO: u \[Rule] a x^(1/n) + b, u \[Rule] (a x^(1/n) + b)/(c x^(1/n) + d), 
 			u \[Rule] (a x^(1/n) + b)^(1/m), u \[Rule] ((a x^(1/n) + b)/(c x^(1/n) + d))^(1/m) *)
 
-special1 = Cases[candidates, p_ /; 
-	(linearPolynomialQ[p,x] || linearRationalPolynomialQ[p,x])];
-special2 = Cases[candidates, p_^n_Rational /; 
-	(Numerator[n] == 1 && (linearPolynomialQ[p,x] || linearRationalPolynomialQ[p,x]))];
-special3 = Cases[candidates, p_^n_Rational q_^m_Rational /; 
-	(Numerator[n] == 1 && n + m == 0 && linearPolynomialQ[p,x] && linearPolynomialQ[q,x])];
-special  = Join[special3, special2, special1];
-
 Do[
+	Quiet @ Check[
 	TimeConstrained[
 		subs1 = Table[sub^n -> u^n, {n, -16, 16}]; 
 		subs2 = Table[n sub -> n u, {n, -16, 16}];
@@ -4913,7 +4944,12 @@ Do[
 		],
 		OptionValue["SingleStepTimeConstraint"]
 	],
+	Continue[]],
 {sub, special}];
+
+If[OptionValue["Fast"], 
+	Return[ False, Module ]
+];
 
 (* TODO: Should we try computing all inverse functions of the u-substitution with Solve and 
 test them one-by-one? Are there (reasonable) examples where that approach succeeds and the 
@@ -5080,7 +5116,7 @@ SinhIntegral,Erf,Erfc,Erfi,ProductLog,EllipticK,EllipticE,EllipticPi};
 ClearAll[groebnerSubstitute];
 
 groebnerSubstitute[e_, u_ -> sub_, x_] := Module[
-{k = 0, et, subt, y, fns, vs, ddvs, eqns, rules, allvars, vlist, elimvars, gb, ufns, tic},
+{k = 0, et, subt, y, fns, exps, vs, ddvs, eqns, rules, allvars, vlist, elimvars, gb, ufns, tic},
 (* TODO: investigate converting Sin and Cos to Tan instead of their exponential form. (Similarly, 
 for Sinh and Cosh to Tanh) *)
 et = TrigToExp[e];
@@ -5116,7 +5152,7 @@ ufns = Cancel @ Together[(Dt[y] /. ufns)];
 ufns = Cases[ufns, s_ /; FreeQ[s, Root | RootSum]];
 debugPrint3["Candidate integrands in ", u, " are ",ufns];
 Do[
-If[FreeQ[ufn, x] && PossibleZeroQ[Cancel[Together[et - (ufn D[subt,x] /. u -> subt)]]],
+If[FreeQ[ufn, x] && zeroQ[Cancel[Together[et - (ufn D[subt,x] /. u -> subt)]]],
 	Return[{ufn, u -> sub}, Module]
 ],{ufn, ufns}];
 
@@ -5124,7 +5160,7 @@ If[FreeQ[ufn, x] && PossibleZeroQ[Cancel[Together[et - (ufn D[subt,x] /. u -> su
 ufns = PowerExpand[Factor //@ ufns];
 debugPrint3["Candidate integrands in ", u, " are ",ufns];
 Do[
-If[FreeQ[ufn, x] && PossibleZeroQ[Cancel[Together[et - (ufn D[subt,x] /. u -> subt)]]],
+If[FreeQ[ufn, x] && zeroQ[Cancel[Together[et - (ufn D[subt,x] /. u -> subt)]]],
 	Return[{ufn, u -> sub}, Module]
 ],{ufn, ufns}];
 
@@ -5133,7 +5169,7 @@ sort this out, so we do not require 3 attempts to verify the substitution. *)
 ufns = PowerExpand[Factor //@ ufns];
 debugPrint3["Candidate integrands in ", u, " are ",ufns];
 Do[
-If[FreeQ[ufn, x] && PossibleZeroQ[Cancel[Together[et - (ufn D[subt,x] /. u -> subt)]]],
+If[FreeQ[ufn, x] && zeroQ[Cancel[Together[et - (ufn D[subt,x] /. u -> subt)]]],
 	Return[{ufn, u -> subt}, Module]
 ],{ufn,ufns}];
 
@@ -5239,7 +5275,7 @@ nicerQ[a_, b_, x_] := continuousQ[1/a, x] && ! continuousQ[1/b, x]
 nicerQ[a_, b_, x_] := !(! continuousQ[1/a, x] && continuousQ[1/b, x])
 
 
-zeroQ[e_] := TimeConstrained[PossibleZeroQ[e], $timeConstraint, False]
+zeroQ[e_] := TimeConstrained[zeroQ[e], $timeConstraint, False]
 
 
 (* A simplification based on
@@ -5579,7 +5615,7 @@ verifySolution[integral_, integrand_, x_] := verifySolution[integral, integrand,
 	TrueQ[
 		tdd === 0 ||
 		numericZeroQ[tdd] ||
-		Quiet[ PossibleZeroQ[tdd] ]
+		zeroQ[tdd]
 	]
 ]
 
@@ -5589,7 +5625,7 @@ verifySolution[integral_, integrand_, x_] := verifySolution[integral, integrand,
 
 
 (* ::Text:: *)
-(*TODO: Perhaps this should be clever and look at $Assumptions? Or if assumptions are made then we just (possibly) fail and rely on PossibleZeroQ and Simplify in subsequent (more time intensive) testing. *)
+(*TODO: Perhaps this should be clever and look at $Assumptions? Or if assumptions are made then we just (possibly) fail and rely on zeroQ and Simplify in subsequent (more time intensive) testing. *)
 
 
 ClearAll[numericZeroQ];
@@ -5644,7 +5680,7 @@ numericZeroQ[e_, OptionsPattern[]] := Module[
 
 
 (* ::Input:: *)
-(*D[-(1/(10 Sqrt[-1+Sqrt[5]]))(10 Sqrt[-1+Sqrt[5]] ArcTan[x/Sqrt[1+x^2+x^4]]-2 Sqrt[10] ArcTan[(Sqrt[-2+2 Sqrt[5]] Sqrt[1+x^2+x^4])/(-1+Sqrt[5]-2 x-x^2+Sqrt[5] x^2)]+I Sqrt[10] Log[2]-2 Sqrt[15-5 Sqrt[5]] Log[(2+x+Sqrt[5] x+2 x^2)/x]+2 Sqrt[15-5 Sqrt[5]] Log[(1+Sqrt[5]+2 x+x^2+Sqrt[5] x^2-Sqrt[2+2 Sqrt[5]] Sqrt[1+x^2+x^4])/x]),x]-((-1+x^2) Sqrt[1+x^2+x^4])/((1+x^2) (1+x+x^2+x^3+x^4))//Together//PossibleZeroQ//Timing*)
+(*D[-(1/(10 Sqrt[-1+Sqrt[5]]))(10 Sqrt[-1+Sqrt[5]] ArcTan[x/Sqrt[1+x^2+x^4]]-2 Sqrt[10] ArcTan[(Sqrt[-2+2 Sqrt[5]] Sqrt[1+x^2+x^4])/(-1+Sqrt[5]-2 x-x^2+Sqrt[5] x^2)]+I Sqrt[10] Log[2]-2 Sqrt[15-5 Sqrt[5]] Log[(2+x+Sqrt[5] x+2 x^2)/x]+2 Sqrt[15-5 Sqrt[5]] Log[(1+Sqrt[5]+2 x+x^2+Sqrt[5] x^2-Sqrt[2+2 Sqrt[5]] Sqrt[1+x^2+x^4])/x]),x]-((-1+x^2) Sqrt[1+x^2+x^4])/((1+x^2) (1+x+x^2+x^3+x^4))//Together//zeroQ//Timing*)
 
 
 (* ::Input:: *)
@@ -5653,6 +5689,13 @@ numericZeroQ[e_, OptionsPattern[]] := Module[
 
 (* ::Subsection::Closed:: *)
 (*utilities*)
+
+
+(* ::Subsubsection::Closed:: *)
+(*zeroQ*)
+
+
+zeroQ[e_] := Quiet @ PossibleZeroQ[e]
 
 
 (* ::Subsubsection::Closed:: *)
@@ -5724,7 +5767,7 @@ singleHyperEllipticRadicalQ[e_, x_] :=
 	Length[Union[Cases[e, Power[p_, r_Rational] /; (! FreeQ[p, x] && PolynomialQ[p, x]), {0, Infinity}]]] === 1 && 
 	Length[Union[
 		Cases[e, Power[p_, r_Rational] /; PolynomialQ[p, x] && Exponent[p, x] > 2 :> {p, Abs[r]}, {0, Infinity}], 
-		SameTest -> (#1[[2]] == #2[[2]] && PossibleZeroQ[#1[[1]] - #2[[1]]]&)]] === 1
+		SameTest -> (#1[[2]] == #2[[2]] && zeroQ[#1[[1]] - #2[[1]]]&)]] === 1
 
 
 (* ::Input:: *)
@@ -5758,12 +5801,16 @@ singleRadicalQ[e_, x_] :=
 ClearAll[algebraicQ];
 
 algebraicQ[C[_], _] := True
-algebraicQ[_Integer | _Rational | _Symbol, _] := True
+algebraicQ[_Integer | _Rational | _Symbol | _Complex, _] := True
 
 algebraicQ[e_Plus, x_] := algebraicQ[First @ e, x] && algebraicQ[Rest @ e, x]
 algebraicQ[e_Times, x_] := algebraicQ[First @ e, x] && algebraicQ[Rest @ e, x]
 
 algebraicQ[Power[a_, b_], x_] := algebraicQ[a, x] && PolynomialQ[b, x]
+
+
+(* ::Input:: *)
+(*algebraicQ[(I Sqrt[b])/((a-u^2) Sqrt[a c-b d-c u^2]),u]*)
 
 
 (* ::Input:: *)
