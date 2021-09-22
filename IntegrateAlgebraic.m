@@ -1194,7 +1194,7 @@ solveRational[num_, den_, p_, r_, usubstitution_, radicandDenominator_, x_, u_, 
 		GroebnerBasis[eqns, {u, Dt[u]}, {Dt[x], x}, 
 			MonomialOrder -> EliminationOrder, 
 			Method -> "Buchberger", ParameterVariables -> pv] // Factor // PowerExpand,
-		10. $timeConstraint,
+		5. $timeConstraint,
 		debugPrint3[Style["GroebnerBasis timed-out in solveRational!", Orange]];
 		$TimedOut];
 
@@ -3027,7 +3027,7 @@ ClearAll[integrateQuadraticRadical];
 Options[integrateQuadraticRadical] = Options[IntegrateAlgebraic];
 
 integrateQuadraticRadical[e_, x_, opts:OptionsPattern[]] := Module[
-{t, u, mmaInt, intt, integrand, substitution, integral, numerics, result, dd, ddd},
+{t, u, mmaInt, intt, integrand, substitution, integral, numerics, result},
 
 	(* Can we substitute u \[Equal] (x^2)? eg. (x*Sqrt[-2 + x^2])/(2 - 4*x^2 + x^4) *)
 
@@ -3603,7 +3603,7 @@ If[rationalPart === 0 && Length[terms] === 1,
 ]
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*nestedQuadraticRadicalIntegrate - integrating nested radicals via the Euler substitution*)
 
 
@@ -3677,6 +3677,9 @@ radicand = quadratics[[1,1]];
 exponent = quadratics[[1,2]];
 {c,b,a} = CoefficientList[radicand, x];
 
+If[b === 0 && c === 0, 
+	Return[{0, e, 0}, Module]];
+
 (* Rationalising substitutions for quadratic radicals. *)
 substitutions = {
 {PowerExpand[(u^2 - c)/(b + 2 Sqrt[a] u)], PowerExpand[Sqrt[a]] x + Sqrt[radicand]},
@@ -3710,12 +3713,16 @@ results = Table[
 		recur = recur /. u -> subx;
 		intx = recur[[3]];
 		intx = simplify[intx // Apart // Together, x, "CancelRadicalDenominators" -> False, "Radicals" -> OptionValue["Radicals"]];
-		intx = recastRadicals[intx, radicalOfQuadraticRadicals[[1,1]]^Abs[radicalOfQuadraticRadicals[[1,2]]], x];
+		Quiet @ Check[
+			intx = recastRadicals[intx, radicalOfQuadraticRadicals[[1,1]]^Abs[radicalOfQuadraticRadicals[[1,2]]], x],
+			Return[{0, e, 0}, Module]
+		];
 
 		(* Repair branch cuts. *)
 		dd = 1;
 		If[! verifySolution[intx, e - recur[[1]] - recur[[2]], x],
 			dd = Cancel @ Together @ Apart[D[intx,x]/e];
+			If[dd === 0, Return[{0, e, 0}, Module]];
 			If[Cancel[Together @ D[dd,x]] == 0,
 				debugPrint2["Repairing branch cut with the piecewise constant ", dd]; 
 				intx *= dd
@@ -4530,13 +4537,13 @@ debugPrint2[uintegrands];
 
 (* Pick the correct substitution. *)
 gooduintegrands = Cases[uintegrands, {_ -> intU_} /; (zeroQ[integrand - rewriteNestedRadicals[Cancel @ Together[intU D[sub, x] /. u -> sub], sub, x]]), 1, 1];
-
+(*
 If[gooduintegrands==={},
 gooduintegrands = Join[gooduintegrands,
 Cases[uintegrands, {dd_ -> intU_} /; zeroQ[integrand - PowerExpand @ Cancel @ Together[PowerExpand[intU] D[sub, x] /. u -> sub]] :> {dd -> intU // PowerExpand}, 1, 1]
 	]
 ];
-
+*)
 If[gooduintegrands === {}, 
 	Return[ False ]
 ];
@@ -5341,7 +5348,7 @@ ClearAll[collect];
 
 collect[e_, x_] := Collect[e, 
 	(r_^_Rational /; !FreeQ[r,x])|_Log|_ArcTan|_ArcTanh|_$rootSum, 
-	Together[RootReduce[#] // ToRadicals]&]
+	Together[Simplify[RootReduce[#] // ToRadicals]]&]
 
 
 ClearAll[collectnumden];
@@ -5649,8 +5656,8 @@ numericZeroQ[e_, OptionsPattern[]] := Module[
 	upper = 10.0 + (119. E)/(121. Pi);
 	step  = (1999. Sqrt[2])/(4003.);
 
-	rands = BlockRandom[ RandomReal[{0,1}, Ceiling[12*(upper - lower)/step]] ];
-	j = 0;
+	rands = BlockRandom[ RandomReal[{0,1}, 1 + 12 Ceiling[12*(upper - lower)/step]] ];
+	j = 1;
 	numericeval = Table[
 				Quiet[
 					ef @@ SetPrecision[Table[r rands[[j++]] Exp[2.0 Pi I k/12], {Length @ v}], OptionValue[Precision]]
@@ -5658,6 +5665,10 @@ numericZeroQ[e_, OptionsPattern[]] := Module[
 			{k, 0, 11},
 			{r, lower, upper, step}
 		] // Flatten;
+
+	If[! FreeQ[numericeval, Indeterminate | DirectedInfinity], 
+		Return[False]
+	];
 
 	Mean[Norm /@ Select[numericeval, NumericQ]] < SetPrecision[OptionValue[Tolerance], OptionValue[Precision]] // TrueQ
 ]
