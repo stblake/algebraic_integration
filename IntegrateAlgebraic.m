@@ -1544,7 +1544,7 @@ normalise[e_, {x_, y_}] := Module[
 (*%[[5]]+%[[1]]/%[[2]]-f /. %[[4]]//Together//Simplify*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*directRationalise*)
 
 
@@ -1620,13 +1620,13 @@ If[result =!= $Failed,
 ];
 
 (* Substitution containing s[x]*r[x]^n or 1/(s[x]*r[x]^n) *)
-(*
+
 result = directRationaliseSolve[p, q, r, n, n,Sign[n],x,u];
 
 If[result =!= $Failed, 
 	debugPrint2["directRationalise -- substitution of the form s[x]^(Sign[n])*r[x]^n: ", result];
 	ratIntegral = Integrate[result // First, u];
-	Return[ {0, 0, simplify[ratIntegral /. u -> Last[result], x, "CancelRadicalDenominators" \[Rule] False, "Radicals" -> OptionValue["Radicals"]]} ]
+	Return[ {0, 0, simplify[ratIntegral /. u -> Last[result], x, "CancelRadicalDenominators" -> False, "Radicals" -> OptionValue["Radicals"]]} ]
 ];
 
 (* Substitution containing s[x]*r[x]^(n+1) or 1/(s[x]*r[x]^(n+1)) *)
@@ -1636,9 +1636,9 @@ result = directRationaliseSolve[p, q, r, n, n+1,Sign[n+1],x,u];
 If[result =!= $Failed, 
 	debugPrint2["directRationalise -- substitution of the form s[x]^(Sign[n+1])*r[x]^(n+1): ", result];
 	ratIntegral = Integrate[result // First, u];
-	Return[ {0, 0, simplify[ratIntegral /. u -> Last[result], x, "CancelRadicalDenominators" \[Rule] False, "Radicals" -> OptionValue["Radicals"]]} ]
+	Return[ {0, 0, simplify[ratIntegral /. u -> Last[result], x, "CancelRadicalDenominators" -> False, "Radicals" -> OptionValue["Radicals"]]} ]
 ];
-*)
+
 
 (* Quadratic rational substitutions. *)
 
@@ -1678,7 +1678,7 @@ If[result =!= $Failed,
 ]
 
 
-(* ::Subsubsection::Closed:: *)
+(* ::Subsubsection:: *)
 (*directRationaliseSolve*)
 
 
@@ -1703,7 +1703,7 @@ Do[
 
 	debugPrint3["numerator/denominator degree = ", ndeg, ", ", ddeg];
 
-	y = Sum[A[k] x^k, {k, 0, deg}]^n r^m;
+	y = Sum[A[k] x^k, {k, 0, deg}]^n (* (A[deg+1] x + A[deg+2])^(-n) *) r^m;
 	(*y = y /. A[deg] \[Rule] 1;*)
 	debugPrint3["Substitution form is ", y];
 
@@ -3603,7 +3603,7 @@ If[rationalPart === 0 && Length[terms] === 1,
 ]
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*nestedQuadraticRadicalIntegrate - integrating nested radicals via the Euler substitution*)
 
 
@@ -5282,9 +5282,6 @@ nicerQ[a_, b_, x_] := continuousQ[1/a, x] && ! continuousQ[1/b, x]
 nicerQ[a_, b_, x_] := !(! continuousQ[1/a, x] && continuousQ[1/b, x])
 
 
-zeroQ[e_] := TimeConstrained[zeroQ[e], $timeConstraint, False]
-
-
 (* A simplification based on
 	 D[(Log[a[x] + b[x]] - Log[-a[x] + b[x]]) - 2*ArcTanh[a[x]/b[x]], x] \[Equal] 0 *)
 ClearAll[log2ArcTanh];
@@ -5296,6 +5293,36 @@ log2ArcTanh = c1_. Log[p_] + c2_. Log[q_] /;
 		zeroQ[(p + q)/2 - (p - q)/2 - q] && 
 		LeafCount[collectnumden @ Cancel[Together[(p + q)/(q - p)]]] < LeafCount[p/q] :> 
 	(c2 - c1) ArcTanh[collectnumden @ Cancel[Together[(p + q)/(q - p)]]];
+
+
+(* A simplification based on 
+	Simplify[D[Log[(-a)*I*x + Sqrt[a]*Sqrt[c - a*x^2]] + I*ArcTan[(Sqrt[a]*x)/Sqrt[c - a*x^2]], x]] == 0 
+	Simplify[D[Log[(-a)*x + Sqrt[a]*Sqrt[c + a*x^2]] + ArcTanh[(Sqrt[a]*x)/Sqrt[c + a*x^2]], x]] == 0 
+*)
+ClearAll[log2arctan];
+
+log2arctan[e_, x_] := Module[{log2arctanrule, log2arctanhrule},
+	log2arctanrule = A_. Log[P_ + Q_. Sqrt[R_]] /; 
+	zeroQ[Exponent[R,x] - 2] && 
+	zeroQ[Exponent[P,x] - 1] && 
+	zeroQ[Coefficient[R,x]] && 
+	zeroQ[Coefficient[R,x^2] + I Coefficient[P,x]] && 
+	Coefficient[R,x^2] + Q^2 == 0 :> -I A ArcTan[(Q x)/Sqrt[R]];
+	log2arctanhrule = A_. Log[P_ + Q_. Sqrt[R_]] /; 
+	zeroQ[Exponent[R,x] - 2] && 
+	zeroQ[Exponent[P,x] - 1] && 
+	zeroQ[Coefficient[R,x]] && 
+	zeroQ[Coefficient[P,x] + Coefficient[R,x^2]] && 
+	Q^2 - Coefficient[R,x^2] == 0 :> -A ArcTanh[(Q x)/Sqrt[R]];
+	e /. {log2arctanrule, log2arctanhrule}]
+
+
+(* ::Input:: *)
+(*log2arctan[Log[-a I x+Sqrt[a] Sqrt[c-a x^2]],x]*)
+
+
+(* ::Input:: *)
+(*log2arctan[-(1/2) Log[-2 x+Sqrt[2] Sqrt[1-I Sqrt[3]+2 x^2]],x]*)
 
 
 canonic[e_] := Module[{pf, simp},
@@ -5414,7 +5441,7 @@ nquadraticQ[p_,x_] := Module[{rules},
 
 
 (* ::Text:: *)
-(*simplify is not only for asthetic reasons. We also attempt to correct for the substitution taking a branch of the radical. *)
+(*simplify is not only for aesthetic reasons. We also attempt to correct for the substitution taking a branch of the radical. *)
 (**)
 (*TODO: make logands monic.*)
 
@@ -5509,6 +5536,8 @@ simplify[e_, x_, opts:OptionsPattern[]] := Module[
 	simp = simp /. p_ /; PolynomialQ[p,x] :> Collect[p, x];
 	simp = simp /. Log[ex_] :> Log[Collect[ex, Power[_, _Rational]]];
 	simp = simp /. Log[ex_^(n_Integer|n_Rational)] :> n Log[ex];
+
+	simp = log2arctan[simp, x];
 
 	(* Try merging the rational part of the integral. *)
 	simp = simp /. c_ p_Plus /; FreeQ[c, x] :> Distribute[c p, Plus, Times];
@@ -5706,7 +5735,9 @@ numericZeroQ[e_, OptionsPattern[]] := Module[
 (*zeroQ*)
 
 
-zeroQ[e_] := Quiet @ PossibleZeroQ[e]
+ClearAll[zeroQ];
+
+zeroQ[e_] := TimeConstrained[Quiet @ PossibleZeroQ[e], $timeConstraint, False]
 
 
 (* ::Subsubsection::Closed:: *)
