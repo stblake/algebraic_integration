@@ -25,6 +25,22 @@
 (*current bugs and deficiencies*)
 
 
+(* ::Input:: *)
+(*IntegrateAlgebraic[Sqrt[(-1+x^2)/(1+x^2)+1]/ Sqrt[(-1+x^2)/(1+x^2)+Sqrt[(-1+x^2)/(1+x^2)+1]],x](* FIX ME! *)*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[((x+2 x^2) (x^2+x^4)^(1/4))/(1+2 x^2),x,"Expansion"->True]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[((1+2 x+2 x^2) (x^2+x^4)^(1/4))/(1+2 x^2),x,"Expansion"->True]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(x-1)/(x (1+x^4)^(1/4)),x,"Expansion"->True]*)
+
+
 (* ::Text:: *)
 (*For this integral, we have issues when repairing branch cuts:*)
 
@@ -79,6 +95,26 @@
 
 (* ::Subsection::Closed:: *)
 (*wish list*)
+
+
+(* ::Text:: *)
+(*The following integral should be an arctan with the substitution t == (u*Sqrt[3 + 10*u^4 + 3*u^8])/(1 + 3*u^4)*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(-1+u^2)^2/((1+u^2) Sqrt[3+10 u^4+3 u^8]),u,"SingleStepTimeConstraint"->2]*)
+
+
+(* ::Input:: *)
+(*Integrate`IntegrateAlgebraicDump`subst[(-1+u^2)^2/((1+u^2) Sqrt[3+10 u^4+3 u^8]),t->(u Sqrt[3+10 u^4+3 u^8])/(1+3u^4),u]*)
+
+
+(* ::Text:: *)
+(*Can we generate a real-valued solution to this integral? *)
+
+
+(* ::Input:: *)
+(*int[1/((1+u^2) Sqrt[3+3 u^2+u^4]),u]*)
 
 
 (* ::Input:: *)
@@ -365,6 +401,14 @@
 
 
 (* ::Input:: *)
+(*int[r Sqrt[2+1/(r^2-1)],r]*)
+
+
+(* ::Input:: *)
+(*int[-(1/Sqrt[-a+x])+Sqrt[a-x]/Sqrt[-a+x],x]*)
+
+
+(* ::Input:: *)
 (*int[Sqrt[1-x^2-y^4],y]*)
 
 
@@ -409,7 +453,7 @@
 
 
 (* ::Input:: *)
-(*int[(b^2+a x)/((-b^2+a x) Sqrt[b+Sqrt[b^2+a x^2]]),x,"SingleStepTimeConstraint"->1.0]*)
+(*int[(b^2+a x)/((-b^2+a x) Sqrt[b+Sqrt[b^2+a x^2]]),x]*)
 (*Simplify[\!\( *)
 (*\*SubscriptBox[\(\[PartialD]\), \(x\)]%\)-(b^2+a x)/((-b^2+a x) Sqrt[b+Sqrt[b^2+a x^2]])]*)
 
@@ -427,13 +471,9 @@
 
 
 (* ::Input:: *)
-(*int[(2 E^-x^2)/(Sqrt[\[Pi]] Erf[x])-(Erf[Sqrt[3] Tan[x]]+2 E^(-3 Tan[x]^2) Sqrt[3/\[Pi]] x Sec[x]^2)/(1+x Erf[Sqrt[3] Tan[x]]),x,"Expansion"->True]*)
-
-
-(* ::Input:: *)
 (*int[1/Sqrt[1-Sqrt[x]]-Sqrt[1-Sqrt[x]-x],x]*)
-(*\!\( *)
-(*\*SubscriptBox[\(\[PartialD]\), \(x\)]%\)-(1/Sqrt[1-Sqrt[x]]-Sqrt[1-Sqrt[x]-x])//Simplify*)
+(*Simplify[\!\( *)
+(*\*SubscriptBox[\(\[PartialD]\), \(x\)]%\)-(1/Sqrt[1-Sqrt[x]]-Sqrt[1-Sqrt[x]-x])]*)
 
 
 (* ::Input:: *)
@@ -729,10 +769,6 @@
 
 
 (* ::Input:: *)
-(*int[((x^2-1) Sqrt[x^4+1])/(x^2 (x^2+1)),x]*)
-
-
-(* ::Input:: *)
 (*int[(x^2 (-2+x^3) Sqrt[1+x^3])/(4+12 x^3+13 x^6+4 x^9),x]*)
 
 
@@ -758,10 +794,6 @@
 
 (* ::Input:: *)
 (*int[(x^2-1)/((x^2+1) Sqrt[1+x^4]),x]*)
-
-
-(* ::Input:: *)
-(*int[((x^2-1) (x^2+1) Sqrt[x^4+1])/x^4,x]*)
 
 
 (* ::Input:: *)
@@ -13140,7 +13172,7 @@
 (*int[((-3+2 x+2 x^5) Sqrt[x-x^2+x^6])/(1-2 x+x^2-x^3+x^4+2 x^5-3 x^6-x^8+x^10),x]*)
 
 
-(* ::InheritFromParent:: *)
+(* ::Input:: *)
 (*int[(1+x)/(27+189 x+522 x^2+784 x^3+825 x^4+679 x^5+338 x^6+84 x^7+8 x^8)^(1/3),x]*)
 
 
@@ -13253,31 +13285,31 @@
 
 
 (* ::Input:: *)
-(*int[Sqrt[(-1+a x-2 x^2+2 a x^3-x^4+a x^5)/(1+a x-2 x^2-2 a x^3+x^4+a x^5)],x]*)
+(*int[Sqrt[(a x^5+2 a x^3+a x-x^4-2 x^2-1)/(a x^5-2 a x^3+a x+x^4-2 x^2+1)],x]*)
 
 
 (* ::Input:: *)
-(*int[Sqrt[(1+a x^2+4 b x^2+4 a b x^4+6 b^2 x^4+6 a b^2 x^6+4 b^3 x^6+4 a b^3 x^8+b^4 x^8+a b^4 x^10)/(1+c x^2+4 d x^2+4 c d x^4+6 d^2 x^4+6 c d^2 x^6+4 d^3 x^6+4 c d^3 x^8+d^4 x^8+c d^4 x^10)]/x,x]*)
+(*int[Sqrt[(a b^4 x^10+4 a b^3 x^8+6 a b^2 x^6+4 a b x^4+a x^2+b^4 x^8+4 b^3 x^6+6 b^2 x^4+4 b x^2+1)/(c d^4 x^10+4 c d^3 x^8+6 c d^2 x^6+4 c d x^4+c x^2+d^4 x^8+4 d^3 x^6+6 d^2 x^4+4 d x^2+1)]/x,x]*)
 
 
 (* ::Input:: *)
-(*int[(x-a)/((-1-3 x+a x-3 x^2+3 a x^2-x^3+3 a x^3+a x^4)/(-1+3 x-a x-3 x^2+3 a x^2+x^3-3 a x^3+a x^4))^(1/3),x]*)
+(*int[(x-a)/((a x^4+3 a x^3+3 a x^2+a x-x^3-3 x^2-3 x-1)/(a x^4-3 a x^3+3 a x^2-a x+x^3-3 x^2+3 x-1))^(1/3),x]*)
 
 
 (* ::Input:: *)
-(*int[(x/(-1-a x+3 x^2+3 a x^3-3 x^4-3 a x^5+x^6+a x^7))^(1/3),x]*)
+(*int[(x/(a x^7-3 a x^5+3 a x^3-a x+x^6-3 x^4+3 x^2-1))^(1/3),x]*)
 
 
 (* ::Input:: *)
-(*int[(x/(-1-a x+3 x^2+3 a x^3-3 x^4-3 a x^5+x^6+a x^7))^(1/3)/x^3,x]*)
+(*int[(x/(a x^7-3 a x^5+3 a x^3-a x+x^6-3 x^4+3 x^2-1))^(1/3)/x^3,x]*)
 
 
 (* ::Input:: *)
-(*int[((1+a x-4 x^2-4 a x^3+6 x^4+6 a x^5-4 x^6-4 a x^7+x^8+a x^9)/(-c+b x))^(1/4),x]*)
+(*int[((a x^9-4 a x^7+6 a x^5-4 a x^3+a x+x^8-4 x^6+6 x^4-4 x^2+1)/(b x-c))^(1/4),x]*)
 
 
 (* ::Input:: *)
-(*int[((1+4 x^2+a x^2+6 x^4+4 a x^4+4 x^6+6 a x^6+x^8+4 a x^8+a x^10)/x^2)^(1/4)/x,x]*)
+(*int[((a x^10+4 a x^8+6 a x^6+4 a x^4+a x^2+x^8+4 x^6+6 x^4+4 x^2+1)/x^2)^(1/4)/x,x]*)
 
 
 (* ::Subsubsection::Closed:: *)
@@ -13381,7 +13413,7 @@
 
 
 (* ::Input:: *)
-(*int[(1-((3x-1)(4x+3))^(3/2))/(1+((3x-1)(4x+3))^(3/2)),x]*)
+(*int[(1-((3 x-1) (4 x+3))^(3/2))/(1+((3 x-1) (4 x+3))^(3/2)),x]*)
 
 
 (* ::Input:: *)
@@ -13389,31 +13421,31 @@
 
 
 (* ::Input:: *)
-(*int[(d+f x^2 (a x^2+b x+c)^(3/2))/(e+g x^2 (a x^2+b x+c)^(1/2)),x]*)
+(*int[(d+f x^2 (a x^2+b x+c)^(3/2))/(e+g x^2 Sqrt[a x^2+b x+c]),x]*)
 
 
 (* ::Input:: *)
-(*int[(d+f x (a x^2+b x+c)^(3/2))/(e+g x (a x^2+b x+c)^(1/2)),x]*)
+(*int[(d+f x (a x^2+b x+c)^(3/2))/(e+g x Sqrt[a x^2+b x+c]),x]*)
 
 
 (* ::Input:: *)
-(*int[(a x^2+b x+c)^(3/2)/(1 -x (a x^2+b x+c)^(1/2)),x]*)
+(*int[(a x^2+b x+c)^(3/2)/(1-x Sqrt[a x^2+b x+c]),x]*)
 
 
 (* ::Input:: *)
-(*int[1/(1 -x (a x^2+b x+c)^(1/2)),x]*)
+(*int[1/(1-x Sqrt[a x^2+b x+c]),x]*)
 
 
 (* ::Input:: *)
-(*int[1/(1 -(x+1)(a x^2+b x+c)^(1/2)),x]*)
+(*int[1/(1-(x+1) Sqrt[a x^2+b x+c]),x]*)
 
 
 (* ::Input:: *)
-(*int[1/(a b c - (a b x + c)^2 (a x^2 + b x + c)^(1/2)),x]*)
+(*int[1/(a b c-(a b x+c)^2 Sqrt[a x^2+b x+c]),x]*)
 
 
 (* ::Input:: *)
-(*int[1/((a^3 b^3 x^3+c^3)(a x^2+b x+c)^(1/2)),x]*)
+(*int[1/((a^3 b^3 x^3+c^3) Sqrt[a x^2+b x+c]),x]*)
 
 
 (* ::Input:: *)
@@ -13421,7 +13453,7 @@
 
 
 (* ::Input:: *)
-(*int[(a^2 x^2-b^2 x+a b c)/((b x^2+c)Sqrt[a x^2+b x+c]),x]*)
+(*int[(a^2 x^2-b^2 x+a b c)/((b x^2+c) Sqrt[a x^2+b x+c]),x]*)
 
 
 (* ::Input:: *)
@@ -13465,7 +13497,7 @@
 
 
 (* ::Input:: *)
-(*int[((2 x^2+1)^(1/2)-x^2+(2 x^2+1)^(5/2))/(x^2-x (2 x^2+1)^(3/2)),x]*)
+(*int[(Sqrt[2 x^2+1]-x^2+(2 x^2+1)^(5/2))/(x^2-x (2 x^2+1)^(3/2)),x]*)
 
 
 (* ::Subsubsection::Closed:: *)
@@ -13485,15 +13517,11 @@
 
 
 (* ::Input:: *)
-(*int[(a x^2+b x+c)^(5/2),x]*)
-
-
-(* ::Input:: *)
 (*int[(x^4 Sqrt[a^2 x^2+b])/(x^2-Sqrt[a x-Sqrt[a^2 x^2+b]]),x]*)
 
 
 (* ::Input:: *)
-(*int[Sqrt[a^2 x^2+b]/(x^2-Power[a x-Sqrt[a^2 x^2+b], (3)^-1]),x]*)
+(*int[Sqrt[a^2 x^2+b]/(x^2-(a x-Sqrt[a^2 x^2+b])^(1/3)),x]*)
 
 
 (* ::Input:: *)
@@ -13501,15 +13529,15 @@
 
 
 (* ::Input:: *)
-(*int[((e+f x)Sqrt[a^2 x^2+b])/((c+d x)Power[a x-Sqrt[a^2 x^2+b], (3)^-1]),x]*)
+(*int[((e+f x) Sqrt[a^2 x^2+b])/((c+d x) (a x-Sqrt[a^2 x^2+b])^(1/3)),x]*)
 
 
 (* ::Input:: *)
-(*int[((e+f x)Sqrt[a^2 x^2+b])/((c+d x)Sqrt[a x-Sqrt[a^2 x^2+b]]),x]*)
+(*int[((e+f x) Sqrt[a^2 x^2+b])/((c+d x) Sqrt[a x-Sqrt[a^2 x^2+b]]),x]*)
 
 
 (* ::Input:: *)
-(*int[1/((c+d x)Sqrt[a^2 x^2+b] Sqrt[a x-Sqrt[a^2 x^2+b]]),x]*)
+(*int[1/((c+d x) Sqrt[a^2 x^2+b] Sqrt[a x-Sqrt[a^2 x^2+b]]),x]*)
 
 
 (* ::Input:: *)
@@ -13525,7 +13553,7 @@
 
 
 (* ::Input:: *)
-(*int[(1-Sqrt[x-Sqrt[x^2+1]])/(x^4-2x^2 Sqrt[x^2+1]),x]*)
+(*int[(1-Sqrt[x-Sqrt[x^2+1]])/(x^4-2 x^2 Sqrt[x^2+1]),x]*)
 
 
 (* ::Input:: *)
@@ -13537,35 +13565,35 @@
 
 
 (* ::Input:: *)
-(*int[Sqrt[x^2 + x*Sqrt[-1 + x^2]]/(x*Sqrt[-1 + x^2]), x]*)
+(*int[Sqrt[x^2+x Sqrt[-1+x^2]]/(x Sqrt[-1+x^2]),x]*)
 
 
 (* ::Input:: *)
-(*int[(C[6]+C[7]x)/ Sqrt[C[4]+C[5] Sqrt[(C[0]+x C[1])/(C[2]+x C[3])]],x]*)
+(*int[(C[6]+C[7] x)/Sqrt[C[4]+C[5] Sqrt[(C[0]+x C[1])/(C[2]+x C[3])]],x]*)
 
 
 (* ::Input:: *)
-(*int[(C[6]+C[7]x)^2/ Sqrt[C[4]+C[5] Sqrt[(C[0]+x C[1])/(C[2]+x C[3])]],x]*)
+(*int[(C[6]+C[7] x)^2/Sqrt[C[4]+C[5] Sqrt[(C[0]+x C[1])/(C[2]+x C[3])]],x]*)
 
 
 (* ::Input:: *)
-(*int[1/((C[6]+C[7]x) Sqrt[C[4]+C[5] Sqrt[(C[0]+x C[1])/(C[2]+x C[3])]]),x]*)
+(*int[1/((C[6]+C[7] x) Sqrt[C[4]+C[5] Sqrt[(C[0]+x C[1])/(C[2]+x C[3])]]),x]*)
 
 
 (* ::Input:: *)
-(*int[1/((C[6]+C[7]x)^2 Sqrt[C[4]+C[5] Sqrt[(C[0]+x C[1])/(C[2]+x C[3])]]),x]*)
+(*int[1/((C[6]+C[7] x)^2 Sqrt[C[4]+C[5] Sqrt[(C[0]+x C[1])/(C[2]+x C[3])]]),x]*)
 
 
 (* ::Input:: *)
-(*int[(C[8]+C[9]x)/((C[6]+C[7]x) Sqrt[C[4]+C[5] Sqrt[(C[0]+x C[1])/(C[2]+x C[3])]]),x]*)
+(*int[(C[8]+C[9] x)/((C[6]+C[7] x) Sqrt[C[4]+C[5] Sqrt[(C[0]+x C[1])/(C[2]+x C[3])]]),x]*)
 
 
 (* ::Input:: *)
-(*int[(x^2-1)/((x^2+1)Sqrt[C[4]+C[5] Sqrt[(C[0]+x C[1])/(C[2]+x C[3])]]),x]*)
+(*int[(x^2-1)/((x^2+1) Sqrt[C[4]+C[5] Sqrt[(C[0]+x C[1])/(C[2]+x C[3])]]),x]*)
 
 
 (* ::Input:: *)
-(*int[(x^2-1)/(x^2+1) Sqrt[C[4]+C[5] Sqrt[(C[0]+x C[1])/(C[2]+x C[3])]],x]*)
+(*int[((x^2-1) Sqrt[C[4]+C[5] Sqrt[(C[0]+x C[1])/(C[2]+x C[3])]])/(x^2+1),x]*)
 
 
 (* ::Input:: *)
@@ -13837,10 +13865,6 @@
 
 
 (* ::Input:: *)
-(*int[Sqrt[c x^2-x Sqrt[-b x+a x^2]]/(x^3 Sqrt[-b x+a x^2]),x]*)
-
-
-(* ::Input:: *)
 (*int[1/(x^3 Sqrt[a x^2+b x Sqrt[-(a/b^2)+(a^2 x^2)/b^2]]),x]*)
 
 
@@ -13933,51 +13957,51 @@
 
 
 (* ::Input:: *)
-(*int[1/(Power[a x+Sqrt[-b+a^2 x^2], (3)^-1] Power[c+Power[a x+Sqrt[-b+a^2 x^2], (3)^-1], (4)^-1]),x]*)
+(*int[1/((a x+Sqrt[-b+a^2 x^2])^(1/3) (c+(a x+Sqrt[-b+a^2 x^2])^(1/3))^(1/4)),x]*)
 
 
 (* ::Input:: *)
-(*int[1/(Sqrt[-b+a^2 x^2] Power[a x+Sqrt[-b+a^2 x^2], (3)^-1] Power[c+Power[a x+Sqrt[-b+a^2 x^2], (3)^-1], (4)^-1]),x]*)
+(*int[1/(Sqrt[-b+a^2 x^2] (a x+Sqrt[-b+a^2 x^2])^(1/3) (c+(a x+Sqrt[-b+a^2 x^2])^(1/3))^(1/4)),x]*)
 
 
 (* ::Input:: *)
-(*int[Sqrt[-b+a^2 x^2]/(Power[a x+Sqrt[-b+a^2 x^2], (3)^-1] Power[c+Power[a x+Sqrt[-b+a^2 x^2], (3)^-1], (4)^-1]),x]*)
+(*int[Sqrt[-b+a^2 x^2]/((a x+Sqrt[-b+a^2 x^2])^(1/3) (c+(a x+Sqrt[-b+a^2 x^2])^(1/3))^(1/4)),x]*)
 
 
 (* ::Input:: *)
-(*int[(Sqrt[-b+a^2 x^2] Power[a x+Sqrt[-b+a^2 x^2], (3)^-1])/Power[c+Power[a x+Sqrt[-b+a^2 x^2], (3)^-1], (4)^-1],x]*)
+(*int[(Sqrt[-b+a^2 x^2] (a x+Sqrt[-b+a^2 x^2])^(1/3))/(c+(a x+Sqrt[-b+a^2 x^2])^(1/3))^(1/4),x]*)
 
 
 (* ::Input:: *)
-(*int[Sqrt[-b+a^2 x^2]/Power[c+Power[a x+Sqrt[-b+a^2 x^2], (3)^-1], (4)^-1],x]*)
+(*int[Sqrt[-b+a^2 x^2]/(c+(a x+Sqrt[-b+a^2 x^2])^(1/3))^(1/4),x]*)
 
 
 (* ::Input:: *)
-(*int[Power[a x+Sqrt[-b+a^2 x^2], (3)^-1]/Power[c+Power[a x+Sqrt[-b+a^2 x^2], (3)^-1], (4)^-1],x]*)
+(*int[(a x+Sqrt[-b+a^2 x^2])^(1/3)/(c+(a x+Sqrt[-b+a^2 x^2])^(1/3))^(1/4),x]*)
 
 
 (* ::Input:: *)
-(*int[1/(Power[a x+Sqrt[-b+a^2 x^2], (4)^-1] Power[c+Power[a x+Sqrt[-b+a^2 x^2], (4)^-1], (3)^-1]),x]*)
+(*int[1/((a x+Sqrt[-b+a^2 x^2])^(1/4) (c+(a x+Sqrt[-b+a^2 x^2])^(1/4))^(1/3)),x]*)
 
 
 (* ::Input:: *)
-(*int[1/(Sqrt[-b+a^2 x^2] Power[a x+Sqrt[-b+a^2 x^2], (4)^-1] Power[c+Power[a x+Sqrt[-b+a^2 x^2], (4)^-1], (3)^-1]),x]*)
+(*int[1/(Sqrt[-b+a^2 x^2] (a x+Sqrt[-b+a^2 x^2])^(1/4) (c+(a x+Sqrt[-b+a^2 x^2])^(1/4))^(1/3)),x]*)
 
 
 (* ::Input:: *)
-(*int[Power[c+Power[a x+Sqrt[-b+a^2 x^2], (4)^-1], (3)^-1]/(Sqrt[-b+a^2 x^2] Power[a x+Sqrt[-b+a^2 x^2], (4)^-1]),x]*)
+(*int[(c+(a x+Sqrt[-b+a^2 x^2])^(1/4))^(1/3)/(Sqrt[-b+a^2 x^2] (a x+Sqrt[-b+a^2 x^2])^(1/4)),x]*)
 
 
 (* ::Input:: *)
-(*int[(Sqrt[-b+a^2 x^2] Power[c+Power[a x+Sqrt[-b+a^2 x^2], (4)^-1], (3)^-1])/Power[a x+Sqrt[-b+a^2 x^2], (4)^-1],x]*)
+(*int[(Sqrt[-b+a^2 x^2] (c+(a x+Sqrt[-b+a^2 x^2])^(1/4))^(1/3))/(a x+Sqrt[-b+a^2 x^2])^(1/4),x]*)
 
 
 (* ::Input:: *)
-(*int[1/( Sqrt[-b+a^2 x^2] (c+(a x+Sqrt[-b+a^2 x^2])^(1/4))^(2/3)),x]*)
+(*int[1/(Sqrt[-b+a^2 x^2] (c+(a x+Sqrt[-b+a^2 x^2])^(1/4))^(2/3)),x]*)
 
 
 (* ::Input:: *)
-(*int[1/Power[c+Power[a x+Sqrt[-b+a^2 x^2], (4)^-1], (3)^-1],x]*)
+(*int[1/(c+(a x+Sqrt[-b+a^2 x^2])^(1/4))^(1/3),x]*)
 
 
 (* ::Input:: *)
@@ -13985,11 +14009,7 @@
 
 
 (* ::Input:: *)
-(*int[Power[c+Power[a x+Sqrt[-b+a^2 x^2], (4)^-1], (3)^-1],x]*)
-
-
-(* ::Input:: *)
-(*int[1/(Sqrt[-b+a^2 x^2] (c+(a x+Sqrt[-b+a^2 x^2])^(1/4))^(2/3)),x]*)
+(*int[(c+(a x+Sqrt[-b+a^2 x^2])^(1/4))^(1/3),x]*)
 
 
 (* ::Input:: *)
@@ -14013,11 +14033,11 @@
 
 
 (* ::Input:: *)
-(*int[1/(Sqrt[-b+a^2 x^2] (a x+Sqrt[-b+a^2 x^2])^(1/2) (c+(a x+Sqrt[-b+a^2 x^2])^(1/4))^(1/3)),x]*)
+(*int[1/(Sqrt[-b+a^2 x^2] Sqrt[a x+Sqrt[-b+a^2 x^2]] (c+(a x+Sqrt[-b+a^2 x^2])^(1/4))^(1/3)),x]*)
 
 
 (* ::Input:: *)
-(*int[1/(Sqrt[-b+a^2 x^2] (a x+Sqrt[-b+a^2 x^2])^(1/2) (c+(a x+Sqrt[-b+a^2 x^2])^(1/4))^(1/6)),x]*)
+(*int[1/(Sqrt[-b+a^2 x^2] Sqrt[a x+Sqrt[-b+a^2 x^2]] (c+(a x+Sqrt[-b+a^2 x^2])^(1/4))^(1/6)),x]*)
 
 
 (* ::Input:: *)
@@ -14029,15 +14049,15 @@
 
 
 (* ::Input:: *)
-(*int[(c+(a x^2+x Sqrt[-b+a^2 x^2])^(1/2))^(1/2)/Sqrt[-b+a^2 x^2],x]*)
+(*int[Sqrt[c+Sqrt[a x^2+x Sqrt[-b+a^2 x^2]]]/Sqrt[-b+a^2 x^2],x]*)
 
 
 (* ::Input:: *)
-(*int[(a x+Sqrt[-b x+a^2 x^2])^(3/4)/(-b x+a^2 x^2)^(1/2),x]*)
+(*int[(a x+Sqrt[-b x+a^2 x^2])^(3/4)/Sqrt[-b x+a^2 x^2],x]*)
 
 
 (* ::Input:: *)
-(*int[Sqrt[-b x+a^2 x^2]/(a x^2+x Sqrt[-b x+a^2 x^2])^(1/2),x]*)
+(*int[Sqrt[-b x+a^2 x^2]/Sqrt[a x^2+x Sqrt[-b x+a^2 x^2]],x]*)
 
 
 (* ::Input:: *)
@@ -14049,27 +14069,27 @@
 
 
 (* ::Input:: *)
-(*int[1/((-b x+a^2 x^2)^(1/2) (a x^2+x Sqrt[-b x+a^2 x^2])^(3/2)),x]*)
+(*int[1/(Sqrt[-b x+a^2 x^2] (a x^2+x Sqrt[-b x+a^2 x^2])^(3/2)),x]*)
 
 
 (* ::Input:: *)
-(*int[1/(x (-b x+a^2 x^2)^(1/2) (a x^2+x Sqrt[-b x+a^2 x^2])^(3/2)),x]*)
+(*int[1/(x Sqrt[-b x+a^2 x^2] (a x^2+x Sqrt[-b x+a^2 x^2])^(3/2)),x]*)
 
 
 (* ::Input:: *)
-(*int[1/(x^2 (-b x+a^2 x^2)^(1/2) (a x^2+x Sqrt[-b x+a^2 x^2])^(3/2)),x]*)
+(*int[1/(x^2 Sqrt[-b x+a^2 x^2] (a x^2+x Sqrt[-b x+a^2 x^2])^(3/2)),x]*)
 
 
 (* ::Input:: *)
-(*int[x/((-b x+a^2 x^2)^(1/2) (a x^2+x Sqrt[-b x+a^2 x^2])^(3/2)),x]*)
+(*int[x/(Sqrt[-b x+a^2 x^2] (a x^2+x Sqrt[-b x+a^2 x^2])^(3/2)),x]*)
 
 
 (* ::Input:: *)
-(*int[x^2/((-b x+a^2 x^2)^(1/2) (a x^2+x Sqrt[-b x+a^2 x^2])^(3/2)),x]*)
+(*int[x^2/(Sqrt[-b x+a^2 x^2] (a x^2+x Sqrt[-b x+a^2 x^2])^(3/2)),x]*)
 
 
 (* ::Input:: *)
-(*int[(x^2 (-b x+a^2 x^2)^(1/2))/(a x^2+x Sqrt[-b x+a^2 x^2])^(3/2),x]*)
+(*int[(x^2 Sqrt[-b x+a^2 x^2])/(a x^2+x Sqrt[-b x+a^2 x^2])^(3/2),x]*)
 
 
 (* ::Input:: *)
@@ -14125,15 +14145,15 @@
 
 
 (* ::Input:: *)
-(*int[(-1-2 x+x^2+3 x^3)(-1+3 x-3 x^2+x^3)^(1/4),x]*)
+(*int[(-1-2 x+x^2+3 x^3) (-1+3 x-3 x^2+x^3)^(1/4),x]*)
 
 
 (* ::Input:: *)
-(*int[1/(-1-2 x+x^2+3 x^3) (-1+3 x-3 x^2+x^3)^(1/4),x]*)
+(*int[(-1+3 x-3 x^2+x^3)^(1/4)/(-1-2 x+x^2+3 x^3),x]*)
 
 
 (* ::Input:: *)
-(*int[1/((-1-2 x+x^2+3 x^3)(-1+3 x-3 x^2+x^3)^(1/4)),x]*)
+(*int[1/((-1-2 x+x^2+3 x^3) (-1+3 x-3 x^2+x^3)^(1/4)),x]*)
 
 
 (* ::Input:: *)
@@ -14145,18 +14165,18 @@
 
 
 (* ::Input:: *)
-(*int[x^2/((x^2+1)(243-5265 x+47250 x^2-225810 x^3+615255 x^4-954733 x^5+820340 x^6-401440 x^7+112000 x^8-16640 x^9+1024 x^10)^(1/5)),x]*)
+(*int[x^2/((x^2+1) (243-5265 x+47250 x^2-225810 x^3+615255 x^4-954733 x^5+820340 x^6-401440 x^7+112000 x^8-16640 x^9+1024 x^10)^(1/5)),x]*)
 
 
 (* ::Input:: *)
-(*int[x^2/((x^2+1)(243-5265 x+47250 x^2-225810 x^3+615255 x^4-954733 x^5+820340 x^6-401440 x^7+112000 x^8-16640 x^9+1024 x^10)^(1/10)),x]*)
+(*int[x^2/((x^2+1) (243-5265 x+47250 x^2-225810 x^3+615255 x^4-954733 x^5+820340 x^6-401440 x^7+112000 x^8-16640 x^9+1024 x^10)^(1/10)),x]*)
 
 
-(* ::InheritFromParent:: *)
+(* ::Input:: *)
 (*int[1/(1+2 x^4+x^8)^(1/8),x]*)
 
 
-(* ::InheritFromParent:: *)
+(* ::Input:: *)
 (*int[(-1+x^2)/((1+x^2) (1+5 x^4+10 x^8+10 x^12+5 x^16+x^20)^(1/10)),x]*)
 
 
@@ -14164,7 +14184,7 @@
 (*powerExpandIntegrate*)
 
 
-(* ::InheritFromParent:: *)
+(* ::Input:: *)
 (*int[1/(x^2 (1+x-2 x^2-2 x^3+x^4+x^5)^(1/3)),x]*)
 
 
@@ -14172,11 +14192,11 @@
 (*int[1/(x^2 (-1+2 x+2 x^2-6 x^3+6 x^5-2 x^6-2 x^7+x^8)^(1/3)),x]*)
 
 
-(* ::InheritFromParent:: *)
+(* ::Input:: *)
 (*int[1/(x^2 (-1+5 x-7 x^2-2 x^3+10 x^4-2 x^5-5 x^6+x^7+x^8)^(1/3)),x]*)
 
 
-(* ::InheritFromParent:: *)
+(* ::Input:: *)
 (*int[1/(x^2 (-1+5 x-7 x^2-2 x^3+10 x^4-2 x^5-5 x^6+x^7+x^8)^(1/3)),x]*)
 
 
@@ -14184,15 +14204,15 @@
 (*int[1/(x^2 (-1-x+5 x^2+2 x^3-10 x^4+2 x^5+7 x^6-5 x^7+x^8)^(1/3)),x]*)
 
 
-(* ::InheritFromParent:: *)
+(* ::Input:: *)
 (*int[(-1-x+5 x^2+2 x^3-10 x^4+2 x^5+7 x^6-5 x^7+x^8)^(1/3)/x^2,x]*)
 
 
-(* ::InheritFromParent:: *)
+(* ::Input:: *)
 (*int[1/(x^2 (-4-8 x+11 x^2+17 x^3-20 x^4-7 x^5+16 x^6-7 x^7+x^8)^(1/3)),x]*)
 
 
-(* ::InheritFromParent:: *)
+(* ::Input:: *)
 (*int[1/(1+2 x-x^2-4 x^3-x^4+2 x^5+x^6)^(1/6),x]*)
 
 
