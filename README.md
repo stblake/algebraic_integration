@@ -1,5 +1,4 @@
 # A collection of simple methods for computing some pseudo-elliptic and pseudo-hyperelliptic integrals
-A collection of simple methods for computing some pseudo-elliptic and pseudo-hyperelliptic integrals
 
 This is a Mathematica prototype for solving _some_ pseudo-elliptic integrals in terms of elementary functions. Relative to the algebraic case of the Risch-Trager-Bronstein algorithm, its very simple, however it is not a decision process. 
 
