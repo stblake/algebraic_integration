@@ -16,6 +16,12 @@
 (*Started on 16 March 2020.*)
 
 
+(* ::Input:: *)
+(*IntegrateAlgebraic[Sqrt[c x^2-x Sqrt[a x^2-b x]]/(x^3 Sqrt[a x^2-b x]),x](* This is a deficiency! *)*)
+(**)
+(*IntegrateAlgebraic[(1-x^4)/((x^4+x^2+1)Power[x^5-x^3, (4)^-1]),x](* This is a bug! *)*)
+
+
 (* ::Subsection::Closed:: *)
 (*Implementation details*)
 
@@ -601,7 +607,7 @@ rationalIntegrand, substitution, integral, linRat, result,
 goursat, simplified, split, recuropts},
 
 If[++$recursionCounter > 32, 
-	debugPrint1["Recursion limit exceeded! Giving up..."];
+	debugPrint1["Recursion limit for IntegrateAlgebraic exceeded! Giving up..."];
 	Return[ {0, integrand, 0} ]];
 
 If[$verboseLevel > 0, 
@@ -781,6 +787,7 @@ If[! multipleRadicalsQ[unintegratedPart, x] && nestedCount[unintegratedPart, x] 
 If[! OptionValue["RationalUndeterminedOnly"],
 
 (* Direct rationalisation. *)
+
 If[! multipleRadicalsQ[unintegratedPart, x] && nestedCount[unintegratedPart, x] == 0,
 	debugPrint1["Trying direct rationalisation on ", unintegratedPart];
 	result = directRationalise[unintegratedPart, x, opts];
@@ -1379,11 +1386,12 @@ apartSquareFreeList[e_] := Module[{apartList},
 
 ClearAll[normalise];
 
-normalise[e_, {x_, y_}] := Module[
-	{radical, p, r, num, den, numY, denY, exy, 
+normalise[f_, {x_, y_}] := Module[
+	{e, radical, p, r, num, den, numY, denY, exy, 
 		y0, y1, nonalgNum, algNum, nonAlgPart, 
 		terms, algterms},
 
+	e = Cancel[Together @ f];
 	radical = Union @ Cases[e, p_^r_Rational :> p^Abs[r] /; (! FreeQ[p, x] && (PolynomialQ[p, x] || rationalQ[p, x])), {0, Infinity}];
 	If[Length[radical] > 1, Return[ False ], radical = radical[[1]]];(* Fix for multiple distinct radicals. *)
 	{p, r} = {radical[[1]], 1/radical[[2]]};
@@ -1429,6 +1437,13 @@ normalise[e_, {x_, y_}] := Module[
 
 	{algNum, denY, {p, r}, y -> radical, nonAlgPart // Cancel}
 ]
+
+
+(* ::Input:: *)
+(*1/(Sqrt[1-1/z^6] z^3+4 (-1+z^6))*)
+(*IntegrateAlgebraic`Private`normalise[%,{z,y}]*)
+(*%[[5]]+%[[1]]/%[[2]]/. %[[4]]*)
+(*%-%%%//Simplify*)
 
 
 (* ::Input:: *)
@@ -1544,7 +1559,7 @@ normalise[e_, {x_, y_}] := Module[
 (*%[[5]]+%[[1]]/%[[2]]-f /. %[[4]]//Together//Simplify*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*directRationalise*)
 
 
@@ -1580,7 +1595,7 @@ PolynomialQ[Denominator[e], x] && PolynomialQ[Numerator[e]/r^Abs[n], x],
 	p = Numerator[e]/r^Abs[n];
 	q = Denominator[e],
 True, 
-	Return[ {0, e, 0} ]	
+	Return[ {0, e, 0} ]
 ];
 
 (* Substitution containing r[x]^n/s[x] or s[x]/r[x]^n *)
@@ -1678,7 +1693,7 @@ If[result =!= $Failed,
 ]
 
 
-(* ::Subsubsection:: *)
+(* ::Subsubsection::Closed:: *)
 (*directRationaliseSolve*)
 
 
@@ -1703,7 +1718,7 @@ Do[
 
 	debugPrint3["numerator/denominator degree = ", ndeg, ", ", ddeg];
 
-	y = Sum[A[k] x^k, {k, 0, deg}]^n (* (A[deg+1] x + A[deg+2])^(-n) *) r^m;
+	y = Sum[A[k] x^k, {k, 0, deg}]^n r^m;
 	(*y = y /. A[deg] \[Rule] 1;*)
 	debugPrint3["Substitution form is ", y];
 
@@ -2717,7 +2732,7 @@ powerReduce2[e_, x_] := e //. (p_ q_^n_Integer)^m_Rational /;
 (*powerReduce1[((-27+28 x-12 x^2)/(-1+2 x)^2)^(1/3),x]*)
 
 
-(* ::Subsubsection::Closed:: *)
+(* ::Subsubsection:: *)
 (*linearRationalSubstitution1*)
 
 
@@ -3620,7 +3635,7 @@ radicals = Cases[e, Power[p_, r_Rational] /; ! FreeQ[p,x], {0, Infinity}];
 radicals = Table[{r[[1]]^(1/Denominator[r[[2]]]), Abs @ Numerator[r[[2]]]}, {r, radicals}];
 rules = Join @@ Table[
 	With[{c = FixedPoint[Cancel[PowerExpand[Factor //@ Together //@ #]]&, r[[1]]/rad]},
-		If[FreeQ[c,x],
+		If[FreeQ[c,x] || rationalQ[c, x],
 			Table[r[[1]]^n -> c^n rad^n, {n, -r[[2]], r[[2]]}],
 			Sequence @@ {}
 		]
@@ -3631,7 +3646,7 @@ e //. rules
 
 
 (* ::Input:: *)
-(*recastRadicals[(3 Sqrt[-b+a^2 x^2] (524880 b^3 c+831402 a^4 b d+145800 a^2 b^2 c x^2+230945 a^6 d x^2+103950 a^4 b c x^4+85085 a^6 c x^6) ((a x+Sqrt[-b+a^2 x^2])/Sqrt[b])^(2/3))/(1616615 a^7 b^(2/3))-(3 (349920 b^3 c x+554268 a^4 b d x+32400 a^2 b^2 c x^3+230945 a^6 d x^3+13860 a^4 b c x^5+85085 a^6 c x^7) ((a x+Sqrt[-b+a^2 x^2])/Sqrt[b])^(2/3))/(1616615 a^6 b^(2/3)),Power[a x+Sqrt[-b+a^2 x^2], (3)^-1],x]*)
+(*recastRadicals[(3 Sqrt[-b+a^2 x^2] (524880 b^3 c+831402 a^4 b d+145800 a^2 b^2 c x^2+230945 a^6 d x^2+103950 a^4 b c x^4+85085 a^6 c x^6) ((a x+Sqrt[-b+a^2 x^2])/Sqrt[b])^(2/3))/(1616615 a^7 b^(2/3))-(3 (349920 b^3 c x+554268 a^4 b d x+32400 a^2 b^2 c x^3+230945 a^6 d x^3+13860 a^4 b c x^5+85085 a^6 c x^7) ((a x+Sqrt[-b+a^2 x^2])/Sqrt[b])^(2/3))/(1616615 a^6 b^(2/3)),(a x+Sqrt[-b+a^2 x^2])^(1/3),x]*)
 
 
 (* ::Input:: *)
@@ -3647,7 +3662,11 @@ e //. rules
 
 
 (* ::Input:: *)
-(*recastRadicals[(Sqrt[2] Log[Sqrt[a^2] x+Sqrt[-b+a^2 x^2]- Sqrt[x (2a^2 x+2Sqrt[a^2] Sqrt[-b+a^2 x^2])]])/Sqrt[a],Sqrt[a x^2+x Sqrt[-b+a^2 x^2]],x]*)
+(*recastRadicals[(Sqrt[2] Log[Sqrt[a^2] x+Sqrt[-b+a^2 x^2]-Sqrt[x (2 a^2 x+2 Sqrt[a^2] Sqrt[-b+a^2 x^2])]])/Sqrt[a],Sqrt[a x^2+x Sqrt[-b+a^2 x^2]],x]*)
+
+
+(* ::Input:: *)
+(*recastRadicals[(4 c (3 b+32 a x-8 c^2 x) Sqrt[(c x+Sqrt[-b x+a x^2])/x])/(105 b^2 x),Sqrt[c x^2+x Sqrt[-b x+a x^2]],x]*)
 
 
 ClearAll[nestedQuadraticRadicalIntegrate];
@@ -3655,8 +3674,9 @@ ClearAll[nestedQuadraticRadicalIntegrate];
 Options[nestedQuadraticRadicalIntegrate] = Options[IntegrateAlgebraic];
 
 nestedQuadraticRadicalIntegrate[e_, x_, opts:OptionsPattern[]] := Module[
-{radicalOfQuadraticRadicals,quadratics,radicand,a,b,c,u,eu, 
-substitutions,sub,subu,exponent,intx,subx, dd,intu,results,recur,result},
+{radicalOfQuadraticRadicals, quadratics, radicand, a, b, c, u, eu, 
+substitutions, sub, subu, exponent, intx, subx, dd, intu, results, 
+recur, reducedIntegrands, result},
 
 (* Find nested radicals where the innermost radical has a quadratic 
 polynomial radicand. *)
@@ -3697,15 +3717,26 @@ If[b === 0,
 
 (* TODO: Add Euler's third substitution if c == 0 or both real roots of quadratic. *)
 
-(* Try each substitution and see if we can solve the recursive integration problem and 
-substitute back without creating branch cut issues. *)
-results = Table[
+reducedIntegrands = Table[
 	subu = sub[[1]];
 	subx = sub[[2]];
 	eu = e /. x -> subu;
 	eu *= D[subu, u];
 	eu = MapAll[Factor, MapAll[Together, eu] // PowerExpand] // PowerExpand;
-	debugPrint2["Trying the substitution ", subu, " reduces the integral to ", eu];
+	debugPrint2["The substitution ", subu, " reduces the integral to ", eu];
+	{eu, subx, subu},
+{sub, substitutions}];
+
+reducedIntegrands = ReverseSortBy[reducedIntegrands, rank[#[[1]]]&];
+Print[reducedIntegrands];
+
+(* Try each substitution and see if we can solve the recursive integration problem and 
+substitute back without creating branch cut issues. *)
+results = Table[
+	eu = reduced[[1]];
+	subx = reduced[[2]];
+	subu = reduced[[3]];
+	debugPrint2["Trying the substitution ", subu, ", with recursive integrand ", eu];
 	recur = solveAlgebraicIntegral[eu, u, opts];
 	debugPrint2["Recursive integration returned ", recur];
 	If[recur[[3]] =!= 0,
@@ -3717,7 +3748,7 @@ results = Table[
 			intx = recastRadicals[intx, radicalOfQuadraticRadicals[[1,1]]^Abs[radicalOfQuadraticRadicals[[1,2]]], x],
 			Return[{0, e, 0}, Module]
 		];
-
+		
 		(* Repair branch cuts. *)
 		dd = 1;
 		If[! verifySolution[intx, e - recur[[1]] - recur[[2]], x],
@@ -3739,7 +3770,7 @@ results = Table[
 			]
 		]
 	],
-{sub, substitutions}];
+{reduced, reducedIntegrands}];
 
 SortBy[DeleteCases[results, Null], LeafCount[#[[3]]]&] /. {l_, ___} :> l /. {} -> {0, e, 0}
 ]
@@ -5834,6 +5865,22 @@ singleHyperEllipticRadicalQ[e_, x_] :=
 
 singleRadicalQ[e_, x_] := 
 	Length[Union[Cases[e, Power[p_, r_Rational] /; (! FreeQ[p, x] && (PolynomialQ[p, x] || rationalQ[p, x])), {0, Infinity}]]] === 1
+
+
+(* ::Subsubsection::Closed:: *)
+(*multipleRadicalQ*)
+
+
+ClearAll[multipleRadicalQ];
+
+multipleRadicalQ[e_, x_] := 
+	Length[
+		Union[
+			Cases[e, Power[p_, r_Rational] /; 
+				(! FreeQ[p, x] && (PolynomialQ[p, x] || rationalQ[p, x])), 
+			{0, Infinity}]
+		]
+	] > 1
 
 
 (* ::Subsubsection::Closed:: *)
