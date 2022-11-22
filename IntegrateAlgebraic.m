@@ -22,6 +22,12 @@
 (*IntegrateAlgebraic[(1-x^4)/((x^4+x^2+1)Power[x^5-x^3, (4)^-1]),x](* This is a bug! *)*)
 
 
+(* ::Input:: *)
+(*(* This is a deficiency! *)*)
+(*IntegrateAlgebraic[1/(2-5 x+10 x^2-10 x^3+5 x^4-x^5)^(1/5),x]*)
+(*1+Factor[-1+2-5 x+10 x^2-10 x^3+5 x^4-x^5]*)
+
+
 (* ::Subsection::Closed:: *)
 (*Implementation details*)
 
