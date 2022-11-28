@@ -17,6 +17,11 @@
 
 
 (* ::Input:: *)
+(*int[((a*x^2 - b)*Sqrt[(b - c*x + a*x^2)/(b + c*x + a*x^2)])/*)
+(*   (x*(b + a*x^2)), x](* This is a bug. *)*)
+
+
+(* ::Input:: *)
 (*IntegrateAlgebraic[Sqrt[c x^2-x Sqrt[a x^2-b x]]/(x^3 Sqrt[a x^2-b x]),x](* This is a deficiency! *)*)
 (**)
 (*IntegrateAlgebraic[(1-x^4)/((x^4+x^2+1)Power[x^5-x^3, (4)^-1]),x](* This is a bug! *)*)
