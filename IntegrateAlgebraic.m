@@ -744,6 +744,19 @@ If[nestedCount[unintegratedPart, x] > 0,
 ];
 *)
 
+(* Decompose Integrate. *)
+
+If[! OptionValue["RationalUndeterminedOnly"] && nestedCount[unintegratedPart, x] == 0, 
+	debugPrint1["Trying polynomial decomposition of the radicand on ", unintegratedPart];
+	result = decomposeIntegrate[unintegratedPart, x, opts];
+	If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[result[[3]], unintegratedPart - result[[1]] - result[[2]], x],
+		rationalPart    += result[[1]]; 
+		unintegratedPart = result[[2]];
+		integratedPart  += result[[3]]
+	];
+	debugPrint1["decomposeIntegrate returned : ", {rationalPart, unintegratedPart, integratedPart}]
+];
+
 (* Factoring the radicand(s) and taking branch cuts. *)
 
 If[! OptionValue["RationalUndeterminedOnly"] && nestedCount[unintegratedPart, x] == 0,
@@ -950,6 +963,88 @@ If[ListQ @ splitIntegrand[unintegratedPart, x],
 
 
 (* ::Subsection::Closed:: *)
+(*decomposeIntegrate*)
+
+
+ClearAll[invertdecomp];
+invertdecomp[decomp_,x_] := Fold[#2 /. x -> #1&, x, Reverse[decomp]]
+
+
+ClearAll[decomposeIntegrate];
+Options[decomposeIntegrate] = Options[IntegrateAlgebraic];
+
+decomposeIntegrate[e_, x_, opts:OptionsPattern[]]:= Module[
+{fp,poly,r,decomp,sub,u,subresult,intu,recur,integral},
+
+fp = Union @ Cases[e, Power[p_, r_Rational] /; (! FreeQ[p,x] && PolynomialQ[p,x] && Head[p] === Plus), {0, Infinity}];
+If[Length[fp] != 1, Return[ {0, e, 0} ]]; (* It may be possible to relax/remove this condition. *)
+
+{poly,r}= {fp[[1,1]],fp[[1,2]]};
+If[Exponent[poly,x] < 3, Return[ {0, e, 0} ]];(* Nothing to do. *)
+
+decomp = Decompose[poly,x];
+If[Length[decomp]==1, Return[ {0, e, 0} ]];
+
+If[Exponent[decomp[[1]],x] == 1 && Exponent[decomp[[2]],x] == 2,(* This is heuristic. *)
+decomp=Flatten[{invertdecomp[decomp//Most, x], decomp[[-1]]}],
+decomp=Flatten[{decomp[[1]], invertdecomp[decomp//Rest, x]}]
+];
+sub=decomp[[2]];
+
+TimeConstrained[
+	subresult = subst[e, u -> sub, x],
+	$timeConstraint/5.,
+	Return[{0,e,0}, Module]
+];
+
+If[!ListQ[subresult], Return[ {0,e,0} ]];
+intu = subresult[[1]];
+debugPrint2["Using the substitution ", sub];
+debugPrint2["Reduced integrand for recursive integration is ", intu];
+recur = solveAlgebraicIntegral[intu, u, opts];
+debugPrint2["Recursive integration returned ", recur];
+
+If[recur[[2]] =!= 0, Return[ {0, e, 0} ]];(* Recursive integration failed. *)
+integral = recur[[1]] + recur[[3]];
+integral = integral /. u -> sub;
+{0, 0, simplify[integral,x]}
+]
+
+
+(* ::Input:: *)
+(*decomposeIntegrate[(2 x-42 x^2+16 x^3)/Sqrt[1-x^4+28 x^5-204 x^6+112 x^7-16 x^8],x]//Timing*)
+
+
+(* ::Input:: *)
+(*decomposeIntegrate[(x-1)/Sqrt[x^4-4 x^3+2 x^2+4 x-1],x]//Timing*)
+
+
+(* ::Input:: *)
+(*(2 x^3-70 x^4+612 x^5-392 x^6+64 x^7)/Sqrt[1-3 x^2+42 x^3-17 x^4+140 x^5-1020 x^6+560 x^7-80 x^8];*)
+(*decomposeIntegrate[%,x]//Timing*)
+(*D[%//Last//Last,x]-%%//Simplify*)
+
+
+(* ::Input:: *)
+(*x^2-x-1*)
+(*(u^2+1)/((u^2+u+2)Sqrt[u^2-u+1]) D[%,x]/.u->%//ExpandAll//Together;*)
+(*%/.p_/;PolynomialQ[p,x]:>Collect[p,x]*)
+(**)
+(*decomposeIntegrate[%,x]//Timing*)
+(*D[%//Last//Last,x]-%%//Simplify*)
+
+
+(* ::Input:: *)
+(*(* This is a deficiency. *)*)
+(*x^2-1*)
+(*(u^2+1)/((u^2-1)Sqrt[u^4+1]) D[%,x]/.u->%//ExpandAll//Together;*)
+(*%/.p_/;PolynomialQ[p,x]:>Collect[p,x]*)
+(**)
+(*decomposeIntegrate[%,x]//Timing*)
+(*D[%//Last//Last,x]-%%//Simplify*)
+
+
+(* ::Subsection::Closed:: *)
 (*rationalUndeterminedIntegrate*)
 
 
@@ -1026,7 +1121,6 @@ rationalUndeterminedIntegrate[integrand_, x_, opts : OptionsPattern[]] := Module
 					Continue[]];
 
 				(* Check the numerator degree matches the radicand degree. *)
-				
 				If[Exponent[radicandNumeratorU, x] != Exponent[Numerator @ p, x] || 
 					(! FreeQ[Denominator @ p, x] && Exponent[radicandDenominatorU, x] != Exponent[Denominator @ p, x]),
 					Continue[]
@@ -1034,7 +1128,7 @@ rationalUndeterminedIntegrate[integrand_, x_, opts : OptionsPattern[]] := Module
 
 				(* Find solution to the numerator of the radical part. *)
 				{matched, radicandMatchRules} = solveRadicand[p, radicandNumeratorU/radicandDenominatorU, x];
-
+				
 				If[matched,
 					(* Loop over solutions to the radical part. *)
 					debugPrint3["radicand of the form ", radicand[u]];
@@ -2743,7 +2837,7 @@ powerReduce2[e_, x_] := e //. (p_ q_^n_Integer)^m_Rational /;
 (*powerReduce1[((-27+28 x-12 x^2)/(-1+2 x)^2)^(1/3),x]*)
 
 
-(* ::Subsubsection:: *)
+(* ::Subsubsection::Closed:: *)
 (*linearRationalSubstitution1*)
 
 
@@ -4861,7 +4955,7 @@ rads = Cases[candidates, Power[p_,r_Rational] /; !FreeQ[p,x] :> Expand[p]^Abs[r]
 candidates = Join[candidates, DeleteCases[Flatten @ Outer[Divide, rads, rads],1]];
 candidates = Union[candidates, SameTest -> (FreeQ[#1/#2, x]&)];
 
-scores = scoreCandidate[e, #, x] - 10^-3 LeafCount[#]& /@ Union[candidates]; (* Use LeafCount to break ties. *)
+scores = (scoreCandidate[e, #, x] - 10^-3 LeafCount[#])& /@ Union[candidates]; (* Use LeafCount to break ties. *)
 candidates = Transpose[{candidates, scores}];
 sorted = ReverseSortBy[candidates, Last];
 debugPrint3["Ranked/sorted candidates = ", sorted];
@@ -4871,6 +4965,11 @@ sorted[[All, 1]]
 
 (* ::Input:: *)
 (*candidateSubstitutions[(3-9 x^4+2 x^6)/(x (1+x^2)^2 (-1+2 x^2) Sqrt[(1-2 x^2)/(1+2 x^2)] (1+2 x^2)),x]//Timing*)
+
+
+(* ::Input:: *)
+(*Timing[candidateSubstitutions[(2*x^3 - 70*x^4 + 612*x^5 - 392*x^6 + 64*x^7)/*)
+(*    Sqrt[1 - 3*(x^2 - 14*x^3 + 4*x^4) - 5*(x^2 - 14*x^3 + 4*x^4)^2], x]]*)
 
 
 (* ::Subsubsection::Closed:: *)
@@ -4884,7 +4983,7 @@ sorted[[All, 1]]
 scoreCandidate[e_, sub_, x_] := Module[{dd, splits, ranks},
 dd = D[sub,x] // Together // Cancel;
 If[FreeQ[dd, x], Return[0, Module]];(* We don't assign a score for linear polynomials. *)
-splits = Union @ DeleteCases[Level[dd,{0,\[Infinity]}], x| (a_ x /; FreeQ[a,x]) |(a_ /; FreeQ[a,x])]; (* Remove x, a x and constants *)
+splits = Union @ DeleteCases[Level[{sub,dd},{0,\[Infinity]}] // Flatten, x| (a_ x /; FreeQ[a,x]) |(a_ /; FreeQ[a,x])]; (* Remove x, a x and constants *)
 splits = Union[splits, SameTest -> (FreeQ[#1/#2,x]&)];(* Remove copies of constant multiples. *)
 If[splits === {}, Return[0, Module]];
 ranks = (LeafCount[#]^2 (Count[e, #|1/#,{0,\[Infinity]}] /. 0 -> -1))& /@ splits; (* Many tests suggest this is a reasonable scoring function. *)
@@ -4894,6 +4993,10 @@ Mean[ranks] // N
 
 (* ::Input:: *)
 (*scoreCandidate[x^2/((1-2 x^3)^(1/3) (1+x^3)),x^3,x]//Timing*)
+
+
+(* ::Input:: *)
+(*scoreCandidate[(2 x^3-70 x^4+612 x^5-392 x^6+64 x^7)/Sqrt[1-3 (x^2-14 x^3+4 x^4)-5 (x^2-14 x^3+4 x^4)^2],x^2-14 x^3+4 x^4,x]//Timing*)
 
 
 (* ::Subsubsection::Closed:: *)
@@ -4908,7 +5011,7 @@ Options[derivdivides] = {
 "Candidates" -> Automatic,
 "Fast" -> False};
 
-derivdivides[e_, x_, u_, opts:OptionsPattern[]] := Module[
+derivdivides[e_, x_, u_, opts:OptionsPattern[]] := derivdivides[e, x, u, opts] = Module[
 {candidates, diff, eu, euu, y, sys, eus, subs1, subs2, subs3, subs4, 
 	a, b, eqns, special1, special2, special3, special, subx, gs},
 
