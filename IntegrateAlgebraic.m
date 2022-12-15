@@ -962,86 +962,107 @@ If[ListQ @ splitIntegrand[unintegratedPart, x],
 ]
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*decomposeIntegrate*)
 
 
 ClearAll[invertdecomp];
-invertdecomp[decomp_,x_] := Fold[#2 /. x -> #1&, x, Reverse[decomp]]
+invertdecomp[decomp_, x_] := Fold[#2 /. x -> #1&, x, Reverse[decomp]]
 
 
 ClearAll[decomposeIntegrate];
 Options[decomposeIntegrate] = Options[IntegrateAlgebraic];
 
 decomposeIntegrate[e_, x_, opts:OptionsPattern[]]:= Module[
-{fp,poly,r,decomp,sub,u,subresult,intu,recur,integral},
+{fp, poly, r, decomp, sub, u, subresult, intu, recur, integral, decompositions},
 
-fp = Union @ Cases[e, Power[p_, r_Rational] /; (! FreeQ[p,x] && PolynomialQ[p,x] && Head[p] === Plus), {0, Infinity}];
+fp = Union @ Cases[e, Power[p_, r_Rational] /; (! FreeQ[p,x] && PolynomialQ[p,x]), {0, Infinity}];
 If[Length[fp] != 1, Return[ {0, e, 0} ]]; (* It may be possible to relax/remove this condition. *)
 
 {poly,r}= {fp[[1,1]],fp[[1,2]]};
 If[Exponent[poly,x] < 3, Return[ {0, e, 0} ]];(* Nothing to do. *)
 
-decomp = Decompose[poly,x];
-If[Length[decomp]==1, Return[ {0, e, 0} ]];
+decomp = Decompose[poly, x];
+If[Length[decomp] == 1, Return[ {0, e, 0} ]];
 
-If[Exponent[decomp[[1]],x] == 1 && Exponent[decomp[[2]],x] == 2,(* This is heuristic. *)
-decomp=Flatten[{invertdecomp[decomp//Most, x], decomp[[-1]]}],
-decomp=Flatten[{decomp[[1]], invertdecomp[decomp//Rest, x]}]
-];
-sub=decomp[[2]];
+decompositions = Table[
+	{invertdecomp[decomp[[;;k]], x], 
+	 invertdecomp[decomp[[k+1;;]], x]}, 
+	{k, Length[decomp]-1}] // Union;
 
-TimeConstrained[
-	subresult = subst[e, u -> sub, x],
-	$timeConstraint/5.,
-	Return[{0,e,0}, Module]
-];
+Do[
+	debugPrint3["Decomposition is ", decomp];
+	sub = decomp[[2]];
 
-If[!ListQ[subresult], Return[ {0,e,0} ]];
-intu = subresult[[1]];
-debugPrint2["Using the substitution ", sub];
-debugPrint2["Reduced integrand for recursive integration is ", intu];
-recur = solveAlgebraicIntegral[intu, u, opts];
-debugPrint2["Recursive integration returned ", recur];
+	TimeConstrained[
+		subresult = subst[e, u -> sub, x],
+		$timeConstraint,
+		Continue[]
+	];
 
-If[recur[[2]] =!= 0, Return[ {0, e, 0} ]];(* Recursive integration failed. *)
-integral = recur[[1]] + recur[[3]];
-integral = integral /. u -> sub;
-{0, 0, simplify[integral,x]}
+	If[!ListQ[subresult], Continue[]];
+	intu = subresult[[1]];
+
+	debugPrint3["Candidate integrand in u is ", subresult];
+
+	(* The following is the same heuristic used in derivdivides routine. *)
+	If[Not[ simpleQ[intu, u] || LeafCount[intu]/LeafCount[e] < 0.75 || rank[intu, u]/rank[e, x] < 0.9 ], 
+		Continue[]
+	];
+
+	debugPrint2["Using the substitution ", sub];
+	debugPrint2["Reduced integrand for recursive integration is ", intu];
+	recur = solveAlgebraicIntegral[intu, u, opts];
+	debugPrint2["Recursive integration returned ", recur];
+
+	If[recur[[2]] =!= 0, Continue[]];(* Recursive integration failed. *)
+	integral = recur[[1]] + recur[[3]];
+	integral = integral /. u -> sub;
+	Return[{0, 0, simplify[integral,x]}, Module], 
+{decomp, decompositions}];
+
+{0,e,0}
 ]
 
 
 (* ::Input:: *)
-(*decomposeIntegrate[(2 x-42 x^2+16 x^3)/Sqrt[1-x^4+28 x^5-204 x^6+112 x^7-16 x^8],x]//Timing*)
+(*IntegrateAlgebraic[(x - 1)/Sqrt[x^4 - 4*x^3 + 2*x^2 + 4*x - 1], x]*)
 
 
 (* ::Input:: *)
-(*decomposeIntegrate[(x-1)/Sqrt[x^4-4 x^3+2 x^2+4 x-1],x]//Timing*)
+(*IntegrateAlgebraic[(2*x - 42*x^2 + 16*x^3)/Sqrt[1 - x^4 + 28*x^5 - 204*x^6 + 112*x^7 - 16*x^8],x]*)
 
 
 (* ::Input:: *)
-(*(2 x^3-70 x^4+612 x^5-392 x^6+64 x^7)/Sqrt[1-3 x^2+42 x^3-17 x^4+140 x^5-1020 x^6+560 x^7-80 x^8];*)
-(*decomposeIntegrate[%,x]//Timing*)
-(*D[%//Last//Last,x]-%%//Simplify*)
+(*IntegrateAlgebraic[(2*x^3 - 70*x^4 + 612*x^5 - 392*x^6 + 64*x^7)/*)
+(*  Sqrt[1 - 3*x^2 + 42*x^3 - 17*x^4 + 140*x^5 - 1020*x^6 + 560*x^7 - 80*x^8], x]*)
 
 
 (* ::Input:: *)
-(*x^2-x-1*)
-(*(u^2+1)/((u^2+u+2)Sqrt[u^2-u+1]) D[%,x]/.u->%//ExpandAll//Together;*)
-(*%/.p_/;PolynomialQ[p,x]:>Collect[p,x]*)
-(**)
-(*decomposeIntegrate[%,x]//Timing*)
-(*D[%//Last//Last,x]-%%//Simplify*)
+(*IntegrateAlgebraic[(2*x^3 - 70*x^4 + 612*x^5 - 392*x^6 + 64*x^7)/*)
+(*  Sqrt[1 - 3*x^2 + 42*x^3 - 17*x^4 + 140*x^5 - 1020*x^6 + 560*x^7 - 80*x^8], x]*)
 
 
 (* ::Input:: *)
-(*(* This is a deficiency. *)*)
-(*x^2-1*)
-(*(u^2+1)/((u^2-1)Sqrt[u^4+1]) D[%,x]/.u->%//ExpandAll//Together;*)
-(*%/.p_/;PolynomialQ[p,x]:>Collect[p,x]*)
-(**)
-(*decomposeIntegrate[%,x]//Timing*)
-(*D[%//Last//Last,x]-%%//Simplify*)
+(*IntegrateAlgebraic[(-1 + 4*x^3)/((-x + x^4)*Sqrt[1 - x^2 + x^4 + 2*x^5 - 4*x^7 - x^8 + 6*x^10 - *)
+(*     4*x^13 + x^16]), x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(-2 + 2*x + 5*x^2 - 5*x^4 + 2*x^5)/((2 + x - 2*x^3 + x^4)**)
+(*   Sqrt[3 + 3*x - 2*x^2 - 2*x^3 + x^4]), x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(x + 5*x^4 + 4*x^7 - 9*x^8 - 12*x^11 + 8*x^15)/*)
+(*  Sqrt[1 - x^2 + x^4 - 2*x^5 + 4*x^7 - x^8 + 2*x^9 + 6*x^10 - 4*x^11 + *)
+(*    2*x^12 + 4*x^13 - 12*x^14 - 12*x^17 + 6*x^18 - 4*x^20 + 12*x^21 + *)
+(*    6*x^24 - 4*x^25 - 4*x^28 + x^32], x]*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(2*x^3*(-1 + x^2)*(-1 + 2*x^2))/*)
+(*  Sqrt[1 + x^4 - 2*x^6 + 2*x^8 - 4*x^10 + 6*x^12 - 4*x^14 + x^16], x]*)
 
 
 (* ::Subsection::Closed:: *)
@@ -2743,16 +2764,16 @@ linearRationalIntegrate[e_, x_, opts : OptionsPattern[]] := Module[
 	{u, linRat, options, result, const, integral},
 
 	linRat = linearRationalSubstitution1[e, x, u];
-	debugPrint3["linearRationalSubstitution1 returned ", linRat];
+	debugPrint2["linearRationalSubstitution1 returned ", linRat];
 
 	If[!ListQ[linRat] || LeafCount[linRat // First] > 2 LeafCount[e], 
 		linRat = linearRationalSubstitution2[e, x, u];
-		debugPrint3["linearRationalSubstitution2 returned ", linRat];
+		debugPrint2["linearRationalSubstitution2 returned ", linRat];
 	];
 
 	If[!ListQ[linRat] || LeafCount[linRat // First] > 2 LeafCount[e], 
 		linRat = linearRationalSubstitution3[e, x, u];
-		debugPrint3["linearRationalSubstitution3 returned ", linRat];	
+		debugPrint2["linearRationalSubstitution3 returned ", linRat];	
 	];
 
 	If[!ListQ[linRat] || LeafCount[linRat // First] > 2 LeafCount[e], 
@@ -2870,7 +2891,7 @@ solns = TimeConstrained[
 If[solns === $TimedOut, 
 	Return[ False ]];
 
-solns = DeleteCases[solns, s_ /; !FreeQ[s, Power[_Integer, _Rational]]];
+solns = DeleteCases[solns, s_ /; !FreeQ[s, Root | Power[_Integer, _Rational]]];
 
 If[MatchQ[solns, {}|{{}} | _Solve | {{(_ -> _?zeroQ) ..}..}], 
 	Return[ False ]];
@@ -2881,7 +2902,10 @@ subs1 = Table[
 	intU = Quiet[ MapAll[Together, e dx /. {x -> subX, dx -> D[subX, u]}] // Cancel ];
 	subU = (x + a)/(x + b) /. soln // Cancel;
 	subU = subU /. a|b|p|q -> 1 // Cancel;
-	{intU, u -> subU},
+	If[Head[subU // Denominator] == Plus, 
+		{intU, u -> subU},
+		Sequence @@ {}
+	],
 {soln, solns}];
 
 subs2 = Table[
@@ -2890,7 +2914,10 @@ subs2 = Table[
 	intU = Quiet[ MapAll[Together, e dx /. {x -> subX, dx -> D[subX, u]}] // Cancel // PowerExpand // Cancel ];
 	subU = (x + a)/(x + b) /. soln // Cancel;
 	subU = subU /. a|b|p|q -> 1 // Cancel;
-	{intU, u -> subU},
+	If[Head[subU // Denominator] == Plus, 
+		{intU, u -> subU},
+		Sequence @@ {}
+	],
 {soln, solns}];
 
 subs = Join[subs1, subs2];
@@ -2974,7 +3001,7 @@ solns = TimeConstrained[
 If[solns === $TimedOut, 
 	Return[ False ]];
 
-solns = DeleteCases[solns, s_ /; !FreeQ[s, Power[_Integer, _Rational]]];
+solns = DeleteCases[solns, s_ /; !FreeQ[s, Root | Power[_Integer, _Rational]]];
 
 If[MatchQ[solns, {}|{{}} | _Solve | {{(_ -> _?zeroQ) ..}..}], 
 	Return[ False ]];
@@ -2985,7 +3012,10 @@ subs = Table[
 	intU = Quiet[ MapAll[Together, e dx /. {x -> subX, dx -> D[subX, u]}] // Cancel // PowerExpand // Cancel ];
 	subU = (x + a)/(x + b) /. soln // Cancel;
 	subU = subU /. a|b|p|q|r -> 1 // Cancel;
-	{semiRationalise[intU, u], u -> subU},
+	If[Head[subU // Denominator] != Plus, 
+		{semiRationalise[intU, u], u -> subU},
+		Sequence @@ {}
+	],
 {soln, solns}];
 
 goodsubs = Cases[subs, 
@@ -3053,11 +3083,13 @@ If[MatchQ[solns, {}|{{}} | _Solve | {{(_ -> _?zeroQ) ..}..}],
 	Return[ False ]];
 
 subs = Table[
+	If[!FreeQ[soln, Root], Continue[]];
 	subX = (a - b u)/(u - 1) /. soln;
 	subX = subX /. a|b|p|q|r -> 1 // Cancel;
 	intU = Quiet[ MapAll[Together, e dx /. {x -> subX, dx -> D[subX, u]}] // Cancel ];
 	subU = (x + a)/(x + b) /. soln;
 	subU = subU /. a|b|p|q|r -> 1 // Cancel;
+	If[Head[subU // Denominator] != Plus, Continue[]];
 	Sequence @@ {
 		{semiRationalise[powerReduce1[intU, u], u], u -> subU}, 
 		{semiRationalise[powerReduce2[intU, u], u], u -> subU}},
