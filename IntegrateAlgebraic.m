@@ -962,7 +962,7 @@ If[ListQ @ splitIntegrand[unintegratedPart, x],
 ]
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*decomposeIntegrate*)
 
 
@@ -1000,7 +1000,7 @@ Do[
 		Continue[]
 	];
 
-	If[!ListQ[subresult], Continue[]];
+	If[! ListQ[subresult], Continue[]];
 	intu = subresult[[1]];
 
 	debugPrint3["Candidate integrand in u is ", subresult];
@@ -3865,7 +3865,6 @@ reducedIntegrands = Table[
 {sub, substitutions}];
 
 reducedIntegrands = ReverseSortBy[reducedIntegrands, rank[#[[1]]]&];
-Print[reducedIntegrands];
 
 (* Try each substitution and see if we can solve the recursive integration problem and 
 substitute back without creating branch cut issues. *)
