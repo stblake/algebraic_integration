@@ -33,6 +33,11 @@
 (*1+Factor[-1+2-5 x+10 x^2-10 x^3+5 x^4-x^5]*)
 
 
+(* ::Input:: *)
+(*(* This is a deficiency: We should fail immediately on these types of Chebyshev integrals. *)*)
+(*IntegrateAlgebraic[(x-1)^(1/3) (x+1)^(1/3),x]//Timing*)
+
+
 (* ::Subsection::Closed:: *)
 (*Implementation details*)
 
@@ -634,6 +639,18 @@ If[PolynomialQ[unintegratedPart, x] || rationalQ[unintegratedPart, x],
 	Return[ {0, 0, simplify[integral, x, "CancelRadicalDenominators" -> False, "Radicals" -> OptionValue["Radicals"]]}, Module ]
 ];
 
+(* Chebyshev integral (a x + b)^n (c x + d)^m, with IntegerQ[n + m] *)
+
+If[MatchQ[unintegratedPart, (a_. x + b_)^n_Rational (c_. x + d_)^m_Rational /; FreeQ[{a, b, c, d}, x]],
+	debugPrint1["Trying chebyshevIntegrate..."];
+	integral = chebyshevIntegrate[unintegratedPart, x, opts];
+	debugPrint1["chebyshevIntegrate returned ", integral];
+	If[integral =!= False && (TrueQ[! OptionValue[VerifySolutions]] || verifySolution[integral, unintegratedPart, x]),
+		Return[ {0, 0, integral}, Module ],
+		Return[ {rationalPart, unintegratedPart, integratedPart}, Module ](* Not integrable in terms of elementary functions. *)
+	]
+];
+
 (* Simple derivative divides. *)
 
 If[OptionValue["DerivDivides"],
@@ -669,7 +686,7 @@ If[ListQ @ linearRadicalToRational[unintegratedPart, x, u],
 	integral = integrateLinearRadical[unintegratedPart, x, opts];
 	If[integral =!= False && (TrueQ[! OptionValue[VerifySolutions]] || verifySolution[integral, unintegratedPart, x]),
 		Return[ {0, 0, integral}, Module ],
-		Return[ {0, unintegratedPart, 0}, Module ]
+		Return[ {rationalPart, unintegratedPart, integratedPart}, Module ]
 	]
 ];
 
@@ -680,7 +697,7 @@ If[ListQ @ quadraticRadicalToRational[unintegratedPart, x, u],
 	integral = integrateQuadraticRadical[unintegratedPart, x, opts];
 	If[integral =!= False && (TrueQ[! OptionValue[VerifySolutions]] || verifySolution[integral, unintegratedPart, x]),
 		Return[ {0, 0, integral}, Module ],
-		Return[ {0, unintegratedPart, 0}, Module ]
+		Return[ {rationalPart, unintegratedPart, integratedPart}, Module ]
 	]
 ];
 
@@ -701,7 +718,7 @@ If[ListQ @ linearRatioRadicalToRational[unintegratedPart, x, u],
 	integral = integrateLinearRatioRadical[unintegratedPart, x, opts];
 	If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[integral, unintegratedPart, x],
 		Return[ {0, 0, integral}, Module ],
-		Return[ {0, unintegratedPart, 0}, Module ]
+		Return[ {rationalPart, unintegratedPart, integratedPart}, Module ]
 	]
 ];
 
@@ -960,6 +977,115 @@ If[ListQ @ splitIntegrand[unintegratedPart, x],
 
 {Integrate[rationalPart, x], unintegratedPart, integratedPart}
 ]
+
+
+(* ::Subsection:: *)
+(*chebyshevIntegrate*)
+
+
+ClearAll[chebyshevIntegrate];
+
+Options[chebyshevIntegrate] = Options[IntegrateAlgebraic];
+
+chebyshevIntegrate[e : (a_. x_ + b_)^n_Rational (c_. x_ + d_)^m_Rational, x_, opts:OptionsPattern[]] := Module[
+{v, u, result, sub, intu, integral},
+
+(* We rationalise (a x + b)^n (c x + d)^m where IntegerQ[n + m], with the
+substitution u == (a x + b)^v/(c x + d)^v, where v = GCD[Denominator[n], Denominator[m]] *)
+
+If[! IntegerQ[n + m], Return[ False ]];
+
+v = GCD[Denominator[n], Denominator[m]];
+result = subst[e, u -> (a x + b)^(1/v)/(c x + d)^(1/v),x];
+If[ListQ[result], 
+	{intu, sub} = result,
+	Return[ False ]];
+debugPrint2["Integral in u and Chebyshev substitution is ", result];
+
+If[!rationalQ[intu, u], Return[ False ]];
+
+result = solveAlgebraicIntegral[intu, u, opts];
+debugPrint2["Result of recursive integration is ", result];
+If[MatchQ[result, {0,0,_}], 
+	integral = result[[3]],
+	Return[ False ]
+];
+
+simplify[
+integral /. sub, x, 
+"CancelRadicalDenominators" -> False, 
+"Radicals" -> OptionValue["Radicals"]]
+]
+
+
+(* ::Input:: *)
+(*(* We should fail immediately on these types of Chebyshev integrals. *)*)
+(*IntegrateAlgebraic[(x-1)^(1/3) (x+1)^(1/3),x]//Timing*)
+
+
+(* ::Input:: *)
+(*(* And integrate these quickly. *)*)
+(*IntegrateAlgebraic[(x-1)^(1/3) (x+1)^(2/3),x]//Timing*)
+(*D[%//Last,x]-(x-1)^(1/3) (x+1)^(2/3)//Simplify*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(3x-1)^(1/3) (5x+4)^(5/3),x]//Timing*)
+(*D[%//Last,x]-(3x-1)^(1/3) (5x+4)^(5/3)//Simplify*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(a x+b)^(10/6) (c x+d)^(2/6),x]//Timing*)
+(*D[%//Last,x]-(a x+b)^(10/6) (c x+d)^(2/6)//Simplify*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[Sqrt[x] Sqrt[x+1],x]//Timing*)
+(*D[%//Last,x]-Sqrt[x] Sqrt[x+1]//Simplify*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[x^(1/3) (x+1)^(2/3),x]//Timing*)
+(*D[%//Last,x]-x^(1/3) (x+1)^(2/3)//Simplify*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(x-1)^(1/3) (x+1)^(2/3),x]//Timing*)
+(*D[%//Last,x]-(x-1)^(1/3) (x+1)^(2/3)//Simplify*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(7x-c)^(4/3) (x+b)^(8/3),x]//Timing*)
+(*D[%//Last,x]-(7x-c)^(4/3) (x+b)^(8/3)//Simplify*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[x^(1/6) (3x-1)^(5/6),x]//Timing*)
+(*D[%//Last,x]-x^(1/6) (3x-1)^(5/6)//Simplify*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[1/(Power[a x+b, (3)^-1] (c x+d)^(2/3)),x]//Timing*)
+(*D[%//Last,x]-1/(Power[a x+b, (3)^-1] (c x+d)^(2/3))//Simplify*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(a x+b)^(8/3) (c x+d)^(-11/3),x]//Timing*)
+(*D[%//Last,x]-(a x+b)^(8/3) (c x+d)^(-11/3)//Simplify*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(a x+b)^(7/3) (c x+d)^(-11/3),x]//Timing(* Should fail quickly. *)*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(a x+b)^(11/3) (c x+d)^(-11/3),x]//Timing*)
+(*D[%//Last,x]-(a x+b)^(11/3) (c x+d)^(-11/3)//Simplify*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(a x+b)^(-10/3) (c x+d)^(-11/3),x]//Timing*)
+(*D[%//Last,x]-(a x+b)^(-10/3) (c x+d)^(-11/3)//Simplify*)
 
 
 (* ::Subsection::Closed:: *)
