@@ -987,7 +987,10 @@ ClearAll[chebyshevIntegrate];
 
 Options[chebyshevIntegrate] = Options[IntegrateAlgebraic];
 
-chebyshevIntegrate[e : (a_. x_ + b_)^n_Rational (c_. x_ + d_)^m_Rational, x_, opts:OptionsPattern[]] := Module[
+chebyshevIntegrate[
+	e : (a_. x_ + b_)^n_Rational (c_. x_ + d_)^m_Rational /; FreeQ[{a, b, c, d}, x], 
+	x_, 
+	opts : OptionsPattern[]] := Module[
 {v, u, result, sub, intu, integral},
 
 (* We rationalise (a x + b)^n (c x + d)^m where IntegerQ[n + m], with the
