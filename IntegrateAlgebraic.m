@@ -979,7 +979,7 @@ If[ListQ @ splitIntegrand[unintegratedPart, x],
 ]
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*chebyshevIntegrate*)
 
 
@@ -3460,8 +3460,7 @@ If[b === 0 && c === 0, Return[ False ]];
 
 transformed = {};
 
-(* Removed condition so we can handle, for example, IntegrateAlgebraic[Sqrt[a*x^2 + b*x + c], x] SAMB 0821 *)
-If[True(* (Im[a] == 0 && a > 0) *),
+If[(Im[a] == 0 && a > 0) || (Variables[a] =!= {} && ! MatchQ[a, _^2]),
 	(* Euler's first substitution. *)
 	X = (u^2 - c)/(b - 2 Sqrt[a] u);
 	U = Sqrt[radicals[[1,2]]] - Sqrt[a] x;
@@ -3470,7 +3469,7 @@ If[True(* (Im[a] == 0 && a > 0) *),
 	AppendTo[transformed, euler1]
 ];
 
-If[Im[a] == 0 && Im[c] == 0 && a < 0 && c > 0,
+If[(Im[a] == 0 && Im[c] == 0 && a < 0 && c > 0) || Variables[a] =!= {},
 	(* Euler's second substitution. *)
 	X = Cancel @ Together[(2 Sqrt[c] u - b)/(a - u^2)];
 	U = (Sqrt[radicals[[1,2]]] - Sqrt[c])/x;	
@@ -5601,6 +5600,13 @@ log2ArcTanh = c1_. Log[p_] + c2_. Log[q_] /;
 
 
 (* A simplification based on 
+	D[Log[a b+2 a^2 x-2 a^(3/2) Sqrt[c+b x+a x^2]]+ArcTanh[(b+2 a x)/(2 Sqrt[a] Sqrt[c+b x+a x^2])],x] == 0 *)
+log2ArcTanh2 = D_. Log[A_ + B_ x_ + C_ Sqrt[c_. + b_. x_ + a_. x_^2]] /; 
+	A == a b && B == 2a^2 && C == -2 a^(3/2) :> 
+		-D ArcTanh[(b + 2 a x)/(2 Sqrt[a] Sqrt[c + b x + a x^2])];
+
+
+(* A simplification based on 
 	Simplify[D[Log[(-a)*I*x + Sqrt[a]*Sqrt[c - a*x^2]] + I*ArcTan[(Sqrt[a]*x)/Sqrt[c - a*x^2]], x]] == 0 
 	Simplify[D[Log[(-a)*x + Sqrt[a]*Sqrt[c + a*x^2]] + ArcTanh[(Sqrt[a]*x)/Sqrt[c + a*x^2]], x]] == 0 
 *)
@@ -5827,7 +5833,7 @@ simplify[e_, x_, opts:OptionsPattern[]] := Module[
 
 	simp = simp //. log2ArcTanh;
 	simp = simp //. {arcTanDiff, arcTanSum, arcTanhDiff, arcTanhSum};
-
+	
 	simp = simp /. (h:ArcTan|ArcTanh)[a_] :> h[collectnumden @ canonic[a]];
 
 	(* Pick the nicer of ArcTan[a/b] or -ArcTan[b/a]. *)
@@ -5841,6 +5847,8 @@ simplify[e_, x_, opts:OptionsPattern[]] := Module[
 	simp = simp /. p_ /; PolynomialQ[p,x] :> Collect[p, x];
 	simp = simp /. Log[ex_] :> Log[Collect[ex, Power[_, _Rational]]];
 	simp = simp /. Log[ex_^(n_Integer|n_Rational)] :> n Log[ex];
+
+	simp = simp /. log2ArcTanh2;
 
 	simp = log2arctan[simp, x];
 
