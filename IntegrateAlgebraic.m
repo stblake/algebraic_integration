@@ -38,6 +38,16 @@
 (*IntegrateAlgebraic[(x-1)^(1/3) (x+1)^(1/3),x]//Timing*)
 
 
+(* ::Input:: *)
+(*(* This is a deficiency! should use the substitution u == (3*x - 1)^(1/5)/(8 - 7*x)^(1/5) *)*)
+(*IntegrateAlgebraic[((x - 3)*(3*x - 1)^(1/5))/((x - 1)*(8 - 7*x)^(1/5)), x]*)
+
+
+(* ::Input:: *)
+(*(* This is sub-optimal. *)*)
+(*IntegrateAlgebraic[((x-5)(3x-1)^(5/2))/((x+2)(8-7x)^(3/2)),x]*)
+
+
 (* ::Subsection::Closed:: *)
 (*Implementation details*)
 
@@ -651,6 +661,16 @@ If[MatchQ[unintegratedPart, (a_. x + b_)^n_Rational (c_. x + d_)^m_Rational /; F
 	]
 ];
 
+(* Integrand is in Q(x, (a*x + b)^(1/2), (c*x + d)^(1/2)) *)
+
+If[ListQ @ multipleLinearRadicalToRational[unintegratedPart, x, u],
+	debugPrint1["Integrand is in Q(x, (a*x + b)^(1/2), (c*x + d)^(1/2)): ", unintegratedPart];
+	integral = integrateMultipleLinearRadical[unintegratedPart, x, opts];
+	If[integral =!= False && TrueQ[! OptionValue[VerifySolutions]] || verifySolution[integral, unintegratedPart, x],
+		Return[ {0, 0, integral}, Module ]
+	]
+];
+
 (* Simple derivative divides. *)
 
 If[OptionValue["DerivDivides"],
@@ -701,15 +721,7 @@ If[ListQ @ quadraticRadicalToRational[unintegratedPart, x, u],
 	]
 ];
 
-(* Integrand is in Q(x, (a*x + b)^(1/2), (c*x + d)^(1/2)) *)
-
-If[ListQ @ multipleLinearRadicalToRational[unintegratedPart, x, u],
-	debugPrint1["Integrand is in Q(x, (a*x + b)^(1/2), (c*x + d)^(1/2)): ", unintegratedPart];
-	integral = integrateMultipleLinearRadical[unintegratedPart, x, opts];
-	If[integral =!= False && TrueQ[! OptionValue[VerifySolutions]] || verifySolution[integral, unintegratedPart, x],
-		Return[ {0, 0, integral}, Module ]
-	]
-];
+(* ... *)
 
 (* Integrand is in Q(x,((a x + b)/(c x + d))^(m[1]/n[1]), ((a x + b)/(c x + d))^(m[2]/n[2]), \[Ellipsis]) *)
 
@@ -3594,8 +3606,7 @@ If[!(PolynomialQ[exy, {x, y1, y2}] || rationalQ[exy, {x, y1, y2}]),
 {{a,b},{c,d}}=radicals[[All,{2,3}]];
 
 \[Alpha] = pickAlpha[a,b,c,d];
-If[\[Alpha] === 1, Return [ False ]];
-
+(*If[\[Alpha] === 1, Return [ False ]];*)(* Removing this - not sure why it was here originally. SAMB 0223 *)
 \[Beta]=Sqrt[a \[Alpha]+b];
 \[Gamma]=Sqrt[c \[Alpha]+d];
 
