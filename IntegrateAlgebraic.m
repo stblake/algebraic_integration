@@ -618,7 +618,7 @@ IntegrateAlgebraic[e_, x_, opts:OptionsPattern[]] /;
 ]
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*solveAlgebraicIntegral*)
 
 
@@ -671,6 +671,17 @@ If[ListQ @ multipleLinearRadicalToRational[unintegratedPart, x, u],
 	]
 ];
 
+(* Integrand is in Q(x, (a*x + b)^(m[1]/n[1]), (a*x + b)^(m[2]/n[2]), \[Ellipsis]) *)
+
+If[ListQ @ linearRadicalToRational[unintegratedPart, x, u],
+	debugPrint1["Integrand is in Q(x, (a*x + b)^(m[1]/n[1]), (a*x + b)^(m[2]/n[2]), \[Ellipsis]): ", unintegratedPart];
+	integral = integrateLinearRadical[unintegratedPart, x, opts];
+	If[integral =!= False && (TrueQ[! OptionValue[VerifySolutions]] || verifySolution[integral, unintegratedPart, x]),
+		Return[ {0, 0, integral}, Module ],
+		Return[ {rationalPart, unintegratedPart, integratedPart}, Module ]
+	]
+];
+
 (* Simple derivative divides. *)
 
 If[OptionValue["DerivDivides"],
@@ -697,17 +708,6 @@ If[OptionValue["DerivDivides"],
 
 If[! algebraicQ[unintegratedPart, x] && ! OptionValue["Expansion"],
 	Return[{Integrate[rationalPart, x], unintegratedPart, integratedPart}, Module] (* As no further methods deal with non-algebraics. *)
-];
-
-(* Integrand is in Q(x, (a*x + b)^(m[1]/n[1]), (a*x + b)^(m[2]/n[2]), \[Ellipsis]) *)
-
-If[ListQ @ linearRadicalToRational[unintegratedPart, x, u],
-	debugPrint1["Integrand is in Q(x, (a*x + b)^(m[1]/n[1]), (a*x + b)^(m[2]/n[2]), \[Ellipsis]): ", unintegratedPart];
-	integral = integrateLinearRadical[unintegratedPart, x, opts];
-	If[integral =!= False && (TrueQ[! OptionValue[VerifySolutions]] || verifySolution[integral, unintegratedPart, x]),
-		Return[ {0, 0, integral}, Module ],
-		Return[ {rationalPart, unintegratedPart, integratedPart}, Module ]
-	]
 ];
 
 (* Integrand is in Q(x, (a x^2 + b x + c)^(n[1]/2), (a x^2 + b x + c)^(n[2]/2), \[Ellipsis]) *)
