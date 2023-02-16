@@ -48,6 +48,21 @@
 (*IntegrateAlgebraic[((x-5)(3x-1)^(5/2))/((x+2)(8-7x)^(3/2)),x]*)
 
 
+(* ::Input:: *)
+(*(* This is a bug - all integrals in Q(x,Sqrt[a x^2 + b x + c]) should be integrable. *)*)
+(*IntegrateAlgebraic[1/(Sqrt[-b+u^2] (b^2-6 b u^2+u^4)^2),u]*)
+
+
+(* ::Input:: *)
+(*(* This is an embarrassing bug! *)*)
+(*groebnerSubstitute[-((2 u^3 Sqrt[-1+u^4] (Sqrt[2]-2 Sqrt[2] u^2-Sqrt[2] u^4))/((-1+u) (1+u) (1+u^2) (-1-2 u^2+u^4)^2)),t->u^2,u]*)
+
+
+(* ::Input:: *)
+(*(* This is horrendous! *)*)
+(*IntegrateAlgebraic[1/((x+b)^2 (a x^2+b x+c)^(3/2)),x]*)
+
+
 (* ::Subsection::Closed:: *)
 (*Implementation details*)
 
@@ -618,7 +633,7 @@ IntegrateAlgebraic[e_, x_, opts:OptionsPattern[]] /;
 ]
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*solveAlgebraicIntegral*)
 
 
@@ -682,6 +697,17 @@ If[ListQ @ linearRadicalToRational[unintegratedPart, x, u],
 	]
 ];
 
+(* Integrand is in Q(x,((a x + b)/(c x + d))^(m[1]/n[1]), ((a x + b)/(c x + d))^(m[2]/n[2]), \[Ellipsis]) *)
+
+If[ListQ @ linearRatioRadicalToRational[unintegratedPart, x, u],
+	debugPrint1["Integrand is in Q(x,((a x + b)/(c x + d))^(m[1]/n[1]), ((a x + b)/(c x + d))^(m[2]/n[2]), \[Ellipsis]): ", unintegratedPart];
+	integral = integrateLinearRatioRadical[unintegratedPart, x, opts];
+	If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[integral, unintegratedPart, x],
+		Return[ {0, 0, integral}, Module ],
+		Return[ {rationalPart, unintegratedPart, integratedPart}, Module ]
+	]
+];
+
 (* Simple derivative divides. *)
 
 If[OptionValue["DerivDivides"],
@@ -722,17 +748,6 @@ If[ListQ @ quadraticRadicalToRational[unintegratedPart, x, u],
 ];
 
 (* ... *)
-
-(* Integrand is in Q(x,((a x + b)/(c x + d))^(m[1]/n[1]), ((a x + b)/(c x + d))^(m[2]/n[2]), \[Ellipsis]) *)
-
-If[ListQ @ linearRatioRadicalToRational[unintegratedPart, x, u],
-	debugPrint1["Integrand is in Q(x,((a x + b)/(c x + d))^(m[1]/n[1]), ((a x + b)/(c x + d))^(m[2]/n[2]), \[Ellipsis]): ", unintegratedPart];
-	integral = integrateLinearRatioRadical[unintegratedPart, x, opts];
-	If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[integral, unintegratedPart, x],
-		Return[ {0, 0, integral}, Module ],
-		Return[ {rationalPart, unintegratedPart, integratedPart}, Module ]
-	]
-];
 
 (*
 If[multipleRadicalsQ[unintegratedPart, x] && nestedCount[unintegratedPart, x] == 0,
@@ -1003,7 +1018,7 @@ chebyshevIntegrate[
 	e : (a_. x_ + b_)^n_Rational (c_. x_ + d_)^m_Rational /; FreeQ[{a, b, c, d}, x], 
 	x_, 
 	opts : OptionsPattern[]] := Module[
-{v, u, result, sub, intu, integral},
+{v, u, result, sub, intu, integral, quad},
 
 (* We rationalise (a x + b)^n (c x + d)^m where IntegerQ[n + m], with the
 substitution u == (a x + b)^v/(c x + d)^v, where v = GCD[Denominator[n], Denominator[m]] *)
@@ -1026,10 +1041,20 @@ If[MatchQ[result, {0,0,_}],
 	Return[ False ]
 ];
 
-simplify[
+integral = simplify[
 integral /. sub, x, 
 "CancelRadicalDenominators" -> False, 
-"Radicals" -> OptionValue["Radicals"]]
+"Radicals" -> OptionValue["Radicals"]];
+
+If[n == m, 
+	quad = Expand[ (a x + b)(c x + d) ];
+	integral = integral /. {
+		quad^n -> (a x + b)^n (c x + d)^n,
+		quad^-n -> (a x + b)^-n (c x + d)^-n
+	}
+];
+
+integral
 ]
 
 
@@ -1101,6 +1126,10 @@ integral /. sub, x,
 (* ::Input:: *)
 (*IntegrateAlgebraic[(a x+b)^(-10/3) (c x+d)^(-11/3),x]//Timing*)
 (*D[%//Last,x]-(a x+b)^(-10/3) (c x+d)^(-11/3)//Simplify*)
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(x-1)^(1/2) (2-x)^(1/2),x]*)
 
 
 (* ::Subsection::Closed:: *)
@@ -1682,7 +1711,7 @@ normalise[f_, {x_, y_}] := Module[
 	If[FreeQ[denY, y], 
 		nonalgNum = Coefficient[numY, y, 0];
 		algNum = Coefficient[numY, y, 1] y;
-		Return[ {algNum, denY, {p, r}, y -> radical, nonAlgPart + Cancel[nonalgNum/denY]} ]
+		Return[ {algNum, denY, {p, r}, y -> radical, Cancel[Together[nonAlgPart + nonalgNum/denY]]} ]
 	];
 
 	y0 = Coefficient[denY, y, 0];
@@ -1702,7 +1731,7 @@ normalise[f_, {x_, y_}] := Module[
 
 	nonAlgPart += nonalgNum/denY;
 
-	{algNum, denY, {p, r}, y -> radical, nonAlgPart // Cancel}
+	{algNum, denY, {p, r}, y -> radical, nonAlgPart // Together // Cancel}
 ]
 
 
