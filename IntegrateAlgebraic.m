@@ -4957,7 +4957,7 @@ If[usub === {},
 (*subst[(x^3 Exp[ArcSin[x]])/Sqrt[1-x^2],u->ArcSin[x],x]//Timing*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Derivative divides*)
 
 
@@ -5010,6 +5010,9 @@ specialCount[e_, x_] := specialCount[e, x] = Length[Union[
 
 (* ::Input:: *)
 (*specialCount[Sqrt[1-x^4], x]*)
+
+
+infinityCount[e_, x_] := Length @ Union @ Cases[e, _DirectedInfinity | Indeterminate, {0, Infinity}]
 
 
 (* Estimate the difficulty of an integral. *)
@@ -5198,7 +5201,7 @@ Mean[ranks] // N
 (*scoreCandidate[(2 x^3-70 x^4+612 x^5-392 x^6+64 x^7)/Sqrt[1-3 (x^2-14 x^3+4 x^4)-5 (x^2-14 x^3+4 x^4)^2],x^2-14 x^3+4 x^4,x]//Timing*)
 
 
-(* ::Subsubsection::Closed:: *)
+(* ::Subsubsection:: *)
 (*derivdivides*)
 
 
@@ -5259,7 +5262,7 @@ Do[
 		eu = Cancel[Together[eu/diff]] //. subs1 //. subs2 //. subs3 //. subs4;
 		debugPrint3["Trying sub = ", sub, ", giving ", eu, ", rank in = ", 
 			rank[e, x],", rank out = ", rank[eu, u], ", size ratio = ", LeafCount[eu]/LeafCount[e] // N];
-		If[FreeQ[eu, x] && (simpleQ[eu, u] || LeafCount[eu]/LeafCount[e] < 0.75 || rank[eu, u]/rank[e, x] < 0.9),
+		If[FreeQ[eu, x] && infinityCount[eu, u] == 0 && (simpleQ[eu, u] || LeafCount[eu]/LeafCount[e] < 0.75 || rank[eu, u]/rank[e, x] < 0.9),
 			debugPrint2["derivdivides level 1 returned: ", {eu, u -> sub}];
 			Return[{eu, u -> sub}, Module]
 		],
@@ -5287,7 +5290,7 @@ Do[
 		eu = (Cancel[Together[eu/diff]] //. subs1 //. subs2 //. subx[[1]]);
 		debugPrint3["Trying sub = ", sub, ", giving ", eu, ", rank in = ", 
 			rank[e, x],", rank out = ", rank[eu, u], ", size ratio = ", LeafCount[eu]/LeafCount[e] // N];
-		If[FreeQ[eu, x] && (simpleQ[eu, u] || 
+		If[FreeQ[eu, x] && infinityCount[eu, u] == 0 && (simpleQ[eu, u] || 
 				LeafCount[eu]/LeafCount[e] < 0.75 || 
 				rank[eu, u]/rank[e, x] < 0.9),
 			debugPrint2["derivdivides level 2 returned: ", {eu, u -> sub}];
@@ -5316,7 +5319,7 @@ Do[
 			eu = First[gs];
 			debugPrint3["sub = ", sub, ", giving ", eu, ", rank in = ", 
 				rank[e, x],", rank out = ", rank[eu, u], ", size ratio = ", LeafCount[eu]/LeafCount[e] // N];
-			If[simpleQ[eu, u] || LeafCount[eu]/LeafCount[e] < 0.75 || rank[eu, u]/rank[e, x] < 0.9,
+			If[infinityCount[eu, u] == 0 && (simpleQ[eu, u] || LeafCount[eu]/LeafCount[e] < 0.75 || rank[eu, u]/rank[e, x] < 0.9),
 				debugPrint2["derivdivides level 3 returned: ", {eu, u -> sub}];
 				Return[{eu, u -> sub}, Module]
 			]
