@@ -710,7 +710,7 @@ If[ListQ @ linearRatioRadicalToRational[unintegratedPart, x, u],
 
 (* Simple derivative divides. *)
 
-If[OptionValue["DerivDivides"],
+If[OptionValue["DerivDivides"] && ! rootQ[unintegratedPart, x],
 	debugPrint1["Trying simple derivative-divides..."];
 	dd = derivdivides[unintegratedPart, x, u, "Fast" -> True];
 	If[ListQ[dd], 
@@ -754,6 +754,17 @@ If[multipleRadicalsQ[unintegratedPart, x] && nestedCount[unintegratedPart, x] ==
 	Return[{Integrate[rationalPart, x], unintegratedPart, integratedPart}, Module] (* As no further methods deal with multiple radicals. *)
 ];
 *)
+
+(* Inverse function integration method. *)
+If[ListQ @ inverseIntegrate[unintegratedPart, x, opts], 
+	debugPrint1["Integrand is integrable using the inverse integration method."];
+	integral = inverseIntegrate[unintegratedPart, x, opts];
+	integral = Last[integral];
+	If[integral =!= False && (TrueQ[! OptionValue[VerifySolutions]] || verifySolution[integral, unintegratedPart, x]),
+		Return[ {0, 0, integral}, Module ],
+		Return[ {rationalPart, unintegratedPart, integratedPart}, Module ]
+	]
+];
 
 (* Nested radicals. *)
 
@@ -1006,8 +1017,73 @@ If[ListQ @ splitIntegrand[unintegratedPart, x],
 ]
 
 
+(* ::Subsection:: *)
+(*inverseIntegrate*)
+
+
+ClearAll[inverseIntegrate];
+
+Options[inverseIntegrate] = Options[IntegrateAlgebraic];
+
+inverseIntegrate[e_, x_, opts:OptionsPattern[]] := inverseIntegrate[e, x, opts] = Module[
+{u, inv, integrandU, integralU, integral},
+
+TimeConstrained[
+	inv = Quiet @ Solve[u == e, x],
+	$timeConstraint,
+	Return[False, Module]
+];
+
+debugPrint2["inverse in u is ", inv];
+
+If[inv === {} || inv === {{}} || Head[inv] === Solve || ! FreeQ[inv, Root], 
+	Return[False, Module]
+];
+
+integrandU = x /. inv[[1]];
+
+If[!(PolynomialQ[integrandU, u] || rationalQ[integrandU, u]), 
+	Return[False, Module]
+];
+
+integralU = integrate[integrandU, u];
+
+If[! FreeQ[integralU, Integrate], 
+	Return[False, Module]
+];
+
+integral = x u - integralU /. u -> e;
+integral = simplify[
+integral, x, 
+"CancelRadicalDenominators" -> False, 
+"Radicals" -> OptionValue["Radicals"]];
+
+{0, 0, integral}
+]
+
+
+(* ::Input:: *)
+(*inverseIntegrate[Sqrt[a x-b x+Sqrt[a+b] Sqrt[x] Sqrt[4 a b+a x+b x]]/Sqrt[a+b+x], x]*)
+
+
+(* ::Input:: *)
+(*inverseIntegrate[(-2 2^(1/3)+2^(2/3) (x+Sqrt[4+x^2])^(2/3))^(1/3)/(x+Sqrt[4+x^2])^(1/9), x]*)
+
+
+(* ::Input:: *)
+(*inverseIntegrate[(-x+(9 x+Sqrt[81 x^2+x^3])^(2/3))^(1/3)/(9 x+Sqrt[81 x^2+x^3])^(1/9), x]*)
+
+
+(* ::Input:: *)
+(*inverseIntegrate[Root[1-x #1-#1^3+#1^6&,2], x]*)
+
+
 (* ::Subsection::Closed:: *)
 (*chebyshevIntegrate*)
+
+
+(* ::Text:: *)
+(*TODO: x^p (a*x^r + b)^q*)
 
 
 ClearAll[chebyshevIntegrate];
@@ -4957,7 +5033,7 @@ If[usub === {},
 (*subst[(x^3 Exp[ArcSin[x]])/Sqrt[1-x^2],u->ArcSin[x],x]//Timing*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Derivative divides*)
 
 
@@ -5201,7 +5277,7 @@ Mean[ranks] // N
 (*scoreCandidate[(2 x^3-70 x^4+612 x^5-392 x^6+64 x^7)/Sqrt[1-3 (x^2-14 x^3+4 x^4)-5 (x^2-14 x^3+4 x^4)^2],x^2-14 x^3+4 x^4,x]//Timing*)
 
 
-(* ::Subsubsection:: *)
+(* ::Subsubsection::Closed:: *)
 (*derivdivides*)
 
 
@@ -5602,7 +5678,7 @@ False
 
 Clear[togetherAll];
 
-togetherAll[e_] /; FreeQ[e, RootSum] := Map[Together, e, {2, Infinity}]
+togetherAll[e_] /; FreeQ[e, RootSum | Root] := Map[Together, e, {2, Infinity}]
 togetherAll[e_] := e
 
 
@@ -5816,7 +5892,7 @@ simplify[e_, x_, opts:OptionsPattern[]] := Module[
 		simp = simp //. log2ArcTanh (* This also handles ArcTan. SAMB 0821 *)
 	];
 	
-	simp = simp /. {RootSum -> $rootSum, Function -> $function};
+	simp = simp /. {RootSum -> $rootSum, Root -> $root, Function -> $function};
 
 	simp = simp /. c_ p_Plus /; FreeQ[c, x] :> Distribute[c p, Plus, Times];
 
@@ -5913,7 +5989,7 @@ simplify[e_, x_, opts:OptionsPattern[]] := Module[
 
 	simp = collect[simp, x] /. Power[p_, r_Rational] /; rationalQ[p, x] :> (Expand[Numerator @ p]/Expand[Denominator @ p])^r;
 
-	simp = simp /. {$rootSum -> RootSum, $function -> Function};
+	simp = simp /. {$rootSum -> RootSum, $root -> Root, $function -> Function};
 
 	(* Convert to radicals, if the resulting expression is reasonable. *)
 	rad = ToRadicals[simp];
@@ -6215,12 +6291,16 @@ multipleRadicalQ[e_, x_] :=
 ClearAll[algebraicQ];
 
 algebraicQ[C[_], _] := True
-algebraicQ[_Integer | _Rational | _Symbol | _Complex, _] := True
+algebraicQ[_Integer | _Rational | _Symbol | _Complex | _Root, _] := True
 
 algebraicQ[e_Plus, x_] := algebraicQ[First @ e, x] && algebraicQ[Rest @ e, x]
 algebraicQ[e_Times, x_] := algebraicQ[First @ e, x] && algebraicQ[Rest @ e, x]
 
 algebraicQ[Power[a_, b_], x_] := algebraicQ[a, x] && PolynomialQ[b, x]
+
+
+(* ::Input:: *)
+(*algebraicQ[Root[1-x #1-#1^3+#1^6&,2],x]*)
 
 
 (* ::Input:: *)
@@ -6261,6 +6341,17 @@ algebraicQ[Power[a_, b_], x_] := algebraicQ[a, x] && PolynomialQ[b, x]
 
 (* ::Input:: *)
 (*algebraicQ[(E^(1/(E^x+x)+(-1+x^2)/x) (E^x+2 x-x^2))/(x^2 (E^x+x)^2),x]*)
+
+
+(* ::Subsubsection::Closed:: *)
+(*rootQ*)
+
+
+rootQ[e_, x_] := ! FreeQ[e, Root[expr_, _] /; ! FreeQ[expr, x]]
+
+
+(* ::Input:: *)
+(*rootQ[Root[1-x #1-#1^3+#1^6&,2],x]*)
 
 
 (* ::Subsubsection::Closed:: *)
