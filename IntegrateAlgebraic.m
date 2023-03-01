@@ -64,10 +64,6 @@
 
 
 (* ::Input:: *)
-(*(*TODO: Add Chebychev--type integrals to simpleQ[] in ranking for derivdivides[]. *)*)
-
-
-(* ::Input:: *)
 (*(* We should fail almost instantly on these Chebychev-type integrals. *)*)
 (*IntegrateAlgebraic[Sqrt[u]/Sqrt[1-u^2],u] // Timing*)
 
@@ -5281,7 +5277,7 @@ If[usub === {},
 (*subst[(x^3 Exp[ArcSin[x]])/Sqrt[1-x^2],u->ArcSin[x],x]//Timing*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*Derivative divides*)
 
 
@@ -5341,7 +5337,7 @@ infinityCount[e_, x_] := Length @ Union @ Cases[e, _DirectedInfinity | Indetermi
 
 (* Estimate the difficulty of an integral. *)
 ClearAll[simpleQ];
-simpleQ[e_, x_] := TrueQ[rank[e, x] < 8] (* Always algorithmically integrable in elementary terms. *)
+simpleQ[e_, x_] := TrueQ[rank[e, x] < 9] (* Always algorithmically integrable in elementary terms. *)
 
 ClearAll[rank];
 rank[e_, x_] /; PolynomialQ[e, x] := If[linearPolynomialQ[e, x], 1, 2]
@@ -5349,27 +5345,28 @@ rank[e_, x_] /; rationalQ[e, x] := If[linearRationalPolynomialQ[e, x], 3, 4]
 rank[e_, x_] /; nestedCount[e, x] == 0 && rationalOfLinearRadicalsQ[e, x] := 5
 rank[e_, x_] /; nestedCount[e, x] == 0 && rationalOfQuadraticRadicalsQ[e, x] := 6
 rank[e_, x_] /; nestedCount[e, x] == 0 && linearRatioRadicalQ[e, x] := 7
+rank[e_, x_] /; chebychevElementaryQ[e, x] := 8
 (* TODO: Missing multiple linear radicals. *)
 
 (* transcendental elementary. *)
 rank[e_, x_] /; distinctRadicalCount[e, x] == 0 && 
-	specialCount[e, x] == 0 && elementaryCount[e, x] > 0 := 8
+	specialCount[e, x] == 0 && elementaryCount[e, x] > 0 := 9
 
 (* transcendental special. *)
 rank[e_, x_] /; distinctRadicalCount[e, x] == 0 && 
-	specialCount[e, x] > 0 := 9 
+	specialCount[e, x] > 0 := 10 
 
 (* (possibly nested) algebraic *)
 rank[e_, x_] /; (distinctRadicalCount[e, x] > 0 || 
 	nestedCount[e, x] > 0) && elementaryCount[e, x] == 0 && 
-	specialCount[e, x] == 0 := 10 + 
+	specialCount[e, x] == 0 := 11 + 
 								(2 distinctRadicalCount[e, x])^2 + 
 								(4 nestedCount[e, x])^4
 
 (* (possibly nested) elementary/special *)
 rank[e_, x_] /; (distinctRadicalCount[e, x] > 0 || 
 	nestedCount[e, x] > 0) && (elementaryCount[e, x] > 0 || 
-	specialCount[e, x] > 0) := 11 + 
+	specialCount[e, x] > 0) := 12 + 
 								(2 distinctRadicalCount[e, x])^2 + 
 								(3 elementaryCount[e, x])^3 + 
 								(4 nestedCount[e, x])^4 + 
@@ -6407,7 +6404,7 @@ numericZeroQ[e_, OptionsPattern[]] := Module[
 (*D[-(1/(10 Sqrt[-1+Sqrt[5]]))(10 Sqrt[-1+Sqrt[5]] ArcTan[x/Sqrt[1+x^2+x^4]]-2 Sqrt[10] ArcTan[(Sqrt[-2+2 Sqrt[5]] Sqrt[1+x^2+x^4])/(-1+Sqrt[5]-2 x-x^2+Sqrt[5] x^2)]+I Sqrt[10] Log[2]-2 Sqrt[15-5 Sqrt[5]] Log[(2+x+Sqrt[5] x+2 x^2)/x]+2 Sqrt[15-5 Sqrt[5]] Log[(1+Sqrt[5]+2 x+x^2+Sqrt[5] x^2-Sqrt[2+2 Sqrt[5]] Sqrt[1+x^2+x^4])/x]),x]-((-1+x^2) Sqrt[1+x^2+x^4])/((1+x^2) (1+x+x^2+x^3+x^4))//numericZeroQ//Timing*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*utilities*)
 
 
