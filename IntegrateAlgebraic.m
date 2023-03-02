@@ -1100,7 +1100,7 @@ integral, x,
 (*inverseIntegrate[Root[1-x #1-#1^3+#1^6&,2], x]*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*chebychevIntegrate*)
 
 
@@ -1132,8 +1132,8 @@ ClearAll[chebychevParameters];
 chebychevParameters[e_, x_] := Module[{params},
 
 params = e /. {
-	x^p_. (a_. x^r_. + b_)^q_. :> {a, b, p, q, r},
-	(a_. x^r_. + b_)^q_. :> {a, b, 0, q, r}};
+	c_. x^p_. (a_. x^r_. + b_)^q_. /; FreeQ[{a, b, c}, x] :> {c, a, b, p, q, r},
+	c_. (a_. x^r_. + b_)^q_. /; FreeQ[{a, b, c}, x] :> {c, a, b, 0, q, r}};
 
 params
 ]
@@ -1151,15 +1151,19 @@ params
 (*chebychevParameters[(5x^(1/2)-2)^2, x]*)
 
 
+(* ::Input:: *)
+(*chebychevParameters[11(5x^(1/2)-2)^2, x]*)
+
+
 ClearAll[chebychevType1Integrate];
 
 chebychevType1Integrate[e_, x_, opts:OptionsPattern[]] := Module[
-{u, a, b, p, r, q, v, result, intu, sub, integral},
+{u, a, b, c, p, r, q, v, result, intu, sub, integral},
 
 (* We rationalise x^p (a x^r + b)^q, where IntegerQ[q], with the 
 substitution u == x^(1/LCM[Denominator[p], Denominator[r]]). *)
 
-{a, b, p, q, r} = chebychevParameters[e, x];
+{c, a, b, p, q, r} = chebychevParameters[e, x];
 
 If[!IntegerQ[q], 
 	(* We should never get here as we check IntegerQ[q] earlier. *) 
@@ -1199,12 +1203,12 @@ Last[integral] /. u -> x^(1/v)
 ClearAll[chebychevType2Integrate];
 
 chebychevType2Integrate[e_, x_, opts:OptionsPattern[]] := Module[
-{u, a, b, p, q, r, result, intu, sub, integral},
+{u, a, b, c, p, q, r, result, intu, sub, integral},
 
 (* We rationalise x^p (a x^r + b)^q, where IntegerQ[(p + 1)/r], with the 
 substitution u == (a x^r + b)^(1/Denominator[q]). *)
 
-{a, b, p, q, r} = chebychevParameters[e, x];
+{c, a, b, p, q, r} = chebychevParameters[e, x];
 
 If[!IntegerQ[(p + 1)/r], 
 	(* We should never get here as we check IntegerQ[(p + 1)/r] earlier. *) 
@@ -1255,7 +1259,7 @@ Last[integral] /. sub
 ClearAll[chebychevType3Integrate];
 
 chebychevType3Integrate[e_, x_, opts:OptionsPattern[]] := Module[
-{u, a, b, p, q, r, result, intu, sub, integral},
+{u, a, b, c, p, q, r, result, intu, sub, integral},
 
 (* We rationalise x^p (a x^r + b)^q, where IntegerQ[q + (p + 1)/r], as follows. 
 
@@ -1270,13 +1274,13 @@ Integrate[(u^((p + 1)/r + q - 1) ((a u + b)/u)^q)/r, u]
 (Note that (p + 1)/r + q - 1 is an integer.) Now we substitute 
 t = ((a u + b)/u)^N, where N = LCM[Denominator[p], Denominator[q]]. *)
 
-{a, b, p, q, r} = chebychevParameters[e, x];
+{c, a, b, p, q, r} = chebychevParameters[e, x];
 
 If[!IntegerQ[q + (p + 1)/r], 
 	(* We should never get here as we check IntegerQ[(p + 1)/r] earlier. *) 
 	Return[ False ]];
 
-intu = (u^((p + 1)/r + q - 1) ((a u + b)/u)^q)/r;
+intu = c (u^((p + 1)/r + q - 1) ((a u + b)/u)^q)/r;
 debugPrint2["Transformed integrand is ", intu];
 
 integral = solveAlgebraicIntegral[intu, u, opts];
@@ -5277,7 +5281,7 @@ If[usub === {},
 (*subst[(x^3 Exp[ArcSin[x]])/Sqrt[1-x^2],u->ArcSin[x],x]//Timing*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*Derivative divides*)
 
 
@@ -6656,12 +6660,12 @@ chebychevElementaryQ[e_, x_] := TrueQ[ chebychevType1Q[e,x] || chebychevType2Q[e
 
 (* Case 1: x^p (a x^r + b)^q where IntegerQ[q] *)
 ClearAll[chebychevType1Q];
-chebychevType1Q[x_^(_Rational|_Integer) (a_. x_^(_Rational|_Integer) + b_)^q_., x_] /; 
-	FreeQ[{a, b}, x] && IntegerQ[q] := True
-chebychevType1Q[(a_. x_^(_Rational|_Integer) + b_)^q_., x_] /; 
-	FreeQ[{a, b}, x] && IntegerQ[q] := True
-chebychevType1Q[(a_. x_ + b_)^q_., x_] /; 
-	FreeQ[{a, b}, x] && IntegerQ[q] := True
+chebychevType1Q[c_. x_^(_Rational|_Integer) (a_. x_^(_Rational|_Integer) + b_)^q_., x_] /; 
+	FreeQ[{a, b, c}, x] && IntegerQ[q] := True
+chebychevType1Q[c_. (a_. x_^(_Rational|_Integer) + b_)^q_., x_] /; 
+	FreeQ[{a, b, c}, x] && IntegerQ[q] := True
+chebychevType1Q[c_. (a_. x_ + b_)^q_., x_] /; 
+	FreeQ[{a, b, c}, x] && IntegerQ[q] := True
 chebychevType1Q[_, x_] := False
 
 
@@ -6686,20 +6690,28 @@ chebychevType1Q[_, x_] := False
 
 
 (* ::Input:: *)
+(*chebychevType1Q[3/2 x^(1/5) (3x^(6/5)+1)^-1, x]*)
+
+
+(* ::Input:: *)
 (*chebychevType1Q[x^(1/5) (3x^(6/5)+1)^(-1/2), x]*)
 
 
 (* Case 2: x^p (a x^r + b)^q where IntegerQ[(p + 1)/r] *)
 ClearAll[chebychevType2Q];
-chebychevType2Q[x_^p_. (a_. x_^r_. + b_)^_, x_] /; 
-	FreeQ[{a, b}, x] && IntegerQ[(p + 1)/r] := True
-chebychevType2Q[(a_. x_ + b_)^_, x_] /; 
-	FreeQ[{a, b}, x] := True
+chebychevType2Q[c_. x_^p_. (a_. x_^r_. + b_)^_, x_] /; 
+	FreeQ[{a, b, c}, x] && IntegerQ[(p + 1)/r] := True
+chebychevType2Q[c_. (a_. x_ + b_)^_, x_] /; 
+	FreeQ[{a, b, c}, x] := True
 chebychevType2Q[_, x_] := False
 
 
 (* ::Input:: *)
 (*chebychevType2Q[x^(1/2) (3x^(1/2)+1)^4, x]*)
+
+
+(* ::Input:: *)
+(*chebychevType2Q[2 x^(1/2) (3x^(1/2)+1)^4, x]*)
 
 
 (* ::Input:: *)
@@ -6724,15 +6736,19 @@ chebychevType2Q[_, x_] := False
 
 (* Case 3: x^p (a x^r + b)^q where IntegerQ[q + (p + 1)/r] *)
 ClearAll[chebychevType3Q];
-chebychevType3Q[x_^p_. (a_. x_^r_. + b_)^q_, x_] /; 
-	FreeQ[{a, b}, x] && IntegerQ[q + (p + 1)/r] := True
-chebychevType3Q[(a_. x_^r_. + b_)^q_, x_] /; 
-	FreeQ[{a, b}, x] && IntegerQ[q + 1/r] := True
+chebychevType3Q[c_. x_^p_. (a_. x_^r_. + b_)^q_, x_] /; 
+	FreeQ[{a, b, c}, x] && IntegerQ[q + (p + 1)/r] := True
+chebychevType3Q[c_. (a_. x_^r_. + b_)^q_, x_] /; 
+	FreeQ[{a, b, c}, x] && IntegerQ[q + 1/r] := True
 chebychevType3Q[_, x_] := False
 
 
 (* ::Input:: *)
 (*chebychevType3Q[Power[x, (3)^-1] Power[a x^2+b, (3)^-1],x]*)
+
+
+(* ::Input:: *)
+(*chebychevType3Q[1/3 Power[x, (3)^-1] Power[a x^2+b, (3)^-1],x]*)
 
 
 (* ::Input:: *)
@@ -6744,9 +6760,9 @@ chebychevType3Q[_, x_] := False
 
 
 chebychevIntegralQ[e_, x_] := MatchQ[e, (
-x^(_Rational|_Integer) (a_. x^(_Rational|_Integer) + b_)^(_Rational|_Integer) | 
-(a_. x^(_Rational|_Integer) + b_)^(_Rational|_Integer)
-) /; FreeQ[{a, b}, x]]
+c_. x^(_Rational|_Integer) (a_. x^(_Rational|_Integer) + b_)^(_Rational|_Integer) | 
+c_. (a_. x^(_Rational|_Integer) + b_)^(_Rational|_Integer)
+) /; FreeQ[{a, b, c}, x]]
 
 
 (* ::Input:: *)
@@ -6767,6 +6783,10 @@ x^(_Rational|_Integer) (a_. x^(_Rational|_Integer) + b_)^(_Rational|_Integer) |
 
 (* ::Input:: *)
 (*chebychevIntegralQ[x^-2 (x^(1/2)+1)^(-3/4), x]*)
+
+
+(* ::Input:: *)
+(*chebychevIntegralQ[4x^-2 (x^(1/2)+1)^(-3/4), x]*)
 
 
 (* ::Input:: *)
