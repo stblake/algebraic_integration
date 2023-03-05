@@ -1100,7 +1100,7 @@ integral, x,
 (*inverseIntegrate[Root[1-x #1-#1^3+#1^6&,2], x]*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*chebychevIntegrate*)
 
 
@@ -1296,8 +1296,12 @@ If[!MatchQ[integral, {0, 0, _}],
 integral = Last[integral] /. u^m_. :> x^(m r);
 debugPrint2["Substituting back for ", x, " gives ", integral];
 
-integral
+simplify[integral, x, "Radicals" -> (a x^r + b)^q]
 ]
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[(Sqrt[2] u^4)/(1-2 u^2)^(3/2), u]*)
 
 
 (* ::Input:: *)
@@ -5456,6 +5460,25 @@ rank[e_, x_] := 10^20 LeafCount[e]
 (*candidateSubstitutions*)
 
 
+allratios[l_] := Module[{perms, ratios},
+perms = Permutations[l];
+ratios = Table[Apply[Times, #[[;;k]]]/Apply[Times, #[[k+1;;]]], {k,Length[l]-1}]& /@ perms;
+Flatten[ratios] // Union
+]
+
+
+(* ::Input:: *)
+(*{Sqrt[1+x],Sqrt[-1+x^3]}//allratios*)
+
+
+(* ::Input:: *)
+(*{Sqrt[1+x],Sqrt[-1-x+x^2],Sqrt[-1+x^3]}//allratios*)
+
+
+(* ::Input:: *)
+(*{Sqrt[1+x],Sqrt[-1-x+x^2],Sqrt[-1+x^3],Sqrt[1+x^3]}//allratios*)
+
+
 ClearAll[candidateSubstitutions];
 
 Options[candidateSubstitutions] = {"SingleStepTimeConstraint" -> 0.25};
@@ -5478,8 +5501,11 @@ candidates = DeleteCases[candidates, x^n_Integer /; n < 0];
 candidates = Cases[candidates, s_ /; ! FreeQ[s,x] && FreeQ[s, Root | RootSum]];
 candidates = DeleteCases[candidates, x];
 candidates = Select[candidates, LeafCount[#] < 4/5 LeafCount[e]&]; (* Only try _small_ substitutions (relative to the integrand) *)
-rads = Cases[candidates, Power[p_,r_Rational] /; !FreeQ[p,x] :> Expand[p]^Abs[r]] // Union;
-candidates = Join[candidates, DeleteCases[Flatten @ Outer[Divide, rads, rads],1]];
+
+(* Candidates for integrands containing multiple (distinct) radicals. *)
+rads = Cases[candidates, Power[p_, r_Rational] /; ! FreeQ[p, x] :> Expand[p]^Abs[r]] // Union;
+candidates = Join[candidates, allratios[rads]];
+
 candidates = Union[candidates, SameTest -> (FreeQ[#1/#2, x]&)];
 
 scores = (scoreCandidate[e, #, x] - 10^-3 LeafCount[#])& /@ Union[candidates]; (* Use LeafCount to break ties. *)
@@ -5507,7 +5533,12 @@ sorted[[All, 1]]
 (*We would like a fast heuristic for sorting candidate substitutions for the derivative-divides routine so that more likely candidates are tried before others. scoreCandidate is a prototype that seems to perform reasonably. *)
 
 
-scoreCandidate[e_, sub_, x_] := Module[{dd, splits, ranks},
+ClearAll[scoreCandidate];
+scoreCandidate[e_, sub_, x_] /; distinctRadicalCount[e, x] > 1 &&  distinctRadicalCount[sub, x] > 1 := scoreCandidate[e, sub, x] = 200 + 
+	distinctRadicalCount[sub, x]^4 + LeafCount[sub]
+
+
+scoreCandidate[e_, sub_, x_] := scoreCandidate[e, sub, x] = Module[{dd, splits, ranks},
 dd = D[sub,x] // Together // Cancel;
 If[FreeQ[dd, x], Return[0, Module]];(* We don't assign a score for linear polynomials. *)
 splits = Union @ DeleteCases[Level[{sub,dd},{0,\[Infinity]}] // Flatten, x| (a_ x /; FreeQ[a,x]) |(a_ /; FreeQ[a,x])]; (* Remove x, a x and constants *)
@@ -5616,7 +5647,7 @@ Do[
 		debugPrint3["Trying sub = ", sub, ", giving ", eu, ", rank in = ", 
 			rank[e, x],", rank out = ", rank[eu, u], ", size ratio = ", LeafCount[eu]/LeafCount[e] // N];
 		If[FreeQ[eu, x] && infinityCount[eu, u] == 0 && (simpleQ[eu, u] || 
-				LeafCount[eu]/LeafCount[e] < 0.75 || 
+				LeafCount[eu]/LeafCount[e] < 0.75 ||
 				rank[eu, u]/rank[e, x] < 0.9),
 			debugPrint2["derivdivides level 2 returned: ", {eu, u -> sub}];
 			Return[{eu, u -> sub}, Module]
@@ -6649,7 +6680,7 @@ apartList[e_, x_] := Module[{apartList},
 (*chebychevElementaryQ*)
 
 
-(* ::Input::Initialization:: *)
+(* ::Input::Initialization::Plain:: *)
 ClearAll[chebychevElementaryQ];
 chebychevElementaryQ[e_, x_] := TrueQ[ chebychevType1Q[e,x] || chebychevType2Q[e,x] || chebychevType3Q[e,x] ]
 
