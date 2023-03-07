@@ -711,7 +711,7 @@ If[ListQ @ linearRadicalToRational[unintegratedPart, x, u],
 	integral = integrateLinearRadical[unintegratedPart, x, opts];
 	If[integral =!= False && (TrueQ[! OptionValue[VerifySolutions]] || verifySolution[integral, unintegratedPart, x]),
 		Return[ {0, 0, integral}, Module ],
-		Return[ {rationalPart, unintegratedPart, integratedPart}, Module ]
+		Return[ {rationalPart, unintegratedPart, integratedPart}, Module ](* As this method should never fail. Review this decision. SAMB 0323 *)
 	]
 ];
 
@@ -723,6 +723,18 @@ If[ListQ @ linearRatioRadicalToRational[unintegratedPart, x, u],
 	If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[integral, unintegratedPart, x],
 		Return[ {0, 0, integral}, Module ],
 		Return[ {rationalPart, unintegratedPart, integratedPart}, Module ]
+	]
+];
+
+(* Quick integration heuristic for integrands with multiple radicals. *)
+
+If[distinctRadicalCount[unintegratedPart, x] > 1, 
+	debugPrint1["Integrand contains multiple distinct radicals."];
+	result = multipleRadicalQuickIntegrate[unintegratedPart, x, opts];
+	If[result =!= False && TrueQ[! OptionValue[VerifySolutions]] || verifySolution[result[[3]], unintegratedPart - result[[1]] - result[[2]], x],
+		rationalPart    += result[[1]]; 
+		unintegratedPart = result[[2]];
+		integratedPart  += result[[3]]
 	]
 ];
 
@@ -774,14 +786,15 @@ If[multipleRadicalsQ[unintegratedPart, x] && nestedCount[unintegratedPart, x] ==
 *)
 
 (* Inverse function integration method. *)
+
 If[ListQ @ inverseIntegrate[unintegratedPart, x, opts], 
 	debugPrint1["Integrand is integrable using the inverse integration method."];
-	integral = inverseIntegrate[unintegratedPart, x, opts];
-	integral = Last[integral];
-	If[integral =!= False && (TrueQ[! OptionValue[VerifySolutions]] || verifySolution[integral, unintegratedPart, x]),
-		Return[ {0, 0, integral}, Module ],
-		Return[ {rationalPart, unintegratedPart, integratedPart}, Module ]
-	]
+	result = inverseIntegrate[unintegratedPart, x, opts];
+	If[result =!= False && TrueQ[! OptionValue[VerifySolutions]] || verifySolution[result[[3]], unintegratedPart - result[[1]] - result[[2]], x],
+		rationalPart    += result[[1]]; 
+		unintegratedPart = result[[2]];
+		integratedPart  += result[[3]]
+	];
 ];
 
 If[rootQ[unintegratedPart, x], 
@@ -1037,6 +1050,71 @@ If[ListQ @ splitIntegrand[unintegratedPart, x],
 
 {Integrate[rationalPart, x], unintegratedPart, integratedPart}
 ]
+
+
+(* ::Subsection::Closed:: *)
+(*multipleRadicalQuickIntegrate*)
+
+
+ClearAll[multipleRadicalQuickIntegrate];
+
+Options[multipleRadicalQuickIntegrate] = Options[IntegrateAlgebraic];
+
+multipleRadicalQuickIntegrate[e_, x_, opts:OptionsPattern[]] := Module[
+{u, radicals, candidates, num, den, result, obviousCandidate, integral},
+
+radicals = Union[Cases[e, Power[p_, n_Rational] /; ! FreeQ[p, x] :> p^(1/Abs[n // Denominator]), {0, \[Infinity]}]];
+If[Length[radicals] < 2, Return[ False, Module ]];
+candidates = allratios[radicals];
+debugPrint2["Candidate substitutions in multipleRadicalQuickIntegrate are ", candidates];
+
+num = Cases[e // Numerator, Power[p_, n_Rational] /; ! FreeQ[p, x] :> p^(1/Abs[n // Denominator]), {0, \[Infinity]}];
+den = Cases[e // Denominator, Power[p_, n_Rational] /; ! FreeQ[p, x] :> p^(1/Abs[n // Denominator]), {0, \[Infinity]}];
+obviousCandidate = Apply[Times, num]/Apply[Times, den];
+candidates = Prepend[DeleteCases[candidates, obviousCandidate], obviousCandidate];
+
+Do[
+	TimeConstrained[
+		result = subst[e, u -> candidate, x],
+		$timeConstraint,
+		Continue[]
+	];
+	If[! ListQ[result],
+		Continue[]];
+	If[simpleQ[result // First, x],
+		debugPrint2["Substitution ", candidate, " produced the simplification ", result // First];
+		integral = solveAlgebraicIntegral[result // First, u, opts];
+		debugPrint2["Recursive integration returned ", integral];
+		Return[ simplify[integral /. u -> candidate, x], Module ]
+	], 
+{candidate, candidates}];
+
+False
+]
+
+
+(* ::Input:: *)
+(*multipleRadicalQuickIntegrate[(Sqrt[-b+x] Sqrt[-c+x] (-a b-a c+b c+2 a x-x^2))/((a-x) Sqrt[-a+x] (a-b c+(-1+b+c) x-x^2)), x] // Timing*)
+
+
+(* ::Input:: *)
+(*multipleRadicalQuickIntegrate[(Sqrt[-b+x] Sqrt[-c+x] (-a b-a c+b c+2 a x-x^2))/((a-x) Sqrt[-a+x] (a-b c+(-1+b+c) x-x^2)), x] // Timing*)
+
+
+(* ::Input:: *)
+(*multipleRadicalQuickIntegrate[(-a b-a c+b c+2 a x-x^2)/(Sqrt[-a+x] Sqrt[-b+x] Sqrt[-c+x] (a+b c+(-1-b-c) x+x^2)), x] // Timing*)
+
+
+(* ::Input:: *)
+(*Block[{IntegrateAlgebraic`Private`$timeConstraint=1.},*)
+(*multipleRadicalQuickIntegrate[(Sqrt[-b+x] (a b-a c+b c-2 b x+x^2))/(Sqrt[-a+x] Sqrt[-c+x] (b-a c+(-1+a+c) x-x^2) (b+a c+(-1-a-c) x+x^2)), x] // Timing*)
+(*]*)
+
+
+(* ::Input:: *)
+(*Block[{IntegrateAlgebraic`Private`$timeConstraint=1.},*)
+(*multipleRadicalQuickIntegrate[(1+2 x^3)/(x Sqrt[1+x] Sqrt[-1-x+x^2] Sqrt[-1+x^3]), x] // Timing*)
+(*]*)
 
 
 (* ::Subsection::Closed:: *)
@@ -5503,8 +5581,10 @@ candidates = DeleteCases[candidates, x];
 candidates = Select[candidates, LeafCount[#] < 4/5 LeafCount[e]&]; (* Only try _small_ substitutions (relative to the integrand) *)
 
 (* Candidates for integrands containing multiple (distinct) radicals. *)
+(*
 rads = Cases[candidates, Power[p_, r_Rational] /; ! FreeQ[p, x] :> Expand[p]^Abs[r]] // Union;
 candidates = Join[candidates, allratios[rads]];
+*)
 
 candidates = Union[candidates, SameTest -> (FreeQ[#1/#2, x]&)];
 
@@ -5534,8 +5614,6 @@ sorted[[All, 1]]
 
 
 ClearAll[scoreCandidate];
-scoreCandidate[e_, sub_, x_] /; distinctRadicalCount[e, x] > 1 &&  distinctRadicalCount[sub, x] > 1 := scoreCandidate[e, sub, x] = 200 + 
-	distinctRadicalCount[sub, x]^4 + LeafCount[sub]
 
 
 scoreCandidate[e_, sub_, x_] := scoreCandidate[e, sub, x] = Module[{dd, splits, ranks},
