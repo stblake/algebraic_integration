@@ -1061,17 +1061,17 @@ ClearAll[multipleRadicalQuickIntegrate];
 Options[multipleRadicalQuickIntegrate] = Options[IntegrateAlgebraic];
 
 multipleRadicalQuickIntegrate[e_, x_, opts:OptionsPattern[]] := Module[
-{u, radicals, candidates, num, den, result, obviousCandidate, integral},
+{u, radicals, candidates, numRadicals, denRadicals, result, obviousCandidate, integral},
 
 radicals = Union[Cases[e, Power[p_, n_Rational] /; ! FreeQ[p, x] :> p^(1/Abs[n // Denominator]), {0, \[Infinity]}]];
 If[Length[radicals] < 2, Return[ False, Module ]];
 candidates = allratios[radicals];
-debugPrint2["Candidate substitutions in multipleRadicalQuickIntegrate are ", candidates];
 
-num = Cases[e // Numerator, Power[p_, n_Rational] /; ! FreeQ[p, x] :> p^(1/Abs[n // Denominator]), {0, \[Infinity]}];
-den = Cases[e // Denominator, Power[p_, n_Rational] /; ! FreeQ[p, x] :> p^(1/Abs[n // Denominator]), {0, \[Infinity]}];
-obviousCandidate = Apply[Times, num]/Apply[Times, den];
+numRadicals = Cases[e // Numerator, Power[p_, n_Rational] /; ! FreeQ[p, x] :> p^(1/Abs[n // Denominator]), {0, \[Infinity]}];
+denRadicals = Cases[e // Denominator, Power[p_, n_Rational] /; ! FreeQ[p, x] :> p^(1/Abs[n // Denominator]), {0, \[Infinity]}];
+obviousCandidate = Apply[Times, numRadicals]/Apply[Times, denRadicals];
 candidates = Prepend[DeleteCases[candidates, obviousCandidate], obviousCandidate];
+debugPrint2["Candidate substitutions in multipleRadicalQuickIntegrate are ", candidates];
 
 Do[
 	TimeConstrained[
@@ -6030,7 +6030,7 @@ False
 (*Clear[integrand]*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*simplify*)
 
 
@@ -6168,7 +6168,7 @@ collect[e_, x_] := Collect[e,
 
 ClearAll[collectnumden];
 
-collectnumden[e_] := collectnumden[e] = With[{te = Together[e] // RootReduce // ToRadicals}, 
+collectnumden[e_] := collectnumden[e] = With[{te = Together[e] // Cancel // RootReduce // ToRadicals}, 
 	Collect[Numerator[te], Power[_, _Rational]]/Collect[Denominator[te], Power[_, _Rational]]
 ]
 
@@ -6337,7 +6337,7 @@ simplify[e_, x_, opts:OptionsPattern[]] := Module[
 		rationalTerms = Cases[simp, expr_ /; algebraicQ[expr, x], {1}];
 		nonRationalTerms = Plus @@ Complement[simp, rationalTerms];
 		rationalTerms = Plus @@ rationalTerms;
-		rationalTermsMerged = collectnumden[ Simplify[ rationalTerms ] ]; (* Simplify added. SAMB 0521 *)
+		rationalTermsMerged = collectnumden[rationalTerms];
 		rationalTermsMerged = rationalTermsMerged /. Power[p_, r_Rational] /; PolynomialQ[p, x] :> Expand[p]^r;
 		simp = nonRationalTerms + If[LeafCount[rationalTermsMerged] < LeafCount[rationalTerms],
 			rationalTermsMerged,
