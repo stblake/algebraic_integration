@@ -731,7 +731,7 @@ If[ListQ @ linearRatioRadicalToRational[unintegratedPart, x, u],
 If[distinctRadicalCount[unintegratedPart, x] > 1, 
 	debugPrint1["Integrand contains multiple distinct radicals."];
 	result = multipleRadicalQuickIntegrate[unintegratedPart, x, opts];
-	If[result =!= False && TrueQ[! OptionValue[VerifySolutions]] || verifySolution[result[[3]], unintegratedPart - result[[1]] - result[[2]], x],
+	If[result =!= False && (TrueQ[! OptionValue[VerifySolutions]] || verifySolution[result[[3]], unintegratedPart - result[[1]] - result[[2]], x]),
 		rationalPart    += result[[1]]; 
 		unintegratedPart = result[[2]];
 		integratedPart  += result[[3]]
@@ -6030,7 +6030,7 @@ False
 (*Clear[integrand]*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*simplify*)
 
 
