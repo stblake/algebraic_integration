@@ -1178,7 +1178,7 @@ integral, x,
 (*inverseIntegrate[Root[1-x #1-#1^3+#1^6&,2], x]*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*chebychevIntegrate*)
 
 
@@ -1248,7 +1248,7 @@ If[!IntegerQ[q],
 	Return[ False ]];
 
 v = LCM[Denominator[p], Denominator[r]];
-intu = PowerExpand[ e /. x -> u^v ];
+intu = PowerExpand[ e /. x -> u^v ] v u^(v - 1);
 debugPrint2["Integral in u and substitution is ", {intu, x -> u^v}];
 
 integral = solveAlgebraicIntegral[intu, u, opts];
@@ -1264,18 +1264,22 @@ Last[integral] /. u -> x^(1/v)
 
 (* ::Input:: *)
 (*chebychevType1Integrate[x^(1/4) (x^(1/2)+1)^3, x]//Timing*)
+(*D[%//Last, x] - x^(1/4) (x^(1/2)+1)^3 // Simplify*)
 
 
 (* ::Input:: *)
 (*chebychevType1Integrate[x (x^(1/2)+1)^3, x]//Timing*)
+(*D[%//Last, x] - x (x^(1/2)+1)^3 // Simplify*)
 
 
 (* ::Input:: *)
 (*chebychevType1Integrate[x^-2 (x^(1/3)+1)^-1, x]//Timing*)
+(*D[%//Last, x] - x^-2 (x^(1/3)+1)^-1 // Simplify*)
 
 
 (* ::Input:: *)
 (*chebychevType1Integrate[x^(-4/5) (x^(5/3)+1)^-1, x]//Timing*)
+(*D[%//Last, x] -  x^(-4/5) (x^(5/3)+1)^-1 // Simplify*)
 
 
 ClearAll[chebychevType2Integrate];
@@ -2395,7 +2399,7 @@ If[result =!= $Failed,
 ]
 
 
-(* ::Subsubsection::Closed:: *)
+(* ::Subsubsection:: *)
 (*directRationaliseSolve*)
 
 
@@ -2411,7 +2415,6 @@ degp = Exponent[p,x];
 degq = Exponent[q,x];
 
 degMax = Min[Max[3, degq - degp + Max[Exponent[Numerator @ r, x], Exponent[Denominator @ r, x]] - 1], 8];
-
 debugPrint2["Degree bound = ", degMax];
 
 Do[
