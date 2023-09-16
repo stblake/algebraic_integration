@@ -1178,7 +1178,7 @@ integral, x,
 (*inverseIntegrate[Root[1-x #1-#1^3+#1^6&,2], x]*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*chebychevIntegrate*)
 
 
@@ -6520,7 +6520,7 @@ numericZeroQ[e_, OptionsPattern[]] := Module[
 (*D[-(1/(10 Sqrt[-1+Sqrt[5]]))(10 Sqrt[-1+Sqrt[5]] ArcTan[x/Sqrt[1+x^2+x^4]]-2 Sqrt[10] ArcTan[(Sqrt[-2+2 Sqrt[5]] Sqrt[1+x^2+x^4])/(-1+Sqrt[5]-2 x-x^2+Sqrt[5] x^2)]+I Sqrt[10] Log[2]-2 Sqrt[15-5 Sqrt[5]] Log[(2+x+Sqrt[5] x+2 x^2)/x]+2 Sqrt[15-5 Sqrt[5]] Log[(1+Sqrt[5]+2 x+x^2+Sqrt[5] x^2-Sqrt[2+2 Sqrt[5]] Sqrt[1+x^2+x^4])/x]),x]-((-1+x^2) Sqrt[1+x^2+x^4])/((1+x^2) (1+x+x^2+x^3+x^4))//numericZeroQ//Timing*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*utilities*)
 
 
@@ -6657,7 +6657,7 @@ algebraicQ[_Integer | _Rational | _Symbol | _Complex | _Root, _] := True
 algebraicQ[e_Plus, x_] := algebraicQ[First @ e, x] && algebraicQ[Rest @ e, x]
 algebraicQ[e_Times, x_] := algebraicQ[First @ e, x] && algebraicQ[Rest @ e, x]
 
-algebraicQ[Power[a_, b_], x_] := algebraicQ[a, x] && PolynomialQ[b, x]
+algebraicQ[Power[a_, b_], x_] := algebraicQ[a, x] && (MatchQ[Head[b], Integer | Rational] || FreeQ[b, x])
 
 
 (* ::Input:: *)
@@ -6702,6 +6702,10 @@ algebraicQ[Power[a_, b_], x_] := algebraicQ[a, x] && PolynomialQ[b, x]
 
 (* ::Input:: *)
 (*algebraicQ[(E^(1/(E^x+x)+(-1+x^2)/x) (E^x+2 x-x^2))/(x^2 (E^x+x)^2),x]*)
+
+
+(* ::Input:: *)
+(*algebraicQ[(-1+2^x-16^x)/(-1-2^x+4^x),x]*)
 
 
 (* ::Subsubsection::Closed:: *)
