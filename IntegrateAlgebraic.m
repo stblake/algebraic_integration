@@ -6033,7 +6033,7 @@ False
 (*Clear[integrand]*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*simplify*)
 
 
@@ -6051,7 +6051,7 @@ lessAggressivePowerExpand[e_] := e //. Power[a_ b_^n_Integer, r_Rational] /;
 
 ClearAll[continuousQ];
 
-continuousQ[e_, x_] := Quiet @ TimeConstrained[
+continuousQ[e_, x_] := continuousQ[e, x] = Quiet @ TimeConstrained[
 	TrueQ[! Reduce[1/e == 0, x, Reals]], 
 	$timeConstraint, 
 	True
@@ -6070,13 +6070,17 @@ nicerQ[a_, b_, x_] := !(! continuousQ[1/a, x] && continuousQ[1/b, x])
 	 D[(Log[a[x] + b[x]] - Log[-a[x] + b[x]]) - 2*ArcTanh[a[x]/b[x]], x] \[Equal] 0 *)
 ClearAll[log2ArcTanh];
 
-log2ArcTanh = c1_. Log[p_] + c2_. Log[q_] /;
+log2ArcTanh[e_, x_] := Module[{log2ArcTanhRule},
+log2ArcTanhRule = c1_. Log[p_] + c2_. Log[q_] /;
 		! zeroQ[p - q] && 
 		zeroQ[c1 + c2] && 
 		zeroQ[(p + q)/2 + (p - q)/2 - p] && 
 		zeroQ[(p + q)/2 - (p - q)/2 - q] && 
-		LeafCount[collectnumden @ Cancel[Together[(p + q)/(q - p)]]] < LeafCount[p/q] :> 
+		LeafCount[collectnumden @ Cancel[Together[(p + q)/(q - p)]]] < LeafCount[p/q] && 
+		continuousQ[collectnumden @ Cancel[Together[(p + q)/(q - p)]], x] :> 
 	(c2 - c1) ArcTanh[collectnumden @ Cancel[Together[(p + q)/(q - p)]]];
+e //. log2ArcTanhRule
+]
 
 
 (* A simplification based on 
@@ -6116,7 +6120,7 @@ log2arctan[e_, x_] := Module[{log2arctanrule, log2arctanhrule},
 (*log2arctan[-(1/2) Log[-2 x+Sqrt[2] Sqrt[1-I Sqrt[3]+2 x^2]],x]*)
 
 
-canonic[e_] := Module[{pf, simp},
+canonic[e_] := canonic[e] = Module[{pf, simp},
 
 	pf = Apart[Together @ e];
 	If[Head[pf] =!= Plus, 
@@ -6138,13 +6142,21 @@ canonic[e_] := Module[{pf, simp},
 
 ClearAll[arcTanDiff, arcTanSum];
 
-arcTanDiff = a_. ArcTan[z1_] + b_. ArcTan[z2_] /; zeroQ[a + b] && 
-	LeafCount[collectnumden @ canonic[(z1 - z2)/(1 + z1 z2)]] < LeafCount[z1/z2] :> 
+arcTanDiff[e_, x_] := Module[{arcTanDiffRule},
+arcTanDiffRule = a_. ArcTan[z1_] + b_. ArcTan[z2_] /; zeroQ[a + b] && 
+	LeafCount[collectnumden @ canonic[(z1 - z2)/(1 + z1 z2)]] < LeafCount[z1/z2] && 
+	continuousQ[collectnumden @ canonic[(z1 - z2)/(1 + z1 z2)], x] :> 
 	(a - b)/2 ArcTan[collectnumden @ canonic[(z1 - z2)/(1 + z1 z2)]];
+e /. arcTanDiffRule
+]
 
-arcTanSum = a_. ArcTan[z1_] + b_. ArcTan[z2_] /; zeroQ[a - b] && 
-	LeafCount[collectnumden @ canonic[(z1 + z2)/(1 - z1 z2)]] < LeafCount[z1/z2] :> 
+arcTanSum[e_, x_] := Module[{arcTanSumRule},
+arcTanSumRule = a_. ArcTan[z1_] + b_. ArcTan[z2_] /; zeroQ[a - b] && 
+	LeafCount[collectnumden @ canonic[(z1 + z2)/(1 - z1 z2)]] < LeafCount[z1/z2] && 
+	continuousQ[collectnumden @ canonic[(z1 + z2)/(1 - z1 z2)], x] :> 
 	a ArcTan[collectnumden @ canonic[(z1 + z2)/(1 - z1 z2)]];
+e /. arcTanSumRule
+]
 
 
 (* ::Text:: *)
@@ -6153,13 +6165,21 @@ arcTanSum = a_. ArcTan[z1_] + b_. ArcTan[z2_] /; zeroQ[a - b] &&
 
 ClearAll[arcTanhDiff, arcTanhSum];
 
-arcTanhDiff = a_. ArcTanh[z1_] + b_. ArcTanh[z2_] /; zeroQ[a + b]  && 
-	LeafCount[collectnumden @ canonic[(z1 - z2)/(1 - z1 z2)]] < LeafCount[z1/z2] :> 
+arcTanhDiff[e_, x_] := Module[{arcTanhDiffRule},
+arcTanhDiffRule = a_. ArcTanh[z1_] + b_. ArcTanh[z2_] /; zeroQ[a + b]  && 
+	LeafCount[collectnumden @ canonic[(z1 - z2)/(1 - z1 z2)]] < LeafCount[z1/z2] && 
+	continuousQ[collectnumden @ canonic[(z1 - z2)/(1 - z1 z2)], x] :> 
 	(a - b)/2 ArcTanh[collectnumden @ canonic[(z1 - z2)/(1 - z1 z2)]];
+e /. arcTanhDiffRule
+]
 
-arcTanhSum = a_. ArcTanh[z1_] + b_. ArcTanh[z2_] /; zeroQ[a - b]  && 
-	LeafCount[collectnumden @ canonic[(z1 + z2)/(1 + z1 z2)]] < LeafCount[z1/z2] :> 
+arcTanhSum[e_, x_] := Module[{arcTanhSumRule},
+arcTanhSumRule = a_. ArcTanh[z1_] + b_. ArcTanh[z2_] /; zeroQ[a - b]  && 
+	LeafCount[collectnumden @ canonic[(z1 + z2)/(1 + z1 z2)]] < LeafCount[z1/z2] && 
+	continuousQ[collectnumden @ canonic[(z1 + z2)/(1 + z1 z2)], x] :> 
 	a ArcTanh[collectnumden @ canonic[(z1 + z2)/(1 + z1 z2)]];
+e /. arcTanhSumRule
+]
 
 
 ClearAll[collect];
@@ -6250,7 +6270,7 @@ simplify[e_, x_, opts:OptionsPattern[]] := Module[
 	(* Convert RootSum to radicals. *)
 	If[OptionValue["Radicals"], 
 		simp = simp /. rs:RootSum[p_, _] :> ToRadicals[rs];
-		simp = simp //. log2ArcTanh (* This also handles ArcTan. SAMB 0821 *)
+		simp = log2ArcTanh[simp] (* This also handles ArcTan. SAMB 0821 *)
 	];
 	
 	simp = simp /. {RootSum -> $rootSum, Root -> $root, Function -> $function};
@@ -6311,8 +6331,11 @@ simplify[e_, x_, opts:OptionsPattern[]] := Module[
 	simp = simp /. Log[ex_^(n_Integer|n_Rational)] :> n Log[ex]; (* Yes, using this one twice as well. *)
 	simp = collect[simp, x];
 
-	simp = simp //. log2ArcTanh;
-	simp = simp //. {arcTanDiff, arcTanSum, arcTanhDiff, arcTanhSum};
+	simp = log2ArcTanh[simp, x];
+	simp = arcTanhDiff[simp, x];
+	simp = arcTanDiff[simp, x];
+	simp = arcTanSum[simp, x];
+	simp = arcTanhSum[simp, x];
 	
 	simp = simp /. (h:ArcTan|ArcTanh)[a_] :> h[collectnumden @ canonic[a]];
 
@@ -6520,7 +6543,7 @@ numericZeroQ[e_, OptionsPattern[]] := Module[
 (*D[-(1/(10 Sqrt[-1+Sqrt[5]]))(10 Sqrt[-1+Sqrt[5]] ArcTan[x/Sqrt[1+x^2+x^4]]-2 Sqrt[10] ArcTan[(Sqrt[-2+2 Sqrt[5]] Sqrt[1+x^2+x^4])/(-1+Sqrt[5]-2 x-x^2+Sqrt[5] x^2)]+I Sqrt[10] Log[2]-2 Sqrt[15-5 Sqrt[5]] Log[(2+x+Sqrt[5] x+2 x^2)/x]+2 Sqrt[15-5 Sqrt[5]] Log[(1+Sqrt[5]+2 x+x^2+Sqrt[5] x^2-Sqrt[2+2 Sqrt[5]] Sqrt[1+x^2+x^4])/x]),x]-((-1+x^2) Sqrt[1+x^2+x^4])/((1+x^2) (1+x+x^2+x^3+x^4))//numericZeroQ//Timing*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*utilities*)
 
 
