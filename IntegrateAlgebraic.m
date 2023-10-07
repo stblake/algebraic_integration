@@ -6075,10 +6075,14 @@ log2ArcTanhRule = c1_. Log[p_] + c2_. Log[q_] /;
 		! zeroQ[p - q] && 
 		zeroQ[c1 + c2] && 
 		zeroQ[(p + q)/2 + (p - q)/2 - p] && 
-		zeroQ[(p + q)/2 - (p - q)/2 - q] && 
-		LeafCount[collectnumden @ Cancel[Together[(p + q)/(q - p)]]] < LeafCount[p/q] && 
-		continuousQ[collectnumden @ Cancel[Together[(p + q)/(q - p)]], x] :> 
-	(c2 - c1) ArcTanh[collectnumden @ Cancel[Together[(p + q)/(q - p)]]];
+		zeroQ[(p + q)/2 - (p - q)/2 - q] &&
+		(continuousQ[collectnumden @ Cancel[Together[(p + q)/(q - p)]], x] || 
+		continuousQ[collectnumden @ Cancel[Together[(q - p)/(p + q)]], x]) :> 
+		(* Then we branch below based on D[ArcTan[x] + ArcTan[1/x], x] == 0 *)
+		If[continuousQ[collectnumden @ Cancel[Together[(p + q)/(q - p)]], x],
+	(c2 - c1) ArcTanh[collectnumden @ Cancel[Together[(p + q)/(q - p)]]],
+	-(c2 - c1) ArcTanh[collectnumden @ Cancel[Together[(q - p)/(p + q)]]]
+	];
 e //. log2ArcTanhRule
 ]
 
