@@ -64,7 +64,7 @@
 
 
 (* ::Input:: *)
-(*(* We should fail almost instantly on these Chebychev-type integrals. *)*)
+(*(* We should fail almost instantly on these Chebychev-type integrals. DONE 1022 *)*)
 (*IntegrateAlgebraic[Sqrt[u]/Sqrt[1-u^2],u] // Timing*)
 
 
@@ -834,6 +834,19 @@ If[nestedCount[unintegratedPart, x] > 0,
 ];
 *)
 
+(* Product rule integrate. *)
+
+If[! OptionValue["RationalUndeterminedOnly"] && ! multipleRadicalsQ[unintegratedPart, x] && nestedCount[unintegratedPart, x] == 0, 
+	debugPrint1["Trying productRuleIntegrate on ", unintegratedPart];
+	result = productRuleIntegrate[unintegratedPart, x, opts];
+	If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[result[[3]], unintegratedPart - result[[1]] - result[[2]], x],
+		rationalPart    += result[[1]]; 
+		unintegratedPart = result[[2]];
+		integratedPart  += result[[3]]
+	];
+	debugPrint1["productRuleIntegrate returned : ", {rationalPart, unintegratedPart, integratedPart}]	
+];
+
 (* Decompose Integrate. *)
 
 If[! OptionValue["RationalUndeterminedOnly"] && nestedCount[unintegratedPart, x] == 0, 
@@ -1050,6 +1063,152 @@ If[ListQ @ splitIntegrand[unintegratedPart, x],
 
 {Integrate[rationalPart, x], unintegratedPart, integratedPart}
 ]
+
+
+(* ::Subsection::Closed:: *)
+(*productRuleIntegrate*)
+
+
+ClearAll[productRuleIntegrate];
+
+Options[productRuleIntegrate] = Join[Options[IntegrateAlgebraic], {"MaxDegree" -> 4}];
+
+productRuleIntegrate[e_, x_, opts:OptionsPattern[]] := 
+	productRuleIntegrate[e, x, opts] = Module[
+{maxDegree, radicals, radical, eqn, R, degden, degnum, slot, Rnum, Rden,
+eqnsys, indets, solns, integrals, V, Rp},
+(* 
+Details of this method along with many examples are given in my book, however we 
+essentially compute a rational function R[x] such that 
+
+Integrate[R'[x] p[x]^(n/m) + (n/m) R[x] p'[x] p[x]^(n/m - 1), x] == R[x] p[x]^(n/m)
+
+With a heuristic bound on the degrees of the numerator and denominator of R[x], this 
+problem reduces to an undetermined coefficient problem. 
+ *)
+debugPrint1["Trying productRuleIntegrate..."];
+
+maxDegree = OptionValue["MaxDegree"];
+
+radicals = Union @ Cases[e, p_^r_Rational /; (! FreeQ[p, x] && (PolynomialQ[p, x] || rationalQ[p, x])), {0, Infinity}];
+If[Length[radicals] != 1, 
+	Return[{0, e, 0}, Module], 
+	radical = radicals[[1]]];
+(*Print[radical];*)
+
+Do[
+	debugPrint2["cancellationCase = ", cancellationCase];
+	eqn = e == Together[D[R[x] radical[[1]]^(radical[[2]] + cancellationCase), x]];
+	debugPrint2[eqn];
+	
+	(* Divide-out the radical. *)
+	eqn = Together[eqn[[1]]/radical] == (Collect[#,{R[x], R'[x]}]& /@ Together[eqn[[2]]/radical]);
+	debugPrint2[eqn];
+	
+	(* Estimate degrees of num/den of R[x]. *)
+	degnum = Max[1, 1 + Exponent[Numerator[eqn[[1]]], x] - Exponent[Coefficient[Numerator[eqn[[2]]], R'[x]], x]];
+	degnum = Min[degnum, maxDegree];
+	debugPrint2["degnum = ", degnum];
+	degden = Max[1, Exponent[Denominator[eqn[[1]]], x] - Exponent[Denominator[eqn[[2]]], x]];
+	degden = Min[degden, maxDegree];
+	debugPrint2["degden = ", degden];
+	
+	(* Cross-multiply. *)
+	eqn = Numerator[eqn[[1]]] Denominator[eqn[[2]]] == Numerator[eqn[[2]]] Denominator[eqn[[1]]];
+	debugPrint2["Attempting to solve ", eqn];
+	
+	(* Construct unparameterised form of R[x]. *)
+	Rnum = Sum[V[i] slot[1]^i, {i, 0, degnum}] /. slot -> Slot;
+	Rden = Sum[V[i + degnum + 1] slot[1]^i, {i, 0, degden}] /. slot -> Slot;
+	Rp = Function @@ {Rnum/Rden};
+	
+	(* Equate coefficients of powers of x. *)
+	eqn = eqn /. R -> Rp;
+	eqnsys = ! Eliminate[! eqn, {x}] // LogicalExpand;
+	
+	(* Solve the system of equations. *)
+	indets = Table[V[i], {i, 0, degnum + degden + 1}];
+	
+	solns = TimeConstrained[
+		Solve[eqnsys, indets],
+		Min[
+			4. OptionValue["SingleStepTimeConstraint"], 
+			(degnum + degden) OptionValue["SingleStepTimeConstraint"]/5.
+		], 
+		{}] // Quiet;
+	
+	debugPrint2["The solutions are ", solns];
+	If[solns === {}, 
+		Continue[]];
+	
+	integrals = Rp[x] radical[[1]]^(radical[[2]] + cancellationCase) /. solns /. V[_] -> 1 // Cancel // Union // Quiet;
+	integrals = Cases[integrals, expr_ /; PossibleZeroQ[Cancel[Together[D[expr,x] - e]]]];
+	If[integrals =!= {},  
+		debugPrint2["productRuleIntegrate returned ", integrals // Last];
+		Return[{0, 0, integrals // Last}, Module]
+	],
+{cancellationCase, {1, -1, 0}}];
+
+debugPrint2["productRuleIntegrate failed."];
+Return[{0, e, 0}, Module]
+]
+
+
+(* ::Input:: *)
+(*productRuleIntegrate[(1+4 x^6)/Sqrt[1+x^6],x]//Timing*)
+
+
+(* ::Input:: *)
+(*productRuleIntegrate[(-1+x+x^3)/(x^2 Sqrt[1-2 x+2 x^3]),x]//Timing*)
+
+
+(* ::Input:: *)
+(*productRuleIntegrate[(4 x-3 x^2+x^4)/((1+x^2)^2 Sqrt[1+x^3]),x]//Timing*)
+
+
+(* ::Input:: *)
+(*productRuleIntegrate[(4 x-3 x^2+7 x^4)/Sqrt[1+x^3],x]//Timing*)
+
+
+(* ::Input:: *)
+(*productRuleIntegrate[(2+x+x^2-3 x^5+5 x^6)/(x^2 Sqrt[1+x+x^5]),x]//Timing*)
+
+
+(* ::Input:: *)
+(*productRuleIntegrate[(2 b c+2 b x^2-5 a c x^3+a x^5)/((-c+x^2)^2 Sqrt[-b+a x^3]),x]//Timing*)
+(*productRuleIntegrate[(2 b c+2 b x^2-5 a c x^3+a x^5)/((-c+x^2)^2 Sqrt[-b+a x^3]),x,"SingleStepTimeConstraint"->5]//Timing*)
+
+
+(* ::Input:: *)
+(*productRuleIntegrate[(20-9 x^11+11 x^21)/(x^11 Sqrt[1-x^11]),x]//Timing*)
+
+
+(* ::Input:: *)
+(*productRuleIntegrate[(-x+2 x^4)/(1-x^3)^(1/3),x]//Timing*)
+
+
+(* ::Input:: *)
+(*productRuleIntegrate[(3+x^2)/(x^2 (1-x^2)^(1/3)),x]//Timing*)
+
+
+(* ::Input:: *)
+(*productRuleIntegrate[(3+2 x^2+7 x^4)/(x^2 (1+x^2)^(1/3)),x]//Timing*)
+
+
+(* ::Input:: *)
+(*productRuleIntegrate[(Sqrt[(1+x^2)/(-1+x^2)] (-3-2 x^2+3 x^4))/(x^4 (1+x^2)^2),x]//Timing*)
+
+
+(* ::Input:: *)
+(*productRuleIntegrate[(Sqrt[(1+x^2)/(-1-x+x^2)] (1-8 x-5 x^2+4 x^3))/(1+x^2)^3,x]//Timing*)
+
+
+(* ::Input:: *)
+(*productRuleIntegrate[(-2+x^4) (x^2/(-1+x^4))^(3/2),x]//Timing(* Here we get the degree estimates wrong. *)*)
+
+
+(* ::Input:: *)
+(*productRuleIntegrate[(-4 a b x+5 a x^4-2 b x^7+3 x^10)/((-b+x^3) (a+x^6) ((a+x^6)/(-b+x^3))^(1/6)),x]//Timing*)
 
 
 (* ::Subsection::Closed:: *)
@@ -3714,13 +3873,15 @@ Denominator[te] =!= 1 && PolynomialQ[Numerator[te],{x,y}] && PolynomialQ[Denomin
 
 ClearAll[integrate];
 
-integrate[e_, x_] := Module[{pf, result},
+integrate[expr_, x_] := Module[{e, pf, result},
+	e = Together[expr];
 	pf = apartList[e, x];
 	result = 0;
 	Do[
 		result += Integrate[term, x],
 	{term, pf}];
-	Simplify[ result ]
+	result = Simplify[ result ];
+	result
 ]
 
 
@@ -6033,7 +6194,7 @@ False
 (*Clear[integrand]*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*simplify*)
 
 
@@ -6547,7 +6708,7 @@ numericZeroQ[e_, OptionsPattern[]] := Module[
 (*D[-(1/(10 Sqrt[-1+Sqrt[5]]))(10 Sqrt[-1+Sqrt[5]] ArcTan[x/Sqrt[1+x^2+x^4]]-2 Sqrt[10] ArcTan[(Sqrt[-2+2 Sqrt[5]] Sqrt[1+x^2+x^4])/(-1+Sqrt[5]-2 x-x^2+Sqrt[5] x^2)]+I Sqrt[10] Log[2]-2 Sqrt[15-5 Sqrt[5]] Log[(2+x+Sqrt[5] x+2 x^2)/x]+2 Sqrt[15-5 Sqrt[5]] Log[(1+Sqrt[5]+2 x+x^2+Sqrt[5] x^2-Sqrt[2+2 Sqrt[5]] Sqrt[1+x^2+x^4])/x]),x]-((-1+x^2) Sqrt[1+x^2+x^4])/((1+x^2) (1+x+x^2+x^3+x^4))//numericZeroQ//Timing*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*utilities*)
 
 
