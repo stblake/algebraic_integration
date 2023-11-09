@@ -3949,7 +3949,6 @@ integrateQuadraticRadical[e_, x_, opts:OptionsPattern[]] := Module[
 		{integrand, substitution} = result;
 		debugPrint2["Rationalised integrand and substitution is ", {integrand, substitution}];
 		integral = Quiet @ integrate[integrand, u];
-		Print[integral];
 		If[! FreeQ[integral, Integrate], 
 			debugPrint2["Cannot integrate the rational function ", integrand, " wrt ", u];
 			Return[ False, Module ]];
@@ -3957,8 +3956,6 @@ integrateQuadraticRadical[e_, x_, opts:OptionsPattern[]] := Module[
 		integral = Apart[integral],(* We need Apart here for example IntegrateAlgebraic[(-2 + u)/(1 - u + u^2)^(3/2), u] *) 
 		integral = Quiet @ Integrate[e, x] (* eg. Integrate[Sqrt[2I x^2 - 3I x + 1], x] *)	
 	];
-
-	Print[osimplify[integral, x, "CancelRadicalDenominators" -> False, "Radicals" -> OptionValue["Radicals"]]];
 
 	simplify[integral, x, "CancelRadicalDenominators" -> False, "Radicals" -> OptionValue["Radicals"]]
 ]
@@ -6207,7 +6204,7 @@ False
 (*Clear[integrand]*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*simplify*)
 
 
@@ -6276,12 +6273,14 @@ ClearAll[log2arctan];
 
 log2arctan[e_, x_] := Module[{log2arctanrule, log2arctanhrule},
 	log2arctanrule = A_. Log[P_ + Q_. Sqrt[R_]] + B_. /; 
+	FreeQ[P, Slot] && 
 	zeroQ[Exponent[R,x] - 2] && 
 	zeroQ[Exponent[P,x] - 1] && 
 	zeroQ[Coefficient[R,x]] && 
 	zeroQ[Coefficient[R,x^2] + I Coefficient[P,x]] && 
 	Coefficient[R,x^2] + Q^2 == 0 :> B - I A ArcTan[(Q x)/Sqrt[R]];
 	log2arctanhrule = A_. Log[P_ + Q_. Sqrt[R_]] + B_. /; 
+	FreeQ[P, Slot] && 
 	zeroQ[Exponent[R,x] - 2] && 
 	zeroQ[Exponent[P,x] - 1] && 
 	zeroQ[Coefficient[R,x]] && 
@@ -6514,7 +6513,7 @@ simplify[e_, x_, opts:OptionsPattern[]] := Module[
 	simp = arcTanDiff[simp, x];
 	simp = arcTanSum[simp, x];
 	simp = arcTanhSum[simp, x];
-	
+
 	simp = simp /. (h:ArcTan|ArcTanh)[a_] :> h[collectnumden @ canonic[a]];
 
 	(* Pick the nicer of ArcTan[a/b] or -ArcTan[b/a]. *)
@@ -6529,8 +6528,7 @@ simplify[e_, x_, opts:OptionsPattern[]] := Module[
 	simp = simp /. Log[ex_] :> Log[Collect[ex, Power[_, _Rational]]];
 	simp = simp /. Log[ex_^(n_Integer|n_Rational)] :> n Log[ex];
 
-	simp = simp /. log2ArcTanh2;	
-
+	simp = simp /. log2ArcTanh2;
 	simp = log2arctan[simp, x];
 
 	(* Try merging the rational part of the integral. *)
@@ -6561,7 +6559,7 @@ simplify[e_, x_, opts:OptionsPattern[]] := Module[
 
 	(* Remove constants. *)
 	simp = stripConst[simp, x];
-	
+
 	(* Simplify using ExpToTrig. This improves int[1/Sqrt[1 - x^2], x] SAMB 0821 *)
 	If[! FreeQ[simp, _Complex], 
 		simpTrig = ExpToTrig[simp];
