@@ -838,7 +838,10 @@ If[nestedCount[unintegratedPart, x] > 0,
 
 If[! OptionValue["RationalUndeterminedOnly"] && ! multipleRadicalsQ[unintegratedPart, x] && nestedCount[unintegratedPart, x] == 0, 
 	debugPrint1["Trying productRuleIntegrate on ", unintegratedPart];
-	result = productRuleIntegrate[unintegratedPart, x, opts];
+	result = TimeConstrained[
+		productRuleIntegrate[unintegratedPart, x, opts], 
+		10. OptionValue["SingleStepTimeConstraint"], 
+		{0, unintegratedPart, 0}];
 	If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[result[[3]], unintegratedPart - result[[1]] - result[[2]], x],
 		rationalPart    += result[[1]]; 
 		unintegratedPart = result[[2]];
@@ -1076,7 +1079,7 @@ Options[productRuleIntegrate] = Join[Options[IntegrateAlgebraic], {"MaxDegree" -
 productRuleIntegrate[e_, x_, opts:OptionsPattern[]] := 
 	productRuleIntegrate[e, x, opts] = Module[
 {maxDegree, radicals, radical, eqn, R, degden, degnum, slot, Rnum, Rden,
-eqnsys, indets, solns, integrals, V, Rp},
+eqnsys, indets, solns, integrals, V, Rp, r},
 (* 
 Details of this method along with many examples are given in my book, however we 
 essentially compute a rational function R[x] such that 
@@ -1085,6 +1088,10 @@ Integrate[R'[x] p[x]^(n/m) + (n/m) R[x] p'[x] p[x]^(n/m - 1), x] == R[x] p[x]^(n
 
 With a heuristic bound on the degrees of the numerator and denominator of R[x], this 
 problem reduces to an undetermined coefficient problem. 
+
+Unlike all the other methods in IntegrateAlgebraic, I am not aware of any examples 
+where productRuleIntegrate outperforms Trager's extensions to Hermite reduction 
+for algebraic functions. 
  *)
 debugPrint1["Trying productRuleIntegrate..."];
 
@@ -1102,15 +1109,16 @@ Do[
 	debugPrint2[eqn];
 	
 	(* Divide-out the radical. *)
-	eqn = Together[eqn[[1]]/radical] == (Collect[#,{R[x], R'[x]}]& /@ Together[eqn[[2]]/radical]);
+	r = If[cancellationCase == 1, -1, -1];
+	eqn = Together[eqn[[1]] radical^r] == (Collect[#,{R[x], R'[x]}]& /@ Together[eqn[[2]] radical^r]);
 	debugPrint2[eqn];
 	
 	(* Estimate degrees of num/den of R[x]. *)
 	degnum = Max[1, 1 + Exponent[Numerator[eqn[[1]]], x] - Exponent[Coefficient[Numerator[eqn[[2]]], R'[x]], x]];
-	degnum = Min[degnum, maxDegree];
+	(*degnum = Min[degnum, maxDegree];*)
 	debugPrint2["degnum = ", degnum];
 	degden = Max[1, Exponent[Denominator[eqn[[1]]], x] - Exponent[Denominator[eqn[[2]]], x]];
-	degden = Min[degden, maxDegree];
+	(*degden = Min[degden, maxDegree];*)
 	debugPrint2["degden = ", degden];
 	
 	(* Cross-multiply. *)
@@ -3896,12 +3904,14 @@ Options[integrateLinearRadical] = Options[IntegrateAlgebraic];
 integrateLinearRadical[e_, x_, opts:OptionsPattern[]] := Module[{integrand, substitution, integral},
 
 	{integrand, substitution} = linearRadicalToRational[e, x, $u];
-	debugPrint3["Rationalised integrand and substitution is ", {integrand, substitution}];
+	debugPrint2["Rationalised integrand and substitution is ", {integrand, substitution}];
 	integral = Quiet @ integrate[integrand, $u];
 	If[! FreeQ[integral, Integrate], 
-		debugPrint3["Cannot integrate the rational function ", integrand, " wrt ", u];
+		debugPrint2["Cannot integrate the rational function ", integrand, " wrt ", u];
 		Return[ False, Module ]];
+	Print[integral];
 	integral = integral /. substitution;
+	Print[integral];
 	simplify[integral, x, "CancelRadicalDenominators" -> False, "Radicals" -> OptionValue["Radicals"]]
 ]
 
@@ -3937,10 +3947,10 @@ integrateQuadraticRadical[e_, x_, opts:OptionsPattern[]] := Module[
 	result = quadraticRadicalToRational[e, x, u];
 	If[ListQ[result],
 		{integrand, substitution} = result;
-		debugPrint3["Rationalised integrand and substitution is ", {integrand, substitution}];
+		debugPrint2["Rationalised integrand and substitution is ", {integrand, substitution}];
 		integral = Quiet @ integrate[integrand, u];
 		If[! FreeQ[integral, Integrate], 
-			debugPrint3["Cannot integrate the rational function ", integrand, " wrt ", u];
+			debugPrint2["Cannot integrate the rational function ", integrand, " wrt ", u];
 			Return[ False, Module ]];
 		integral = integral /. substitution;
 		integral = Apart[integral],(* We need Apart here for example IntegrateAlgebraic[(-2 + u)/(1 - u + u^2)^(3/2), u] *) 
@@ -5423,14 +5433,14 @@ faster for algebraic functions than Eliminate. *)
 eqns = GroebnerBasis[eqns, {Dt[u],u}, {Dt[x],x}, 
 	MonomialOrder -> EliminationOrder, Method -> "Buchberger"] // Factor;
 
-debugPrint2[eqns];
+debugPrint3[eqns];
 
 eqns = PowerExpand[Factor[eqns]] //. Power[a_,n_Rational]Power[b_,n_Rational] :> a^IntegerPart[n] b^IntegerPart[n] Power[a b, FractionalPart[n]];
 
-debugPrint2[eqns];
+debugPrint3[eqns];
 
 uintegrands=Quiet @ Solve[eqns[[1]] == 0,{Dt[y]}];
-debugPrint2[uintegrands];
+debugPrint3[uintegrands];
 
 If[MatchQ[uintegrands, {}|{{}}|_Solve],
 	Return[ False ]];
@@ -6241,8 +6251,8 @@ log2ArcTanhRule = c1_. Log[p_] + c2_. Log[q_] /;
 		continuousQ[collectnumden @ Cancel[Together[(q - p)/(p + q)]], x]) :> 
 		(* Then we branch below based on D[ArcTan[x] + ArcTan[1/x], x] == 0 *)
 		If[continuousQ[collectnumden @ Cancel[Together[(p + q)/(q - p)]], x],
-	(c2 - c1) ArcTanh[collectnumden @ Cancel[Together[(p + q)/(q - p)]]],
-	-(c2 - c1) ArcTanh[collectnumden @ Cancel[Together[(q - p)/(p + q)]]]
+			(c2 - c1) ArcTanh[collectnumden @ Cancel[Together[(p + q)/(q - p)]]],
+			(c2 - c1) ArcTanh[collectnumden @ Cancel[Together[(q - p)/(p + q)]]]
 	];
 e //. log2ArcTanhRule
 ]
@@ -6422,7 +6432,7 @@ nquadraticQ[p_,x_] := Module[{rules},
 (*TODO: make logands monic.*)
 
 
-Clear[simplify];
+ClearAll[simplify];
 
 Options[simplify] = {"Integrand" -> None, "CancelRadicalDenominators" -> True, "Radicals" -> False};
 
@@ -6516,7 +6526,7 @@ simplify[e_, x_, opts:OptionsPattern[]] := Module[
 	simp = simp /. Log[ex_] :> Log[Collect[ex, Power[_, _Rational]]];
 	simp = simp /. Log[ex_^(n_Integer|n_Rational)] :> n Log[ex];
 
-	simp = simp /. log2ArcTanh2;
+	simp = simp /. log2ArcTanh2;	
 
 	simp = log2arctan[simp, x];
 
@@ -6708,7 +6718,7 @@ numericZeroQ[e_, OptionsPattern[]] := Module[
 (*D[-(1/(10 Sqrt[-1+Sqrt[5]]))(10 Sqrt[-1+Sqrt[5]] ArcTan[x/Sqrt[1+x^2+x^4]]-2 Sqrt[10] ArcTan[(Sqrt[-2+2 Sqrt[5]] Sqrt[1+x^2+x^4])/(-1+Sqrt[5]-2 x-x^2+Sqrt[5] x^2)]+I Sqrt[10] Log[2]-2 Sqrt[15-5 Sqrt[5]] Log[(2+x+Sqrt[5] x+2 x^2)/x]+2 Sqrt[15-5 Sqrt[5]] Log[(1+Sqrt[5]+2 x+x^2+Sqrt[5] x^2-Sqrt[2+2 Sqrt[5]] Sqrt[1+x^2+x^4])/x]),x]-((-1+x^2) Sqrt[1+x^2+x^4])/((1+x^2) (1+x+x^2+x^3+x^4))//numericZeroQ//Timing*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*utilities*)
 
 
