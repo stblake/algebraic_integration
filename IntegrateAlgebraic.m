@@ -3863,7 +3863,7 @@ If[LeafCount[uradicals] < LeafCount[radicals],
 (*linearRationalSubstitution3[((2 x^2+x-1) (x^4-x^3)^(1/4))/(x^2-x-1),x,u]*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*integrateLinearRadical, integrateQuadraticRadical - Integrating linear and quadratic radicals *)
 
 
@@ -3909,9 +3909,9 @@ integrateLinearRadical[e_, x_, opts:OptionsPattern[]] := Module[{integrand, subs
 	If[! FreeQ[integral, Integrate], 
 		debugPrint2["Cannot integrate the rational function ", integrand, " wrt ", u];
 		Return[ False, Module ]];
-	Print[integral];
+
 	integral = integral /. substitution;
-	Print[integral];
+
 	simplify[integral, x, "CancelRadicalDenominators" -> False, "Radicals" -> OptionValue["Radicals"]]
 ]
 
