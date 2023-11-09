@@ -3949,6 +3949,7 @@ integrateQuadraticRadical[e_, x_, opts:OptionsPattern[]] := Module[
 		{integrand, substitution} = result;
 		debugPrint2["Rationalised integrand and substitution is ", {integrand, substitution}];
 		integral = Quiet @ integrate[integrand, u];
+		Print[integral];
 		If[! FreeQ[integral, Integrate], 
 			debugPrint2["Cannot integrate the rational function ", integrand, " wrt ", u];
 			Return[ False, Module ]];
@@ -3956,6 +3957,8 @@ integrateQuadraticRadical[e_, x_, opts:OptionsPattern[]] := Module[
 		integral = Apart[integral],(* We need Apart here for example IntegrateAlgebraic[(-2 + u)/(1 - u + u^2)^(3/2), u] *) 
 		integral = Quiet @ Integrate[e, x] (* eg. Integrate[Sqrt[2I x^2 - 3I x + 1], x] *)	
 	];
+
+	Print[osimplify[integral, x, "CancelRadicalDenominators" -> False, "Radicals" -> OptionValue["Radicals"]]];
 
 	simplify[integral, x, "CancelRadicalDenominators" -> False, "Radicals" -> OptionValue["Radicals"]]
 ]
@@ -6204,7 +6207,7 @@ False
 (*Clear[integrand]*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*simplify*)
 
 
@@ -6272,18 +6275,18 @@ log2ArcTanh2 = D_. Log[A_ + B_ x_ + C_ Sqrt[c_. + b_. x_ + a_. x_^2]] /;
 ClearAll[log2arctan];
 
 log2arctan[e_, x_] := Module[{log2arctanrule, log2arctanhrule},
-	log2arctanrule = A_. Log[P_ + Q_. Sqrt[R_]] /; 
+	log2arctanrule = A_. Log[P_ + Q_. Sqrt[R_]] + B_. /; 
 	zeroQ[Exponent[R,x] - 2] && 
 	zeroQ[Exponent[P,x] - 1] && 
 	zeroQ[Coefficient[R,x]] && 
 	zeroQ[Coefficient[R,x^2] + I Coefficient[P,x]] && 
-	Coefficient[R,x^2] + Q^2 == 0 :> -I A ArcTan[(Q x)/Sqrt[R]];
-	log2arctanhrule = A_. Log[P_ + Q_. Sqrt[R_]] /; 
+	Coefficient[R,x^2] + Q^2 == 0 :> B - I A ArcTan[(Q x)/Sqrt[R]];
+	log2arctanhrule = A_. Log[P_ + Q_. Sqrt[R_]] + B_. /; 
 	zeroQ[Exponent[R,x] - 2] && 
 	zeroQ[Exponent[P,x] - 1] && 
 	zeroQ[Coefficient[R,x]] && 
 	zeroQ[Coefficient[P,x] + Coefficient[R,x^2]] && 
-	Q^2 - Coefficient[R,x^2] == 0 :> -A ArcTanh[(Q x)/Sqrt[R]];
+	Q^2 - Coefficient[R,x^2] == 0 :> B - A ArcTanh[(Q x)/Sqrt[R]];
 	e /. {log2arctanrule, log2arctanhrule}]
 
 
