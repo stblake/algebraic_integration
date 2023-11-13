@@ -17,10 +17,6 @@
 
 
 (* ::Input:: *)
-(*IntegrateAlgebraic[Sqrt[c x^2-x Sqrt[a x^2-b x]]/(x^3 Sqrt[a x^2-b x]),x](* This is a deficiency! *)*)
-
-
-(* ::Input:: *)
 (*(* This is a deficiency! *)*)
 (*IntegrateAlgebraic[1/(2-5 x+10 x^2-10 x^3+5 x^4-x^5)^(1/5),x]*)
 (*1+Factor[-1+2-5 x+10 x^2-10 x^3+5 x^4-x^5]*)
@@ -577,13 +573,6 @@ Options[IntegrateAlgebraic] = {
 	"Radicals" -> False,
 	"DerivDivides" -> True
 }; 
-
-(* IntegrateAlgebraic should not be used with the following functions: *)
-bannedList = Alternatives[List, Function, True, False, Equal, Unequal, Less, Greater, LessEqual, GreaterEqual, RegionEqual,
-			And, Or, Abs, Boole, If, Piecewise, UnitStep, UnitBox, UnitTriangle, DiracDelta, 
-			KroneckerDelta, Condition, ConditionalExpression, D, Dt, Integrate, Limit, HeavisideTheta, 
-			HeavisidePi, HeavisideLambda, TriangleWave, SawtoothWave, SquareWave, DiracComb, 
-			GreenFunction, InterpolatingFunction, BSplineFunction, BezierFunction, BezierCurve];
 
 IntegrateAlgebraic[e_, x_, opts:OptionsPattern[]] /; 
 	(algebraicQ[e, x] && ! PolynomialQ[e, x] && ! rationalQ[e, x] && Precision[e] === Infinity) := Module[
