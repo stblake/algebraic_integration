@@ -17,40 +17,13 @@
 
 
 (* ::Input:: *)
-(*int[((a*x^2 - b)*Sqrt[(b - c*x + a*x^2)/(b + c*x + a*x^2)])/*)
-(*   (x*(b + a*x^2)), x](* This is a bug. *)*)
-
-
-(* ::Input:: *)
 (*IntegrateAlgebraic[Sqrt[c x^2-x Sqrt[a x^2-b x]]/(x^3 Sqrt[a x^2-b x]),x](* This is a deficiency! *)*)
-(**)
-(*IntegrateAlgebraic[(1-x^4)/((x^4+x^2+1)Power[x^5-x^3, (4)^-1]),x](* This is a bug! *)*)
 
 
 (* ::Input:: *)
 (*(* This is a deficiency! *)*)
 (*IntegrateAlgebraic[1/(2-5 x+10 x^2-10 x^3+5 x^4-x^5)^(1/5),x]*)
 (*1+Factor[-1+2-5 x+10 x^2-10 x^3+5 x^4-x^5]*)
-
-
-(* ::Input:: *)
-(*(* This is a deficiency: We should fail immediately on these types of Chebyshev integrals. *)*)
-(*IntegrateAlgebraic[(x-1)^(1/3) (x+1)^(1/3),x]//Timing*)
-
-
-(* ::Input:: *)
-(*(* This is a deficiency! should use the substitution u == (3*x - 1)^(1/5)/(8 - 7*x)^(1/5) *)*)
-(*IntegrateAlgebraic[((x - 3)*(3*x - 1)^(1/5))/((x - 1)*(8 - 7*x)^(1/5)), x]*)
-
-
-(* ::Input:: *)
-(*(* This is sub-optimal. *)*)
-(*IntegrateAlgebraic[((x-5)(3x-1)^(5/2))/((x+2)(8-7x)^(3/2)),x]*)
-
-
-(* ::Input:: *)
-(*(* This is a bug - all integrals in Q(x,Sqrt[a x^2 + b x + c]) should be integrable. *)*)
-(*IntegrateAlgebraic[1/(Sqrt[-b+u^2] (b^2-6 b u^2+u^4)^2),u]*)
 
 
 (* ::Input:: *)
@@ -61,11 +34,6 @@
 (* ::Input:: *)
 (*(* This is horrendous! *)*)
 (*IntegrateAlgebraic[1/((x+b)^2 (a x^2+b x+c)^(3/2)),x]*)
-
-
-(* ::Input:: *)
-(*(* We should fail almost instantly on these Chebychev-type integrals. DONE 1022 *)*)
-(*IntegrateAlgebraic[Sqrt[u]/Sqrt[1-u^2],u] // Timing*)
 
 
 (* ::Subsection::Closed:: *)
@@ -1079,7 +1047,7 @@ Options[productRuleIntegrate] = Join[Options[IntegrateAlgebraic], {"MaxDegree" -
 productRuleIntegrate[e_, x_, opts:OptionsPattern[]] := 
 	productRuleIntegrate[e, x, opts] = Module[
 {maxDegree, radicals, radical, eqn, R, degden, degnum, slot, Rnum, Rden,
-eqnsys, indets, solns, integrals, V, Rp, r},
+eqnsys, indets, solns, integrals, V, Rp, r, gcd},
 (* 
 Details of this method along with many examples are given in my book, however we 
 essentially compute a rational function R[x] such that 
@@ -1097,11 +1065,13 @@ debugPrint1["Trying productRuleIntegrate..."];
 
 maxDegree = OptionValue["MaxDegree"];
 
-radicals = Union @ Cases[e, p_^r_Rational /; (! FreeQ[p, x] && (PolynomialQ[p, x] || rationalQ[p, x])), {0, Infinity}];
+radicals = Union @ Cases[e, p_^r_Rational :> 
+	p^FractionalPart[r] /; 
+		(! FreeQ[p, x] && (PolynomialQ[p, x] || rationalQ[p, x])), 
+			{0, Infinity}];
 If[Length[radicals] != 1, 
 	Return[{0, e, 0}, Module], 
 	radical = radicals[[1]]];
-(*Print[radical];*)
 
 Do[
 	debugPrint2["cancellationCase = ", cancellationCase];
@@ -1113,11 +1083,17 @@ Do[
 	eqn = Together[eqn[[1]] radical^r] == (Collect[#,{R[x], R'[x]}]& /@ Together[eqn[[2]] radical^r]);
 	debugPrint2[eqn];
 	
+	(* Cancel. *)
+	gcd = PolynomialGCD[Denominator[eqn[[1]]], Denominator[eqn[[2]]]];
+	eqn[[1]] = Cancel[gcd eqn[[1]]];
+	eqn[[2]] = Cancel[gcd eqn[[2]]];
+	debugPrint2[eqn];
+	
 	(* Estimate degrees of num/den of R[x]. *)
-	degnum = Max[1, 1 + Exponent[Numerator[eqn[[1]]], x] - Exponent[Coefficient[Numerator[eqn[[2]]], R'[x]], x]];
+	degnum = Max[1, Exponent[Numerator[eqn[[1]]], x], Exponent[Coefficient[Numerator[eqn[[2]]], R'[x]], x]];
 	(*degnum = Min[degnum, maxDegree];*)
 	debugPrint2["degnum = ", degnum];
-	degden = Max[1, Exponent[Denominator[eqn[[1]]], x] - Exponent[Denominator[eqn[[2]]], x]];
+	degden = Max[1, Exponent[Denominator[eqn[[1]]], x], Exponent[Denominator[eqn[[2]]], x]];
 	(*degden = Min[degden, maxDegree];*)
 	debugPrint2["degden = ", degden];
 	
@@ -1301,7 +1277,7 @@ TimeConstrained[
 	Return[False, Module]
 ];
 
-debugPrint2["inverse in u is ", inv];
+debugPrint3["inverse in u is ", inv];
 
 If[inv === {} || inv === {{}} || Head[inv] === Solve || ! FreeQ[inv, Root], 
 	Return[False, Module]
@@ -3668,6 +3644,10 @@ subs2 = Table[
 
 subs = Join[subs1, subs2];
 
+If[subs === {}, 
+	Return[ False ]
+];
+
 goodsubs = Cases[subs, 
 	{integrand_, u -> usub_} /; 
 	Quiet[ zeroQ[e - Cancel @ Together[integrand D[usub, x] /. u -> usub]] ]];
@@ -3764,6 +3744,10 @@ subs = Table[
 	],
 {soln, solns}];
 
+If[subs === {}, 
+	Return[ False ]
+];
+
 goodsubs = Cases[subs, 
 	{integrand_, u -> usub_} /; 
 	Quiet[ zeroQ[e - PowerExpand @ Cancel @ Together[integrand D[usub, x] /. u -> usub]] ]];
@@ -3829,17 +3813,25 @@ If[MatchQ[solns, {}|{{}} | _Solve | {{(_ -> _?zeroQ) ..}..}],
 	Return[ False ]];
 
 subs = Table[
-	If[!FreeQ[soln, Root], Continue[]];
-	subX = (a - b u)/(u - 1) /. soln;
-	subX = subX /. a|b|p|q|r -> 1 // Cancel;
-	intU = Quiet[ MapAll[Together, e dx /. {x -> subX, dx -> D[subX, u]}] // Cancel ];
-	subU = (x + a)/(x + b) /. soln;
-	subU = subU /. a|b|p|q|r -> 1 // Cancel;
-	If[Head[subU // Denominator] != Plus, Continue[]];
-	Sequence @@ {
-		{semiRationalise[powerReduce1[intU, u], u], u -> subU}, 
-		{semiRationalise[powerReduce2[intU, u], u], u -> subU}},
+	If[FreeQ[soln, Root],
+		subX = (a - b u)/(u - 1) /. soln;
+		subX = subX /. a|b|p|q|r -> 1 // Cancel;
+		intU = Quiet[ MapAll[Together, e dx /. {x -> subX, dx -> D[subX, u]}] // Cancel ];
+		subU = (x + a)/(x + b) /. soln;
+		subU = subU /. a|b|p|q|r -> 1 // Cancel;
+		If[Head[subU // Denominator] === Plus,
+		Sequence @@ {
+			{semiRationalise[powerReduce1[intU, u], u], u -> subU}, 
+			{semiRationalise[powerReduce2[intU, u], u], u -> subU}},
+			Sequence @@ {}	
+		],
+		Sequence @@ {}
+	],
 {soln, solns}];
+
+If[subs === {}, 
+	Return[ False ]
+];
 
 goodsubs = Cases[subs, 
 	{integrand_, u -> usub_} /; 
@@ -3863,7 +3855,7 @@ If[LeafCount[uradicals] < LeafCount[radicals],
 (*linearRationalSubstitution3[((2 x^2+x-1) (x^4-x^3)^(1/4))/(x^2-x-1),x,u]*)
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*integrateLinearRadical, integrateQuadraticRadical - Integrating linear and quadratic radicals *)
 
 
@@ -4386,12 +4378,12 @@ ClearAll[linearRatioQ];
 
 linearRatioQ[e_,x_] := Module[{te,num,den,nex,dex},
 (* (a x + b)/(c x + d) ? *)
-te=Cancel[Together[e]];
+te = Cancel[Together[e]];
 num = Numerator[te];
-den=Denominator[te];
-nex=Exponent[num,x];
-dex=Exponent[den,x];
-PolynomialQ[num,x] && PolynomialQ[den,x] && nex<2 && dex<2 && nex+dex>0
+den = Denominator[te];
+nex = Exponent[num,x];
+dex = Exponent[den,x];
+PolynomialQ[num,x] && PolynomialQ[den,x] && nex < 2 && dex < 2 && nex + dex > 0
 ]
 
 
