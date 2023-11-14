@@ -1032,7 +1032,7 @@ integratedRationalPart = simplify[integratedRationalPart, x, "CancelRadicalDenom
 ]
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*normalise*)
 
 
@@ -1058,13 +1058,16 @@ normalise[f_, {x_, y_}] := Module[
 		y0, y1, nonalgNum, algNum, nonAlgPart, 
 		terms, algterms},
 
+	(* No algebraic terms. *)
 	e = Cancel[Together @ f];
 	If[PolynomialQ[e, x] || rationalQ[e, x], 
 		Return[{0, 1, {}, {}, e}]
 	];
 	
 	radical = Union @ Cases[e, p_^r_Rational :> p^Abs[r] /; (! FreeQ[p, x] && (PolynomialQ[p, x] || rationalQ[p, x])), {0, Infinity}];
-	If[Length[radical] > 1, Return[ False ], radical = radical[[1]]];(* Fix for multiple distinct radicals. *)
+	If[Length[radical] > 1, 
+		Return[ {0, 1, {}, {}, e} ], 
+		radical = radical[[1]]];(* Fix for multiple distinct radicals. *)
 	{p, r} = {radical[[1]], 1/radical[[2]]};
 	
 	nonAlgPart = 0;
