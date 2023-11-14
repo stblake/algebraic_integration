@@ -605,9 +605,9 @@ Options[solveAlgebraicIntegral] = Options[IntegrateAlgebraic];
 
 solveAlgebraicIntegral[integrand_, x_, opts : OptionsPattern[]] := 
 	solveAlgebraicIntegral[integrand, x, opts] = Module[
-{start, u, dd, rationalPart, unintegratedPart, integratedPart, 
+{y, normalised, unintegratedRationalPart, start, u, dd, rationalPart, unintegratedPart, integratedPart, 
 rationalIntegrand, substitution, integral, linRat, result, 
-goursat, simplified, split, recuropts},
+goursat, simplified, split, recuropts, integratedRationalPart},
 
 If[++$recursionCounter > 32, 
 	debugPrint1["Recursion limit for IntegrateAlgebraic exceeded! Giving up..."];
@@ -616,13 +616,18 @@ If[++$recursionCounter > 32,
 If[$verboseLevel > 0, 
 start = AbsoluteTime[]];
 
-{rationalPart, unintegratedPart, integratedPart} = {0, integrand, 0};
+(* Rewrite the integrand in the form r(x)+(q[x]/h[x]) y^r, where 
+		y \[Equal] p[x], r(x) is the non-algebraic (rational) part, and 
+		q[x], h[x], p[x] are polynomials in x. *)
+integratedPart = 0;
+normalised = normalise[integrand, {x, y}];
+{rationalPart, unintegratedPart} = {normalised[[5]], normalised[[1]]/normalised[[2]] /. normalised[[4]]};
 
 (* Integrand is a rational function of x (needed for recursive integration). *)
 
-If[PolynomialQ[unintegratedPart, x] || rationalQ[unintegratedPart, x], 
-	debugPrint1["Integrand is in Q(x): ", unintegratedPart];
-	integral = integrate[unintegratedPart, x];
+If[unintegratedPart === 0 && rationalPart =!= 0, 
+	debugPrint1["Integrand is in Q(x): ", rationalPart];
+	integral = integrate[rationalPart, x];
 	Return[ {0, 0, simplify[integral, x, "CancelRadicalDenominators" -> False, "Radicals" -> OptionValue["Radicals"]]}, Module ]
 ];
 
@@ -1020,9 +1025,209 @@ If[ListQ @ splitIntegrand[unintegratedPart, x],
 	debugPrint1["integrateMultipleRadicals returned : ", {rationalPart, unintegratedPart, integratedPart}]
 ];
 
+integratedRationalPart = integrate[rationalPart, x];
+integratedRationalPart = simplify[integratedRationalPart, x, "CancelRadicalDenominators" -> False, "Radicals" -> OptionValue["Radicals"]];
 
-{Integrate[rationalPart, x], unintegratedPart, integratedPart}
+{integratedRationalPart, unintegratedPart, integratedPart}
 ]
+
+
+(* ::Subsection::Closed:: *)
+(*normalise*)
+
+
+(* ::Text:: *)
+(*This can be improved. See pp. 562 of "Algorithms for Computer Algebra", Geddes et al. *)
+
+
+ClearAll[apartSquareFreeList];
+
+apartSquareFreeList[e_] := Module[{apartList},
+	apartList = ApartSquareFree[e];
+	If[Head[apartList] === Plus,
+		List @@ apartList,
+		{apartList}
+	]
+]
+
+
+ClearAll[normalise];
+
+normalise[f_, {x_, y_}] := Module[
+	{e, radical, p, r, num, den, numY, denY, exy, 
+		y0, y1, nonalgNum, algNum, nonAlgPart, 
+		terms, algterms},
+
+	e = Cancel[Together @ f];
+	If[PolynomialQ[e, x] || rationalQ[e, x], 
+		Return[{0, 1, {}, {}, e}]
+	];
+	
+	radical = Union @ Cases[e, p_^r_Rational :> p^Abs[r] /; (! FreeQ[p, x] && (PolynomialQ[p, x] || rationalQ[p, x])), {0, Infinity}];
+	If[Length[radical] > 1, Return[ False ], radical = radical[[1]]];(* Fix for multiple distinct radicals. *)
+	{p, r} = {radical[[1]], 1/radical[[2]]};
+	
+	nonAlgPart = 0;
+	exy = e //. {radical -> y, radical^-1 -> y^-1};
+	terms = apartSquareFreeList[exy];
+	nonAlgPart = Total @ Cases[terms, s_ /; FreeQ[s, y], {1}];
+	algterms = Cancel @ Together[exy - nonAlgPart];
+	
+	num = Numerator[algterms];
+	den = Denominator[algterms];
+
+	numY = num;
+	denY = den;
+
+	exy = Cancel[numY/denY];
+	numY = Numerator[exy];
+	denY = Denominator[exy];
+
+	If[FreeQ[denY, y], 
+		nonalgNum = Coefficient[numY, y, 0];
+		algNum = Coefficient[numY, y, 1] y;
+		Return[ {algNum, denY, {p, r}, y -> radical, Cancel[Together[nonAlgPart + nonalgNum/denY]]} ]
+	];
+
+	y0 = Coefficient[denY, y, 0];
+	y1 = Coefficient[denY, y, 1] y;
+
+	If[y0 === 0,
+		{numY, denY} = {numY*y^(Numerator[r] - 1), denY y^(Numerator[r] - 1) /. y^k_ :> p^(k/r)},
+		denY = y0^2 - y1^2;
+		{numY, denY} = {numY (y0 - y1), denY} /. y^k_ :> p^(k/r)
+	];
+
+	radical = radical^Exponent[numY, y];
+	r /= Exponent[numY, y];
+
+	nonalgNum = Coefficient[numY, y, 0];
+	algNum = Coefficient[numY, y, Exponent[numY, y]] y;
+
+	nonAlgPart += nonalgNum/denY;
+
+	{algNum, denY, {p, r}, y -> radical, nonAlgPart // Together // Cancel}
+]
+
+
+(* ::Input:: *)
+(*1/(Sqrt[1-1/z^6] z^3+4 (-1+z^6))*)
+(*IntegrateAlgebraic`Private`normalise[%,{z,y}]*)
+(*%[[5]]+%[[1]]/%[[2]]/. %[[4]]*)
+(*%-%%%//Simplify*)
+
+
+(* ::Input:: *)
+(*normalise[(2 (-1-4 u^2+Sqrt[1-12 u^4+16 u^6]))/((-2+u^2) (1+4 u^2)),{u,y}]*)
+(*%[[5]]+%[[1]]/%[[2]]*)
+
+
+(* ::Input:: *)
+(*normalise[1/(x^3 C[0]+C[1])^(1/3),{x,y}]*)
+
+
+(* ::Input:: *)
+(*normalise[1/((x^3 C[0]+C[1])/(C[2]x^2+C[3]))^(1/3),{x,y}]*)
+
+
+(* ::Input:: *)
+(*f=Together[1/(1+x^4)^(1/4)];*)
+(*normalise[%,{x,y}]*)
+(*%[[5]]+%[[1]]/%[[2]]*)
+(*%%[[5]]+%%[[1]]/%%[[2]]-f /. %%[[4]]//Together//Simplify*)
+
+
+(* ::Input:: *)
+(*f=Together[1/(1+x+x^2)+(-2+3 x^5)/((1+x^5) Sqrt[1+x^2+x^5])];*)
+(*normalise[%,{x,y}]*)
+(*%[[5]]+%[[1]]/%[[2]]*)
+(*%%[[5]]+%%[[1]]/%%[[2]]-f /. %%[[4]]//Together//Simplify*)
+
+
+(* ::Input:: *)
+(*f=Together[1/(x^4+1)^(1/4)+x/(1+x^2)];*)
+(*normalise[%,{x,y}]*)
+(*%[[5]]+%[[1]]/%[[2]]*)
+(*%%[[5]]+%%[[1]]/%%[[2]]-f /. %%[[4]]//Together//Simplify*)
+
+
+(* ::Input:: *)
+(*(* Bug - we don't split the rational and algebraic parts correctly. *)*)
+(*f=(-2-2 x+x^4+x^5+x Sqrt[x^4+2])/(x^2 (1+x) Sqrt[x^4+2]);*)
+(*normalise[%,{x,y}]*)
+(*%[[5]]+%[[1]]/%[[2]]-f /. %[[4]]//Together//Simplify*)
+
+
+(* ::Input:: *)
+(*f=1/(x^4+1)^(1/4);*)
+(*normalise[%,{x,y}]*)
+(*%[[5]]+%[[1]]/%[[2]]-f /. %[[4]]//Together//Simplify*)
+
+
+(* ::Input:: *)
+(*f=(x-1)/((1+x) Sqrt[x+x^2+x^3]);*)
+(*normalise[%,{x,y}]*)
+(*%[[5]]+%[[1]]/%[[2]]-f /. %[[4]]//Together//Simplify*)
+
+
+(* ::Input:: *)
+(*f=(2x^2-x)/(2x^3+4Sqrt[1-x^3]);*)
+(*normalise[f,{x,y}]*)
+(*%[[5]]+%[[1]]/%[[2]]-f /. %[[4]]//Together//Simplify*)
+
+
+(* ::Input:: *)
+(*f=(2 Sqrt[2](x^2-1) Sqrt[x^4+1])/(x^2 (x^2+1));*)
+(*normalise[f,{x,y}]*)
+(*%[[5]]+%[[1]]/%[[2]]-f /. %[[4]]//Together//Simplify*)
+
+
+(* ::Input:: *)
+(*f=-(4/(x^3 Sqrt[1-x^4]));*)
+(*normalise[f, {x,y}]*)
+(*%[[5]]+%[[1]]/%[[2]]-f /. %[[4]]//Together//Simplify*)
+
+
+(* ::Input:: *)
+(*f=(1+x^2)/((1-x^2)Sqrt[1+x^4]);*)
+(*normalise[f, {x,y}]*)
+(*%[[5]]+%[[1]]/%[[2]]-f /. %[[4]]//Together//Simplify*)
+
+
+(* ::Input:: *)
+(*f=Sqrt[-1+x^3]/(1-x);*)
+(*normalise[f, {x,y}]*)
+(*%[[5]]+%[[1]]/%[[2]]-f /. %[[4]]//Together//Simplify*)
+
+
+(* ::Input:: *)
+(*f=x Sqrt[-1+x^3];*)
+(*normalise[f, {x,y}]*)
+(*%[[5]]+%[[1]]/%[[2]]-f /. %[[4]]//Together//Simplify*)
+
+
+(* ::Input:: *)
+(*f=(2+x^3)/(x^2 (-2-4 x^2+x^3)Sqrt[-1+x^3]);*)
+(*normalise[f, {x,y}]*)
+(*%[[5]]+%[[1]]/%[[2]]-f /. %[[4]]//Together//Simplify*)
+
+
+(* ::Input:: *)
+(*f=(2+x^3-Sqrt[-1+x^3])/(x^2 (-2-4 x^2+x^3)Sqrt[-1+x^3]);*)
+(*normalise[f, {x,y}]*)
+(*%[[5]]+%[[1]]/%[[2]]-f /. %[[4]]//Together//Simplify*)
+
+
+(* ::Input:: *)
+(*f=(2+x^3)/(2x^4+x^3-1-x^2 (-2-4 x^2+x^3)Sqrt[-1+x^3]);*)
+(*normalise[f, {x,y}]*)
+(*%[[5]]+%[[1]]/%[[2]]-f /. %[[4]]//Together//Simplify*)
+
+
+(* ::Input:: *)
+(*f=-4 (-1+u^2) (-1+u Sqrt[-1+3 u^2-u^4]);*)
+(*normalise[f,{u,y}]*)
+(*%[[5]]+%[[1]]/%[[2]]-f /. %[[4]]//Together//Simplify*)
 
 
 (* ::Subsection::Closed:: *)
@@ -2201,200 +2406,6 @@ polynomialsUndetermined3[x_Symbol, maxDegree_Integer] :=
 			Sequence @@ {}
 		], 
 	{n, maxDegree}, {m, maxDegree}, {k, maxDegree}, {l, maxDegree}];
-
-
-(* ::Subsection::Closed:: *)
-(*normalise*)
-
-
-(* ::Text:: *)
-(*This can be improved. See pp. 562 of "Algorithms for Computer Algebra", Geddes et al. *)
-
-
-ClearAll[apartSquareFreeList];
-
-apartSquareFreeList[e_] := Module[{apartList},
-	apartList = ApartSquareFree[e];
-	If[Head[apartList] === Plus,
-		List @@ apartList,
-		{apartList}
-	]
-]
-
-
-ClearAll[normalise];
-
-normalise[f_, {x_, y_}] := Module[
-	{e, radical, p, r, num, den, numY, denY, exy, 
-		y0, y1, nonalgNum, algNum, nonAlgPart, 
-		terms, algterms},
-
-	e = Cancel[Together @ f];
-	radical = Union @ Cases[e, p_^r_Rational :> p^Abs[r] /; (! FreeQ[p, x] && (PolynomialQ[p, x] || rationalQ[p, x])), {0, Infinity}];
-	If[Length[radical] > 1, Return[ False ], radical = radical[[1]]];(* Fix for multiple distinct radicals. *)
-	{p, r} = {radical[[1]], 1/radical[[2]]};
-	
-	nonAlgPart = 0;
-	exy = e //. {radical -> y, radical^-1 -> y^-1};
-	terms = apartSquareFreeList[exy];
-	nonAlgPart = Total @ Cases[terms, s_ /; FreeQ[s, y], {1}];
-	algterms = Cancel @ Together[exy - nonAlgPart];
-	
-	num = Numerator[algterms];
-	den = Denominator[algterms];
-
-	numY = num;
-	denY = den;
-
-	exy = Cancel[numY/denY];
-	numY = Numerator[exy];
-	denY = Denominator[exy];
-
-	If[FreeQ[denY, y], 
-		nonalgNum = Coefficient[numY, y, 0];
-		algNum = Coefficient[numY, y, 1] y;
-		Return[ {algNum, denY, {p, r}, y -> radical, Cancel[Together[nonAlgPart + nonalgNum/denY]]} ]
-	];
-
-	y0 = Coefficient[denY, y, 0];
-	y1 = Coefficient[denY, y, 1] y;
-
-	If[y0 === 0,
-		{numY, denY} = {numY*y^(Numerator[r] - 1), denY y^(Numerator[r] - 1) /. y^k_ :> p^(k/r)},
-		denY = y0^2 - y1^2;
-		{numY, denY} = {numY (y0 - y1), denY} /. y^k_ :> p^(k/r)
-	];
-
-	radical = radical^Exponent[numY, y];
-	r /= Exponent[numY, y];
-
-	nonalgNum = Coefficient[numY, y, 0];
-	algNum = Coefficient[numY, y, Exponent[numY, y]] y;
-
-	nonAlgPart += nonalgNum/denY;
-
-	{algNum, denY, {p, r}, y -> radical, nonAlgPart // Together // Cancel}
-]
-
-
-(* ::Input:: *)
-(*1/(Sqrt[1-1/z^6] z^3+4 (-1+z^6))*)
-(*IntegrateAlgebraic`Private`normalise[%,{z,y}]*)
-(*%[[5]]+%[[1]]/%[[2]]/. %[[4]]*)
-(*%-%%%//Simplify*)
-
-
-(* ::Input:: *)
-(*normalise[(2 (-1-4 u^2+Sqrt[1-12 u^4+16 u^6]))/((-2+u^2) (1+4 u^2)),{u,y}]*)
-(*%[[5]]+%[[1]]/%[[2]]*)
-
-
-(* ::Input:: *)
-(*normalise[1/(x^3 C[0]+C[1])^(1/3),{x,y}]*)
-
-
-(* ::Input:: *)
-(*normalise[1/((x^3 C[0]+C[1])/(C[2]x^2+C[3]))^(1/3),{x,y}]*)
-
-
-(* ::Input:: *)
-(*f=Together[1/(1+x^4)^(1/4)];*)
-(*normalise[%,{x,y}]*)
-(*%[[5]]+%[[1]]/%[[2]]*)
-(*%%[[5]]+%%[[1]]/%%[[2]]-f /. %%[[4]]//Together//Simplify*)
-
-
-(* ::Input:: *)
-(*f=Together[1/(1+x+x^2)+(-2+3 x^5)/((1+x^5) Sqrt[1+x^2+x^5])];*)
-(*normalise[%,{x,y}]*)
-(*%[[5]]+%[[1]]/%[[2]]*)
-(*%%[[5]]+%%[[1]]/%%[[2]]-f /. %%[[4]]//Together//Simplify*)
-
-
-(* ::Input:: *)
-(*f=Together[1/(x^4+1)^(1/4)+x/(1+x^2)];*)
-(*normalise[%,{x,y}]*)
-(*%[[5]]+%[[1]]/%[[2]]*)
-(*%%[[5]]+%%[[1]]/%%[[2]]-f /. %%[[4]]//Together//Simplify*)
-
-
-(* ::Input:: *)
-(*(* Bug - we don't split the rational and algebraic parts correctly. *)*)
-(*f=(-2-2 x+x^4+x^5+x Sqrt[x^4+2])/(x^2 (1+x) Sqrt[x^4+2]);*)
-(*normalise[%,{x,y}]*)
-(*%[[5]]+%[[1]]/%[[2]]-f /. %[[4]]//Together//Simplify*)
-
-
-(* ::Input:: *)
-(*f=1/(x^4+1)^(1/4);*)
-(*normalise[%,{x,y}]*)
-(*%[[5]]+%[[1]]/%[[2]]-f /. %[[4]]//Together//Simplify*)
-
-
-(* ::Input:: *)
-(*f=(x-1)/((1+x) Sqrt[x+x^2+x^3]);*)
-(*normalise[%,{x,y}]*)
-(*%[[5]]+%[[1]]/%[[2]]-f /. %[[4]]//Together//Simplify*)
-
-
-(* ::Input:: *)
-(*f=(2x^2-x)/(2x^3+4Sqrt[1-x^3]);*)
-(*normalise[f,{x,y}]*)
-(*%[[5]]+%[[1]]/%[[2]]-f /. %[[4]]//Together//Simplify*)
-
-
-(* ::Input:: *)
-(*f=(2 Sqrt[2](x^2-1) Sqrt[x^4+1])/(x^2 (x^2+1));*)
-(*normalise[f,{x,y}]*)
-(*%[[5]]+%[[1]]/%[[2]]-f /. %[[4]]//Together//Simplify*)
-
-
-(* ::Input:: *)
-(*f=-(4/(x^3 Sqrt[1-x^4]));*)
-(*normalise[f, {x,y}]*)
-(*%[[5]]+%[[1]]/%[[2]]-f /. %[[4]]//Together//Simplify*)
-
-
-(* ::Input:: *)
-(*f=(1+x^2)/((1-x^2)Sqrt[1+x^4]);*)
-(*normalise[f, {x,y}]*)
-(*%[[5]]+%[[1]]/%[[2]]-f /. %[[4]]//Together//Simplify*)
-
-
-(* ::Input:: *)
-(*f=Sqrt[-1+x^3]/(1-x);*)
-(*normalise[f, {x,y}]*)
-(*%[[5]]+%[[1]]/%[[2]]-f /. %[[4]]//Together//Simplify*)
-
-
-(* ::Input:: *)
-(*f=x Sqrt[-1+x^3];*)
-(*normalise[f, {x,y}]*)
-(*%[[5]]+%[[1]]/%[[2]]-f /. %[[4]]//Together//Simplify*)
-
-
-(* ::Input:: *)
-(*f=(2+x^3)/(x^2 (-2-4 x^2+x^3)Sqrt[-1+x^3]);*)
-(*normalise[f, {x,y}]*)
-(*%[[5]]+%[[1]]/%[[2]]-f /. %[[4]]//Together//Simplify*)
-
-
-(* ::Input:: *)
-(*f=(2+x^3-Sqrt[-1+x^3])/(x^2 (-2-4 x^2+x^3)Sqrt[-1+x^3]);*)
-(*normalise[f, {x,y}]*)
-(*%[[5]]+%[[1]]/%[[2]]-f /. %[[4]]//Together//Simplify*)
-
-
-(* ::Input:: *)
-(*f=(2+x^3)/(2x^4+x^3-1-x^2 (-2-4 x^2+x^3)Sqrt[-1+x^3]);*)
-(*normalise[f, {x,y}]*)
-(*%[[5]]+%[[1]]/%[[2]]-f /. %[[4]]//Together//Simplify*)
-
-
-(* ::Input:: *)
-(*f=-4 (-1+u^2) (-1+u Sqrt[-1+3 u^2-u^4]);*)
-(*normalise[f,{u,y}]*)
-(*%[[5]]+%[[1]]/%[[2]]-f /. %[[4]]//Together//Simplify*)
 
 
 (* ::Subsection::Closed:: *)
