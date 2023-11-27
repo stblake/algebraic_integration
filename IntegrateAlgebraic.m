@@ -595,7 +595,7 @@ IntegrateAlgebraic[e_, x_, opts:OptionsPattern[]] /;
 ]
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*solveAlgebraicIntegral*)
 
 
@@ -622,6 +622,8 @@ start = AbsoluteTime[]];
 integratedPart = 0;
 normalised = normalise[integrand, {x, y}];
 {rationalPart, unintegratedPart} = {normalised[[5]], normalised[[1]]/normalised[[2]] /. normalised[[4]]};
+If[rationalPart === 0, 
+	unintegratedPart = integrand]; (* Fix for IntegrateAlgebraic[1/((1 + x)*(x + x^3)^(1/4)), x]. SAMB 1123 *)
 
 (* Integrand is a rational function of x (needed for recursive integration). *)
 
@@ -1032,7 +1034,7 @@ integratedRationalPart = simplify[integratedRationalPart, x, "CancelRadicalDenom
 ]
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*normalise*)
 
 
