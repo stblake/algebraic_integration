@@ -595,7 +595,7 @@ IntegrateAlgebraic[e_, x_, opts:OptionsPattern[]] /;
 ]
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*solveAlgebraicIntegral*)
 
 
@@ -624,6 +624,9 @@ normalised = normalise[integrand, {x, y}];
 {rationalPart, unintegratedPart} = {normalised[[5]], normalised[[1]]/normalised[[2]] /. normalised[[4]]};
 If[rationalPart === 0, 
 	unintegratedPart = integrand]; (* Fix for IntegrateAlgebraic[1/((1 + x)*(x + x^3)^(1/4)), x]. SAMB 1123 *)
+If[! rationalQ[rationalPart, x], 
+	unintegratedPart = Together[unintegratedPart + rationalPart]; 
+	rationalPart = 0]; (* Hack for IntegrateAlgebraic[(x^(1/4)*(1 + x^2)^(1/4))/((-1 + x)^2*(1 + x)), x]. SAMB 1223 *)
 
 (* Integrand is a rational function of x (needed for recursive integration). *)
 
@@ -1534,10 +1537,13 @@ chebychevIntegrate[e_, x_, opts:OptionsPattern[]] := Module[{integral},
 
 Which[
 chebychevType1Q[e, x], 
+	debugPrint2["Chebychev type 1 integral."];
 	integral = chebychevType1Integrate[e, x, opts],
 chebychevType2Q[e, x], 
+	debugPrint2["Chebychev type 2 integral."];
 	integral = chebychevType2Integrate[e, x, opts],
 chebychevType3Q[e, x], 
+	debugPrint2["Chebychev type 3 integral."];
 	integral = chebychevType3Integrate[e, x, opts],
 True, 
 	integral = False
@@ -1573,6 +1579,10 @@ params
 
 (* ::Input:: *)
 (*chebychevParameters[11(5x^(1/2)-2)^2, x]*)
+
+
+(* ::Subsubsection::Closed:: *)
+(*chebychevType1Integrate*)
 
 
 ClearAll[chebychevType1Integrate];
@@ -1622,6 +1632,10 @@ Last[integral] /. u -> x^(1/v)
 (* ::Input:: *)
 (*chebychevType1Integrate[x^(-4/5) (x^(5/3)+1)^-1, x]//Timing*)
 (*D[%//Last, x] -  x^(-4/5) (x^(5/3)+1)^-1 // Simplify*)
+
+
+(* ::Subsubsection::Closed:: *)
+(*chebychevType2Integrate*)
 
 
 ClearAll[chebychevType2Integrate];
@@ -1680,6 +1694,10 @@ Last[integral] /. sub
 (*D[% // Last // Last, x] - x^(1/9)/(b+a x^(5/9))^(1/3)//Simplify*)
 
 
+(* ::Subsubsection::Closed:: *)
+(*chebychevType3Integrate*)
+
+
 ClearAll[chebychevType3Integrate];
 
 chebychevType3Integrate[e_, x_, opts:OptionsPattern[]] := Module[
@@ -1720,8 +1738,12 @@ If[!MatchQ[integral, {0, 0, _}],
 integral = Last[integral] /. u^m_. :> x^(m r);
 debugPrint2["Substituting back for ", x, " gives ", integral];
 
-simplify[integral, x, "Radicals" -> (a x^r + b)^q]
+simplify[integral, x, "CancelRadicalDenominators" -> False]
 ]
+
+
+(* ::Input:: *)
+(*IntegrateAlgebraic[1/Sqrt[1+1/x^2],x]*)
 
 
 (* ::Input:: *)
@@ -1729,8 +1751,8 @@ simplify[integral, x, "Radicals" -> (a x^r + b)^q]
 
 
 (* ::Input:: *)
-(*chebychevType3Integrate[Power[x, (3)^-1] Power[a x^2+b, (3)^-1],x] // Timing*)
-(*D[% // Last // Last, x] - Power[x, (3)^-1] Power[a x^2+b, (3)^-1]//Simplify*)
+(*chebychevType3Integrate[x^(1/3)*(a*x^2 + b)^(1/3),x] // Timing*)
+(*D[% // Last // Last, x] - x^(1/3)*(a*x^2 + b)^(1/3)//Simplify*)
 
 
 (* ::Input:: *)
@@ -2547,7 +2569,7 @@ If[result =!= $Failed,
 ]
 
 
-(* ::Subsubsection:: *)
+(* ::Subsubsection::Closed:: *)
 (*directRationaliseSolve*)
 
 
@@ -6444,7 +6466,7 @@ simplify[e_, x_, opts:OptionsPattern[]] := Module[
 	(* Convert RootSum to radicals. *)
 	If[OptionValue["Radicals"], 
 		simp = simp /. rs:RootSum[p_, _] :> ToRadicals[rs];
-		simp = log2ArcTanh[simp] (* This also handles ArcTan. SAMB 0821 *)
+		simp = log2ArcTanh[simp, x] (* This also handles ArcTan. SAMB 0821 *)
 	];
 	
 	simp = simp /. {RootSum -> $rootSum, Root -> $root, Function -> $function};
