@@ -623,10 +623,8 @@ integratedPart = 0;
 normalised = normalise[integrand, {x, y}];
 {rationalPart, unintegratedPart} = {normalised[[5]], normalised[[1]]/normalised[[2]] /. normalised[[4]]};
 If[rationalPart === 0, 
-	unintegratedPart = integrand]; (* Fix for IntegrateAlgebraic[1/((1 + x)*(x + x^3)^(1/4)), x]. SAMB 1123 *)
-If[! rationalQ[rationalPart, x], 
-	unintegratedPart = Together[unintegratedPart + rationalPart]; 
-	rationalPart = 0]; (* Hack for IntegrateAlgebraic[(x^(1/4)*(1 + x^2)^(1/4))/((-1 + x)^2*(1 + x)), x]. SAMB 1223 *)
+	unintegratedPart = integrand]; (* Fix/hack for IntegrateAlgebraic[1/((1 + x)*(x + x^3)^(1/4)), x]. SAMB 1123 *)
+debugPrint2["normalised form of the integral is ", {rationalPart, unintegratedPart}];
 
 (* Integrand is a rational function of x (needed for recursive integration). *)
 
@@ -644,7 +642,7 @@ If[chebychevIntegralQ[unintegratedPart, x],
 	integral = chebychevIntegrate[unintegratedPart, x, opts];
 	debugPrint1["chebyshevIntegrate returned ", integral];
 	If[integral =!= False && (TrueQ[! OptionValue[VerifySolutions]] || verifySolution[integral, unintegratedPart, x]),
-		Return[ {0, 0, integral}, Module ],
+		Return[ {integrateRationalPart[rationalPart, x, opts], 0, integral}, Module ],
 		Return[ {rationalPart, unintegratedPart, integratedPart}, Module ](* Not integrable in terms of elementary functions. *)
 	]
 ];
@@ -656,7 +654,7 @@ If[MatchQ[unintegratedPart, (a_. x + b_)^n_Rational (c_. x + d_)^m_Rational /; F
 	integral = generalisedChebychevIntegrate[unintegratedPart, x, opts];
 	debugPrint1["generalisedChebychevIntegrate returned ", integral];
 	If[integral =!= False && (TrueQ[! OptionValue[VerifySolutions]] || verifySolution[integral, unintegratedPart, x]),
-		Return[ {0, 0, integral}, Module ],
+		Return[ {integrateRationalPart[rationalPart, x, opts], 0, integral}, Module ],
 		Return[ {rationalPart, unintegratedPart, integratedPart}, Module ](* Not integrable in terms of elementary functions. *)
 	]
 ];
@@ -667,7 +665,7 @@ If[ListQ @ multipleLinearRadicalToRational[unintegratedPart, x, u],
 	debugPrint1["Integrand is in Q(x, (a*x + b)^(1/2), (c*x + d)^(1/2)): ", unintegratedPart];
 	integral = integrateMultipleLinearRadical[unintegratedPart, x, opts];
 	If[integral =!= False && TrueQ[! OptionValue[VerifySolutions]] || verifySolution[integral, unintegratedPart, x],
-		Return[ {0, 0, integral}, Module ]
+		Return[ {integrateRationalPart[rationalPart, x, opts], 0, integral}, Module ]
 	]
 ];
 
@@ -677,7 +675,7 @@ If[ListQ @ linearRadicalToRational[unintegratedPart, x, u],
 	debugPrint1["Integrand is in Q(x, (a*x + b)^(m[1]/n[1]), (a*x + b)^(m[2]/n[2]), \[Ellipsis]): ", unintegratedPart];
 	integral = integrateLinearRadical[unintegratedPart, x, opts];
 	If[integral =!= False && (TrueQ[! OptionValue[VerifySolutions]] || verifySolution[integral, unintegratedPart, x]),
-		Return[ {0, 0, integral}, Module ],
+		Return[ {integrateRationalPart[rationalPart, x, opts], 0, integral}, Module ],
 		Return[ {rationalPart, unintegratedPart, integratedPart}, Module ](* As this method should never fail. Review this decision. SAMB 0323 *)
 	]
 ];
@@ -688,7 +686,7 @@ If[ListQ @ linearRatioRadicalToRational[unintegratedPart, x, u],
 	debugPrint1["Integrand is in Q(x,((a x + b)/(c x + d))^(m[1]/n[1]), ((a x + b)/(c x + d))^(m[2]/n[2]), \[Ellipsis]): ", unintegratedPart];
 	integral = integrateLinearRatioRadical[unintegratedPart, x, opts];
 	If[TrueQ[! OptionValue[VerifySolutions]] || verifySolution[integral, unintegratedPart, x],
-		Return[ {0, 0, integral}, Module ],
+		Return[ {integrateRationalPart[rationalPart, x, opts], 0, integral}, Module ],
 		Return[ {rationalPart, unintegratedPart, integratedPart}, Module ]
 	]
 ];
@@ -730,7 +728,7 @@ If[OptionValue["DerivDivides"] && ! rootQ[unintegratedPart, x],
 ];
 
 If[! algebraicQ[unintegratedPart, x] && ! OptionValue["Expansion"],
-	Return[{Integrate[rationalPart, x], unintegratedPart, integratedPart}, Module] (* As no further methods deal with non-algebraics. *)
+	Return[{integrateRationalPart[rationalPart, x, opts], unintegratedPart, integratedPart}, Module] (* As no further methods deal with non-algebraics. *)
 ];
 
 (* Integrand is in Q(x, (a x^2 + b x + c)^(n[1]/2), (a x^2 + b x + c)^(n[2]/2), \[Ellipsis]) *)
@@ -739,7 +737,7 @@ If[ListQ @ quadraticRadicalToRational[unintegratedPart, x, u],
 	debugPrint1["Integrand is in Q(x, (a x^2 + b x + c)^(n[1]/2), (a x^2 + b x + c)^(n[2]/2), \[Ellipsis]): ", unintegratedPart];
 	integral = integrateQuadraticRadical[unintegratedPart, x, opts];
 	If[integral =!= False && (TrueQ[! OptionValue[VerifySolutions]] || verifySolution[integral, unintegratedPart, x]),
-		Return[ {0, 0, integral}, Module ],
+		Return[ {integrateRationalPart[rationalPart, x, opts], 0, integral}, Module ],
 		Return[ {rationalPart, unintegratedPart, integratedPart}, Module ]
 	]
 ];
@@ -765,7 +763,7 @@ If[ListQ @ inverseIntegrate[unintegratedPart, x, opts],
 ];
 
 If[rootQ[unintegratedPart, x], 
-	Return[{Integrate[rationalPart, x], unintegratedPart, integratedPart}, Module] (* As no further methods deal with Root objects. *)
+	Return[{integrateRationalPart[rationalPart, x, opts], unintegratedPart, integratedPart}, Module] (* As no further methods deal with Root objects. *)
 ];
 
 (* Nested radicals. *)
@@ -1030,14 +1028,12 @@ If[ListQ @ splitIntegrand[unintegratedPart, x],
 	debugPrint1["integrateMultipleRadicals returned : ", {rationalPart, unintegratedPart, integratedPart}]
 ];
 
-integratedRationalPart = integrate[rationalPart, x];
-integratedRationalPart = simplify[integratedRationalPart, x, "CancelRadicalDenominators" -> False, "Radicals" -> OptionValue["Radicals"]];
-
+integratedRationalPart = integrateRationalPart[rationalPart, x, opts];
 {integratedRationalPart, unintegratedPart, integratedPart}
 ]
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*normalise*)
 
 
@@ -1056,30 +1052,54 @@ apartSquareFreeList[e_] := Module[{apartList},
 ]
 
 
+splitAlgebraicRational[expr_,x_] := Module[
+{e, trivialnonalgterms, nonalgterms, algterms, terms},
+e = Together[expr] // Cancel;
+
+(* Remove trivial rational terms. *)
+If[PolynomialQ[Denominator[e], x] && Head[Numerator[e]] === Plus, 
+	trivialnonalgterms = Cases[Numerator[e], p_ /; PolynomialQ[p,x], {1}] // Total;
+	algterms = e - trivialnonalgterms/Denominator[e];
+	trivialnonalgterms /= Denominator[e],
+	{algterms, trivialnonalgterms} = {e, 0}
+];
+
+(* Use Apart to split algebraic and non-algebraic terms. *)
+terms = apartList[algterms, x];
+nonalgterms = Cases[terms, e_ /; (PolynomialQ[e, x] || rationalQ[e, x]),{1}];
+algterms = Complement[terms, nonalgterms];
+nonalgterms = trivialnonalgterms + Total[nonalgterms] // Together // Cancel // Simplify;
+algterms = Total[algterms] // Together // Cancel // Simplify;
+{nonalgterms, algterms}
+]
+
+
 ClearAll[normalise];
 
 normalise[f_, {x_, y_}] := Module[
 	{e, radical, p, r, num, den, numY, denY, exy, 
-		y0, y1, nonalgNum, algNum, nonAlgPart, 
+		y0, y1, nonalgNum, algNum, nonalgterms, 
 		terms, algterms},
 
 	(* No algebraic terms. *)
 	e = Cancel[Together @ f];
 	If[PolynomialQ[e, x] || rationalQ[e, x], 
-		Return[{0, 1, {}, {}, e}]
+		Return[{0, 1, {}, {}, e}, Module]
 	];
 	
 	radical = Union @ Cases[e, p_^r_Rational :> p^Abs[r] /; (! FreeQ[p, x] && (PolynomialQ[p, x] || rationalQ[p, x])), {0, Infinity}];
 	If[Length[radical] > 1, 
-		Return[ {0, 1, {}, {}, e} ], 
+		(* Multiple radicals, for example (1 - x - x^2 + x^3 + x^(1/4)*(1 + x^2)^(1/4) + x^(9/4)*(1 + x^2)^(1/4))/((-1 + x)^2*(1 + x)*(1 + x^2)) SAMB 1223 *)
+		{nonalgterms, algterms} = splitAlgebraicRational[e, x];
+		Return[ {algterms // Numerator, algterms // Denominator, {}, {}, nonalgterms}, Module ], 
 		radical = radical[[1]]];(* Fix for multiple distinct radicals. *)
-	{p, r} = {radical[[1]], 1/radical[[2]]};
 	
-	nonAlgPart = 0;
+	{p, r} = {radical[[1]], 1/radical[[2]]};
+	nonalgterms = 0;
 	exy = e //. {radical -> y, radical^-1 -> y^-1};
 	terms = apartSquareFreeList[exy];
-	nonAlgPart = Total @ Cases[terms, s_ /; FreeQ[s, y], {1}];
-	algterms = Cancel @ Together[exy - nonAlgPart];
+	nonalgterms = Total @ Cases[terms, s_ /; FreeQ[s, y], {1}];
+	algterms = Cancel @ Together[exy - nonalgterms];
 	
 	num = Numerator[algterms];
 	den = Denominator[algterms];
@@ -1094,7 +1114,7 @@ normalise[f_, {x_, y_}] := Module[
 	If[FreeQ[denY, y], 
 		nonalgNum = Coefficient[numY, y, 0];
 		algNum = Coefficient[numY, y, 1] y;
-		Return[ {algNum, denY, {p, r}, y -> radical, Cancel[Together[nonAlgPart + nonalgNum/denY]]} ]
+		Return[ {algNum, denY, {p, r}, y -> radical, Cancel[Together[nonalgterms + nonalgNum/denY]]}, Module ]
 	];
 
 	y0 = Coefficient[denY, y, 0];
@@ -1112,9 +1132,9 @@ normalise[f_, {x_, y_}] := Module[
 	nonalgNum = Coefficient[numY, y, 0];
 	algNum = Coefficient[numY, y, Exponent[numY, y]] y;
 
-	nonAlgPart += nonalgNum/denY;
+	nonalgterms += nonalgNum/denY;
 
-	{algNum, denY, {p, r}, y -> radical, nonAlgPart // Together // Cancel}
+	{algNum, denY, {p, r}, y -> radical, nonalgterms // Together // Cancel}
 ]
 
 
@@ -7125,6 +7145,16 @@ c_. (a_. x^(_Rational|_Integer) + b_)^(_Rational|_Integer)
 
 (* ::Input:: *)
 (*chebychevIntegralQ[x^2 (x^(1/2)+1)^3, x]*)
+
+
+(* ::Subsubsection::Closed:: *)
+(*integrateRationalPart*)
+
+
+ClearAll[integrateRationalPart];
+Options[integrateRationalPart] = Options[IntegrateAlgebraic];
+
+integrateRationalPart[e_, x_, OptionsPattern[]] := simplify[integrate[e, x], x, "CancelRadicalDenominators" -> False, "Radicals" -> OptionValue["Radicals"]]
 
 
 (* ::Subsection::Closed:: *)
