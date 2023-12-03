@@ -595,7 +595,7 @@ IntegrateAlgebraic[e_, x_, opts:OptionsPattern[]] /;
 ]
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*solveAlgebraicIntegral*)
 
 
@@ -1033,7 +1033,7 @@ integratedRationalPart = integrateRationalPart[rationalPart, x, opts];
 ]
 
 
-(* ::Subsection:: *)
+(* ::Subsection::Closed:: *)
 (*normalise*)
 
 
@@ -1043,32 +1043,28 @@ integratedRationalPart = integrateRationalPart[rationalPart, x, opts];
 
 ClearAll[apartSquareFreeList];
 
-apartSquareFreeList[e_] := Module[{apartList},
-	apartList = ApartSquareFree[e];
-	If[Head[apartList] === Plus,
-		List @@ apartList,
-		{apartList}
+apartSquareFreeList[e_] := Module[{ed,pf},
+	ed = Distribute[e, Plus, Times];
+	If[Head[ed] === Plus,
+		pf = ApartSquareFree /@ ed,
+		pf = ApartSquareFree[ed]
+	];
+	If[Head[pf] === Plus,
+		List @@ pf,
+		{pf}
 	]
 ]
 
 
 splitAlgebraicRational[expr_,x_] := Module[
 {e, trivialnonalgterms, nonalgterms, algterms, terms},
-e = Together[expr] // Cancel;
-
-(* Remove trivial rational terms. *)
-If[PolynomialQ[Denominator[e], x] && Head[Numerator[e]] === Plus, 
-	trivialnonalgterms = Cases[Numerator[e], p_ /; PolynomialQ[p,x], {1}] // Total;
-	algterms = e - trivialnonalgterms/Denominator[e];
-	trivialnonalgterms /= Denominator[e],
-	{algterms, trivialnonalgterms} = {e, 0}
-];
 
 (* Use Apart to split algebraic and non-algebraic terms. *)
-terms = apartList[algterms, x];
+e = Together[expr] // Cancel;
+terms = apartList[e, x];
 nonalgterms = Cases[terms, e_ /; (PolynomialQ[e, x] || rationalQ[e, x]),{1}];
 algterms = Complement[terms, nonalgterms];
-nonalgterms = trivialnonalgterms + Total[nonalgterms] // Together // Cancel // Simplify;
+nonalgterms = Total[nonalgterms] // Together // Cancel // Simplify;
 algterms = Total[algterms] // Together // Cancel // Simplify;
 {nonalgterms, algterms}
 ]
@@ -1097,7 +1093,7 @@ normalise[f_, {x_, y_}] := Module[
 	{p, r} = {radical[[1]], 1/radical[[2]]};
 	nonalgterms = 0;
 	exy = e //. {radical -> y, radical^-1 -> y^-1};
-	terms = apartSquareFreeList[exy];
+	terms = apartList[exy, x];
 	nonalgterms = Total @ Cases[terms, s_ /; FreeQ[s, y], {1}];
 	algterms = Cancel @ Together[exy - nonalgterms];
 	
@@ -3902,7 +3898,7 @@ If[LeafCount[uradicals] < LeafCount[radicals],
 (*linearRationalSubstitution3[((2 x^2+x-1) (x^4-x^3)^(1/4))/(x^2-x-1),x,u]*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*integrateLinearRadical, integrateQuadraticRadical - Integrating linear and quadratic radicals *)
 
 
@@ -4185,7 +4181,7 @@ If[transformed === {},
 (*Integrate[((-1-4 x-x^2) Sqrt[-1+x^2])/(1+2 x^3+x^4),x]*)
 
 
-(* ::Subsection::Closed:: *)
+(* ::Subsection:: *)
 (*integrateMultipleLinearRadical - Integrating multiple linear radicals*)
 
 
@@ -4235,7 +4231,7 @@ multipleLinearRadicalToRational[e_, x_, u_] :=
 {radicals, ys, exy,y1, y2, dx, a, b, c, d, \[Alpha], \[Beta], \[Gamma], rat, result},
 
 (* Find radicals of the form (a x + b)^(1/2). *)
-radicals = Cases[e, y:(a_. x + b_.)^m_ /; 
+radicals = Cases[e, y:(a_. x + b_)^m_ /; 
 	Denominator[m]==2 && FreeQ[{a,b},x] :> {y, a, b}, {0, Infinity}];
 
 radicals = Union[radicals];
@@ -6990,11 +6986,15 @@ simpleRadicalQ[p_/q_ r_^(-1/2), x_] /; PolynomialQ[p, x] && PolynomialQ[q, x] &&
 
 ClearAll[apartList];
 
-apartList[e_, x_] := Module[{apartList},
-	apartList = Apart[e, x];
-	If[Head[apartList] === Plus,
-		List @@ apartList,
-		{apartList}
+apartList[e_, x_] := Module[{ed, pf},
+	ed = Distribute[e, Plus, Times];
+	If[Head[ed] === Plus,
+		pf = Apart[#, x]& /@ ed,
+		pf = Apart[ed, x]
+	];
+	If[Head[pf] === Plus,
+		List @@ pf,
+		{pf}
 	]
 ]
 
